@@ -8,6 +8,7 @@ import {
   deleteCustomPreset,
 } from '../core/state.js';
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
+import { highlightJs, ensureHighlighter } from './highlight.js';
 import {
   LFO_SHAPES,
   TIME_SCALE_DEST,
@@ -858,6 +859,20 @@ export class StudioUI {
     `;
   }
 
+  // Shiki lives in its own chunk. On first visit to the Export tab the snippet is
+  // already on screen as escaped plain text; once the chunk resolves we swap in
+  // the highlighted markup rather than re-rendering the whole panel.
+  upgradeCodePreview(embedCode) {
+    if (!this.modalOverlay.querySelector('.code-preview')) return;
+    ensureHighlighter().then((hl) => {
+      if (!hl) return;
+      // The modal may have been dismissed while the chunk was downloading.
+      const current = this.modalOverlay.querySelector('.code-preview');
+      if (!current) return;
+      current.innerHTML = highlightJs(embedCode);
+    });
+  }
+
   attachMotionLabListeners() {
     const mod = this.modConfig();
     const commit = (rerender) => {
@@ -1285,7 +1300,7 @@ export class StudioUI {
         <div class="modal-content">
           <!-- TAB 1: CODE -->
           <div class="modal-tab-pane" id="pane-code">
-            <pre class="code-preview custom-scroll"><code>${embedCode.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
+            <div class="code-preview custom-scroll">${highlightJs(embedCode)}</div>
             <div class="modal-footer-row">
               <button class="btn-primary" id="btn-copy-code">Copy Three.js Code</button>
             </div>
@@ -1341,6 +1356,8 @@ export class StudioUI {
         this.modalOverlay.querySelector('#pane-snapshot')?.classList.toggle('hidden', target !== 'snapshot');
       });
     });
+
+    this.upgradeCodePreview(embedCode);
 
     // Copy code button
     this.modalOverlay.querySelector('#btn-copy-code')?.addEventListener('click', (e) => {

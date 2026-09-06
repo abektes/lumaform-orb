@@ -1319,3 +1319,28 @@ kbd {
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
 }
+
+/* ---------------------------------------------------------------------------
+   Shiki output inside the export tab. Shiki emits its own <pre class="shiki">
+   with an inline background, so strip the chrome it brings and let the
+   .code-preview container own the frame and the scrolling.
+   --------------------------------------------------------------------------- */
+.code-preview .shiki,
+.code-preview .shiki-fallback {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.code-preview .shiki code,
+.code-preview .shiki-fallback code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.code-preview .shiki-fallback {
+  color: #e2e8f0;
+}

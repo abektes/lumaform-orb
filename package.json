@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "lil-gui": "^0.19.2",
+    "shiki": "^4.4.3",
     "three": "^0.160.1"
   },
   "devDependencies": {
