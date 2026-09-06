@@ -8,6 +8,7 @@ import {
   deleteCustomPreset,
 } from '../core/state.js';
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
+import { parseConfigFile, applyConfig } from '../core/config-io.js';
 import { highlightJs, ensureHighlighter } from './highlight.js';
 import {
   LFO_SHAPES,
@@ -940,6 +941,37 @@ export class StudioUI {
     });
   }
 
+  // Accepts a single exported config or the array the variation grid writes.
+  // When given an array, loads the first entry — the rest are still in the file,
+  // and picking between them is a job for a future gallery.
+  importConfigText(text) {
+    const result = parseConfigFile(text, Object.values(ENGINE_TYPES));
+    if (!result.ok) {
+      alert(`Could not load that config.\n\n${result.error}`);
+      return false;
+    }
+
+    const config = result.configs[0];
+    const defs = ENGINE_PARAM_DEFINITIONS[config.engine] || {};
+    const { dropped } = applyConfig(this.state, config, defs);
+
+    if (dropped.length) {
+      console.warn(
+        `Ignored ${dropped.length} parameter(s) not in the "${config.engine}" schema: ${dropped.join(', ')}`
+      );
+    }
+
+    this.state.activePresetName = 'Imported Config';
+    this.onStateChange(this.state);
+    this.render();
+    this.closeModal();
+
+    if (result.configs.length > 1) {
+      alert(`Loaded 1 of ${result.configs.length} configs in that file (the first).`);
+    }
+    return true;
+  }
+
   // The exported config is the save format for a finding — dropping the
   // modulation block would lose the half of the design that makes it move.
   exportConfig() {
@@ -1385,23 +1417,9 @@ export class StudioUI {
     });
 
     // Import JSON
-    this.modalOverlay.querySelector('#btn-import-json')?.addEventListener('click', (e) => {
-      try {
-        const area = this.modalOverlay.querySelector('#export-json-area');
-        const parsed = JSON.parse(area.value);
-        if (parsed.engine && parsed.params) {
-          this.state.engine = parsed.engine;
-          if (parsed.global) Object.assign(this.state.global, parsed.global);
-          this.state.engines[parsed.engine] = parsed.params;
-          this.onStateChange(this.state);
-          this.render();
-          this.closeModal();
-        } else {
-          alert('Invalid format. JSON must have "engine" and "params".');
-        }
-      } catch (err) {
-        alert('Invalid JSON syntax.');
-      }
+    this.modalOverlay.querySelector('#btn-import-json')?.addEventListener('click', () => {
+      const area = this.modalOverlay.querySelector('#export-json-area');
+      this.importConfigText(area?.value ?? '');
     });
 
     // Snapshot scale selection
