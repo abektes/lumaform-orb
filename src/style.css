@@ -1344,3 +1344,92 @@ kbd {
 .code-preview .shiki-fallback {
   color: #e2e8f0;
 }
+
+/* ---------------------------------------------------------------------------
+   Grid mode HUD. Sits below the top bar; the inspector and dock are hidden in
+   grid mode so this is the only control surface available over the cells.
+   --------------------------------------------------------------------------- */
+.grid-hud {
+  position: absolute;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 12px 36px var(--panel-glow);
+  pointer-events: auto;
+  z-index: 40;
+  font-family: var(--font);
+}
+
+.grid-hud-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grid-hud-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.grid-hud-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.grid-hud-chip,
+.grid-hud-btn {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.grid-hud-chip:hover,
+.grid-hud-btn:hover {
+  border-color: rgba(255, 237, 0, 0.4);
+  color: var(--text-primary);
+}
+
+.grid-hud-chip.active {
+  background: rgba(255, 237, 0, 0.12);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.grid-hud-count {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 8px;
+  background: rgba(255, 237, 0, 0.18);
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-hud-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+}
