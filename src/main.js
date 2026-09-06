@@ -1,5 +1,5 @@
 import { OrbStudio } from './core/studio.js';
-import { ENGINE_TYPES, createInitialState } from './core/state.js';
+import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS, createInitialState } from './core/state.js';
 import { createTesseractEngine } from './engines/tesseract-engine.js';
 import { createMoireEngine } from './engines/moire-engine.js';
 import { createAurisEngine } from './engines/auris-engine.js';
@@ -10,6 +10,7 @@ import { createQuantumEngine } from './engines/quantum-engine.js';
 import { createSingularityEngine } from './engines/singularity-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
+import { listSweepableParams } from './core/sweep.js';
 
 import { PRESET_LIBRARY } from './presets/preset-library.js';
 
@@ -60,6 +61,64 @@ setInterval(() => {
 // Exploration handle — patch modulation routes from the console without a reload.
 window.__orb = { studio, state, ui };
 
+// --- parameter sweep --------------------------------------------------------
+// K sweeps one parameter across a row of cells. Which parameter: the last one
+// the user actually touched, falling back to the first sweepable one, so the
+// key does something useful without a picker.
+let lastTouchedParam = null;
+document.addEventListener('input', (e) => {
+  const key = e.target?.getAttribute?.('data-param');
+  if (key) lastTouchedParam = key;
+}, true);
+
+const sweepCaption = document.createElement('div');
+sweepCaption.className = 'sweep-caption hidden';
+document.body.appendChild(sweepCaption);
+
+function showSweepCaption(info) {
+  if (!info) {
+    sweepCaption.classList.add('hidden');
+    sweepCaption.innerHTML = '';
+    return;
+  }
+  sweepCaption.classList.remove('hidden');
+  sweepCaption.innerHTML =
+    `<div class="sweep-title">${info.label}</div>` +
+    `<div class="sweep-values" style="grid-template-columns: repeat(${info.values.length}, 1fr)">` +
+    info.values.map((v) => `<span>${v}</span>`).join('') +
+    `</div>`;
+}
+
+function toggleSweep() {
+  if (studio.isGridMode) {
+    exitGridView();
+    return;
+  }
+
+  const defs = ENGINE_PARAM_DEFINITIONS[state.engine] || {};
+  const candidates = listSweepableParams(defs);
+  if (!candidates.length) {
+    console.warn(`No sweepable parameters on engine "${state.engine}".`);
+    return;
+  }
+  const key = candidates.some((c) => c.key === lastTouchedParam)
+    ? lastTouchedParam
+    : candidates[0].key;
+
+  // A sweep reuses the grid's pointer handling, so a click promotes a cell.
+  // Without this handler the click would only update the grid's internal parent
+  // and the chosen ladder value would never reach state.
+  studio.onGridPromote = onGridPromote;
+
+  const info = studio.enterSweepMode(state, { paramKey: key, steps: 5 });
+  if (!info) return;
+  ui.root.classList.add('grid-mode');
+  ui.render();
+  showSweepCaption(info);
+}
+
+window.__orb.toggleSweep = toggleSweep;
+
 // Variation grid: G toggles, click promotes a cell, shift-click marks for export,
 // M cycles the mutation radius, T fires every cell's envelope, E downloads the
 // marked configs.
@@ -77,6 +136,13 @@ function downloadGridSelection() {
   URL.revokeObjectURL(link.href);
 }
 
+// Promoting a cell adopts both its look and its motion patch. Shared by the
+// grid and the sweep, which reuse the same pointer handling.
+function onGridPromote({ params, modulation }) {
+  Object.assign(state.engines[state.engine], params);
+  if (modulation) state.modulation = modulation;
+}
+
 let gridHud = null;
 
 // The HUD shows how many cells are marked, but marking happens on a pointerdown
@@ -88,23 +154,29 @@ function syncMarkedCount() {
   gridHud.setMarked(studio.grid.cells.filter((c) => c.selected).length);
 }
 
+// Shared teardown for both cell-based views (the 3×3 grid and the sweep strip).
+// K can leave the grid and G can leave a sweep, so neither toggle may tear down
+// only its own chrome — the HUD and the caption both have to go whenever the
+// cells do, or one of them is left floating over the single-orb view.
+function exitGridView() {
+  studio.exitGridMode();
+  studio.setEngine(state.engine, state);
+  ui.root.classList.remove('grid-mode');
+  ui.render();
+
+  clearInterval(markedPollId);
+  markedPollId = null;
+  gridHud?.destroy();
+  gridHud = null;
+
+  showSweepCaption(null);
+}
+
 function toggleGrid() {
   if (studio.isGridMode) {
-    studio.exitGridMode();
-    studio.setEngine(state.engine, state);
-    ui.root.classList.remove('grid-mode');
-    ui.render();
-
-    clearInterval(markedPollId);
-    markedPollId = null;
-    gridHud?.destroy();
-    gridHud = null;
+    exitGridView();
   } else {
-    // Promoting a cell adopts both its look and its motion patch.
-    studio.onGridPromote = ({ params, modulation }) => {
-      Object.assign(state.engines[state.engine], params);
-      if (modulation) state.modulation = modulation;
-    };
+    studio.onGridPromote = onGridPromote;
     studio.enterGridMode(state, { radius: GRID_RADII[gridRadiusIndex] });
     // Hide the inspector and dock — the sidebar covers the right-hand column and
     // a grid you can only see two thirds of is useless for comparison. The top
@@ -133,6 +205,12 @@ ui.onToggleGrid = toggleGrid;
 
 window.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+  if (e.code === 'KeyK') {
+    e.preventDefault();
+    toggleSweep();
+    return;
+  }
 
   if (e.code === 'KeyG') {
     e.preventDefault();
