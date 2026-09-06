@@ -5,8 +5,10 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createPointerTracker, createClickPulse } from '../shared/pointer.js';
-import { createFpsTracker } from '../shared/postprocessing.js';
-import { ENGINE_TYPES } from './state.js';
+import { createFpsTracker } from '../shared/fps.js';
+import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS } from './state.js';
+import { createModulationRack, createDefaultModulation } from './modulation.js';
+import { createVariationGrid } from './variation-grid.js';
 
 export class OrbStudio {
   constructor(containerElement, options = {}) {
@@ -50,7 +52,43 @@ export class OrbStudio {
     this.clickPulseTracker = createClickPulse(this.renderer.domElement, () => {
       this.activeEngine?.onPulse?.();
       this.activeEngine?.onPointerClick?.();
+      this.modulation.trigger(this.virtualTime);
     });
+
+    // Modulation rack — shapes params and tempo per frame. `baseParams` is the
+    // unmodulated truth the UI edits; the engine only ever sees base + modulation.
+    this.modulation = createModulationRack(createDefaultModulation());
+    this.baseParams = {};
+    this.paramDefs = {};
+    this.lastModulated = {};
+
+    // Variation grid. Click promotes a cell to parent and re-breeds; shift-click
+    // marks it for export instead.
+    this.grid = null;
+    this.gridRadius = 0.25;
+    this.gridSections = null;
+    this.onGridPromote = null;
+
+    this.handleGridPointer = (event) => {
+      if (!this.grid) return;
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      const index = this.grid.hitTest(
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+        rect.width,
+        rect.height
+      );
+      if (index < 0) return;
+
+      if (event.shiftKey) {
+        this.grid.toggleSelect(index);
+        return;
+      }
+      const promoted = this.grid.promote(index);
+      this.grid.populate(this.gridRadius, this.gridSections);
+      if (promoted) this.onGridPromote?.(promoted);
+    };
+    this.renderer.domElement.addEventListener('pointerdown', this.handleGridPointer);
 
     // Post-Processing
     this.initPostProcessing();
@@ -117,11 +155,7 @@ export class OrbStudio {
     this.activeEngineType = type;
 
     // Camera distance & angle
-    if (type === 'monolith') {
-      this.camera.position.set(4.2, 3.6, 5.0);
-    } else {
-      this.camera.position.set(0, 0, 7.5);
-    }
+    this.camera.position.set(0, 0, 7.5);
     this.camera.fov = 45.0;
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(0, 0, 0);
@@ -141,6 +175,11 @@ export class OrbStudio {
       global: state.global,
     });
 
+    this.baseParams = { ...state.engines[type] };
+    this.paramDefs = ENGINE_PARAM_DEFINITIONS[type] || {};
+    this.lastModulated = {};
+
+    this.syncModulation(state);
     this.updateGlobalSettings(state.global);
     if (this.activeEngine) {
       if (typeof this.activeEngine.onParamsChange === 'function') {
@@ -153,15 +192,26 @@ export class OrbStudio {
   }
 
   updateParameters(state) {
+    this.syncModulation(state);
     this.updateGlobalSettings(state.global);
     if (this.activeEngine && this.activeEngineType) {
       const p = state.engines[this.activeEngineType];
+      this.baseParams = { ...p };
+      this.paramDefs = ENGINE_PARAM_DEFINITIONS[this.activeEngineType] || {};
+      this.lastModulated = {};
       if (typeof this.activeEngine.onParamsChange === 'function') {
         this.activeEngine.onParamsChange(p);
       } else if (typeof this.activeEngine.setParams === 'function') {
         this.activeEngine.setParams(p);
       }
     }
+  }
+
+  // Modulation lives in app state so it round-trips through export and presets.
+  // Called from both setEngine and updateParameters so the rack always reflects
+  // whatever the Motion Lab last wrote.
+  syncModulation(state) {
+    if (state?.modulation) this.modulation.setConfig(state.modulation);
   }
 
   updateGlobalSettings(global) {
@@ -210,6 +260,40 @@ export class OrbStudio {
     }
   }
 
+  // Push only what actually changed. Engines fan params out to uniforms on every
+  // setParams call, so sending all ~20 keys at 60fps would be wasteful — and when
+  // a route is removed the engine is still holding the last modulated value, so
+  // those keys have to be explicitly restored to base exactly once.
+  applyModulatedParams(modulated) {
+    if (!this.activeEngine) return;
+
+    const patch = {};
+    let dirty = false;
+
+    for (const [key, value] of Object.entries(modulated)) {
+      if (this.lastModulated[key] === undefined || Math.abs(this.lastModulated[key] - value) > 1e-4) {
+        patch[key] = value;
+        dirty = true;
+      }
+    }
+
+    for (const key of Object.keys(this.lastModulated)) {
+      if (modulated[key] === undefined && this.baseParams[key] !== undefined) {
+        patch[key] = this.baseParams[key];
+        dirty = true;
+      }
+    }
+
+    this.lastModulated = { ...modulated };
+    if (!dirty) return;
+
+    if (typeof this.activeEngine.onParamsChange === 'function') {
+      this.activeEngine.onParamsChange(patch);
+    } else if (typeof this.activeEngine.setParams === 'function') {
+      this.activeEngine.setParams(patch);
+    }
+  }
+
   onWindowResize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -228,11 +312,7 @@ export class OrbStudio {
   }
 
   resetCamera() {
-    if (this.activeEngineType === 'monolith') {
-      this.camera.position.set(4.2, 3.6, 5.0);
-    } else {
-      this.camera.position.set(0, 0, 7.5);
-    }
+    this.camera.position.set(0, 0, 7.5);
     this.camera.fov = 45.0;
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(0, 0, 0);
@@ -251,8 +331,24 @@ export class OrbStudio {
     const delta = this.clock.getDelta();
     this.fpsTracker.tick();
 
+    // Modulation is evaluated against the *previous* virtualTime, then its tempo
+    // multiplier is integrated into the next step. Integrating (rather than
+    // assigning a rate) is what lets tempo hesitate and accelerate without the
+    // geometry jumping — engines compute angle as `time * rate`, so a rate that
+    // changes mid-flight would retroactively rewrite the accumulated angle.
+    const mod = this.modulation.apply(this.baseParams, this.paramDefs, this.virtualTime);
+
     if (!this.isPaused) {
-      this.virtualTime += delta * this.timeScale;
+      this.virtualTime += delta * this.timeScale * mod.timeScale;
+    }
+
+    this.applyModulatedParams(mod.params);
+
+    // Grid mode bypasses the composer: bloom is a full-screen pass and would
+    // bleed across cell boundaries, so cells render straight to the framebuffer.
+    if (this.grid) {
+      this.grid.render(this.virtualTime, window.innerWidth, window.innerHeight);
+      return;
     }
 
     // Smooth pointer motion
@@ -276,6 +372,56 @@ export class OrbStudio {
 
     // Postprocessing Composer Render
     this.composer.render();
+  }
+
+  // --- variation grid ------------------------------------------------------
+
+  enterGridMode(state, { cols = 3, rows = 3, radius = 0.25, sections = null } = {}) {
+    const type = state.engine;
+    const factory = this.engineConstructors.get(type);
+    if (!factory) {
+      console.error(`Engine type "${type}" not registered.`);
+      return null;
+    }
+
+    this.exitGridMode();
+    this.controls.enabled = false;
+
+    this.grid = createVariationGrid({
+      renderer: this.renderer,
+      engineFactory: factory,
+      engineType: type,
+      baseParams: state.engines[type],
+      globalSettings: state.global,
+      modulation: state.modulation,
+      defs: ENGINE_PARAM_DEFINITIONS[type] || {},
+      cols,
+      rows,
+    });
+    this.gridRadius = radius;
+    this.gridSections = sections;
+    this.grid.populate(radius, sections);
+    return this.grid;
+  }
+
+  reseedGrid({ radius, sections } = {}) {
+    if (!this.grid) return;
+    if (radius !== undefined) this.gridRadius = radius;
+    if (sections !== undefined) this.gridSections = sections;
+    this.grid.populate(this.gridRadius, this.gridSections);
+  }
+
+  exitGridMode() {
+    if (!this.grid) return;
+    this.grid.dispose();
+    this.grid = null;
+    this.controls.enabled = true;
+    this.renderer.setScissorTest(false);
+    this.onWindowResize();
+  }
+
+  get isGridMode() {
+    return !!this.grid;
   }
 
   captureSnapshot({ transparent = false, multiplier = 1 } = {}) {
@@ -334,6 +480,8 @@ export class OrbStudio {
     window.removeEventListener('resize', this.handleResize);
     this.clickPulseTracker?.dispose();
     this.pointerTracker?.dispose();
+    this.renderer.domElement.removeEventListener('pointerdown', this.handleGridPointer);
+    this.exitGridMode();
     this.controls.dispose();
     this.activeEngine?.dispose();
     this.composer?.dispose();

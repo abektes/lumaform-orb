@@ -1,7 +1,10 @@
 // Central state management, parameter schemas, and serialization for Lumaform Orb Studio
 
+import { createDefaultModulation } from './modulation.js';
+
 export const ENGINE_TYPES = {
   TESSERACT: 'tesseract',
+  MOIRE: 'moire',
   AURIS: 'auris',
   HOPF: 'hopf',
   POLYTOPE: 'polytope',
@@ -16,6 +19,12 @@ export const ENGINE_INFO = {
     name: '4D Tesseract',
     badge: 'Hypercube Projection',
     description: 'Canonical 4-dimensional hypercube projected into 3D space with rigid 3D perspective and harmonic 4D inversion.',
+  },
+  [ENGINE_TYPES.MOIRE]: {
+    id: ENGINE_TYPES.MOIRE,
+    name: 'Chiral Moiré',
+    badge: 'Optical String Art',
+    description: 'Nine sacred geometric ruled-surface wireframes, chiral vortexes, and interference moiré patterns with harmonic breathing apertures.',
   },
   [ENGINE_TYPES.AURIS]: {
     id: ENGINE_TYPES.AURIS,
@@ -180,10 +189,10 @@ export const ENGINE_PARAM_DEFINITIONS = {
   },
 
   [ENGINE_TYPES.AURIS]: {
-    archetype: { type: 'select', label: 'Crystalline Archetype', options: ['geodesic', 'cubic_compound', 'vortex_square', 'vortex_hex', 'sacred_rosette', 'vortex_triangle'], default: 'geodesic', section: 'geometry' },
+    archetype: { type: 'select', label: 'Crystalline Archetype', options: ['geodesic', 'cubic_compound', 'nested_square', 'nested_hex', 'nested_pentagon', 'nested_triangle'], default: 'geodesic', section: 'geometry' },
     scale: { type: 'number', label: 'Polyhedron Scale', min: 0.8, max: 2.5, step: 0.05, default: 1.4, section: 'geometry' },
-    stellaHeight: { type: 'number', label: 'Stellation Apex Extrusion', min: 0.0, max: 1.2, step: 0.02, default: 0.45, section: 'geometry' },
-    twistAngle: { type: 'number', label: 'Vortex Chiral Twist', min: 0.02, max: 0.35, step: 0.01, default: 0.14, section: 'geometry' },
+    stellaHeight: { type: 'number', label: 'Stellation / 3D Depth', min: 0.0, max: 1.2, step: 0.02, default: 0.45, section: 'geometry' },
+    twistAngle: { type: 'number', label: 'Per-Layer Rotation', min: 0.02, max: 0.35, step: 0.01, default: 0.14, section: 'geometry' },
     wireWidth: { type: 'number', label: 'Contour Line Width', min: 1.0, max: 5.0, step: 0.2, default: 2.4, section: 'geometry' },
 
     lightColor: { type: 'color', label: 'Directional Light Tint', default: '#ffea79', section: 'colors' },
@@ -200,6 +209,52 @@ export const ENGINE_PARAM_DEFINITIONS = {
     rotSpeedX: { type: 'number', label: '3D Rotation Pitch', min: -2.0, max: 2.0, step: 0.05, default: 0.20, section: 'motion' },
     rotSpeedY: { type: 'number', label: '3D Rotation Yaw', min: -2.0, max: 2.0, step: 0.05, default: 0.45, section: 'motion' },
     rotSpeedZ: { type: 'number', label: '3D Rotation Roll', min: -2.0, max: 2.0, step: 0.05, default: 0.10, section: 'motion' },
+  },
+
+  [ENGINE_TYPES.MOIRE]: {
+    archetype: {
+      type: 'select',
+      label: 'Sacred Archetype',
+      options: [
+        'square_vortex',
+        'hex_vortex',
+        'pentagon_envelope',
+        'stellated_rosette',
+        'astroid_quad',
+        'guilloche_rosette',
+        'triangle_vortex',
+        'triangle_tunnel',
+        'winged_moire',
+      ],
+      default: 'square_vortex',
+      section: 'geometry',
+    },
+    scale: { type: 'number', label: 'Pattern Scale', min: 0.8, max: 3.0, step: 0.05, default: 2.1, section: 'geometry' },
+    zDepth: { type: 'number', label: '3D Volumetric Depth', min: 0.0, max: 3.0, step: 0.05, default: 1.35, section: 'geometry' },
+    lineDensity: { type: 'number', label: 'String Art Resolution', min: 10, max: 60, step: 2, default: 28, section: 'geometry' },
+    innerScale: { type: 'number', label: 'Central Aperture Ratio', min: 0.08, max: 0.70, step: 0.02, default: 0.28, section: 'geometry' },
+    twistAngle: { type: 'number', label: 'Chiral Twist Angle', min: -1.5, max: 1.5, step: 0.02, default: 0.72, section: 'geometry' },
+    lineWidth: { type: 'number', label: 'Line Stroke Thickness', min: 1.0, max: 6.0, step: 0.2, default: 2.0, section: 'geometry' },
+
+    lineColor: { type: 'color', label: 'Ink / Stroke Color', default: '#0a0a0d', section: 'colors' },
+    lineGlow: { type: 'number', label: 'Line Glow / Radiance', min: 0.5, max: 3.0, step: 0.1, default: 1.0, section: 'colors' },
+
+    motionMode: {
+      type: 'select',
+      label: 'Motion Dynamic',
+      options: ['orbit_3d', 'wave_pulse', 'hyper_twist', 'interactive_tilt'],
+      default: 'orbit_3d',
+      section: 'motion',
+    },
+    rotSpeedX: { type: 'number', label: '3D Pitch Rotation', min: -2.0, max: 2.0, step: 0.05, default: 0.18, section: 'motion' },
+    rotSpeedY: { type: 'number', label: '3D Yaw Rotation', min: -2.0, max: 2.0, step: 0.05, default: 0.38, section: 'motion' },
+    rotSpeedZ: { type: 'number', label: '3D Roll Rotation', min: -2.0, max: 2.0, step: 0.05, default: 0.10, section: 'motion' },
+    breatheSpeed: { type: 'number', label: 'Aperture Harmonic Breath', min: 0.0, max: 2.5, step: 0.05, default: 0.60, section: 'motion' },
+    breatheAmp: { type: 'number', label: 'Breathing Amplitude', min: 0.0, max: 0.25, step: 0.01, default: 0.08, section: 'motion' },
+    waveSpeed: { type: 'number', label: '3D Axial Wave Velocity', min: 0.0, max: 3.0, step: 0.05, default: 1.20, section: 'motion' },
+    waveAmp: { type: 'number', label: '3D Wave Ripple Amplitude', min: 0.0, max: 0.50, step: 0.01, default: 0.22, section: 'motion' },
+    twistSpeed: { type: 'number', label: 'Chiral Winding Speed', min: 0.0, max: 2.0, step: 0.05, default: 0.40, section: 'motion' },
+    tiltStrength: { type: 'number', label: 'Mouse Parallax Depth', min: 0.0, max: 1.0, step: 0.05, default: 0.35, section: 'motion' },
   },
 };
 
@@ -220,7 +275,9 @@ export function createInitialState() {
   return {
     engine,
     activePresetName:
-      engine === ENGINE_TYPES.AURIS
+      engine === ENGINE_TYPES.MOIRE
+        ? '1. Chiral Square Vortex'
+        : engine === ENGINE_TYPES.AURIS
         ? 'Geodesic Stellated Sun'
         : engine === ENGINE_TYPES.TESSERACT
         ? 'Canonical Hypercube'
@@ -234,7 +291,9 @@ export function createInitialState() {
         ? 'Gargantua Singularity'
         : 'Aurora Core',
     global: { ...DEFAULT_GLOBAL_SETTINGS },
+    modulation: createDefaultModulation(),
     engines: {
+      [ENGINE_TYPES.MOIRE]: getDefaultEngineParams(ENGINE_TYPES.MOIRE),
       [ENGINE_TYPES.AURIS]: getDefaultEngineParams(ENGINE_TYPES.AURIS),
       [ENGINE_TYPES.TESSERACT]: getDefaultEngineParams(ENGINE_TYPES.TESSERACT),
       [ENGINE_TYPES.HOPF]: getDefaultEngineParams(ENGINE_TYPES.HOPF),
@@ -306,7 +365,15 @@ export function randomizeState(currentState) {
     newEngineParams.cubeSize = +(1.0 + Math.random() * 0.8).toFixed(2);
     newEngineParams.rotSpeedXW = +((Math.random() - 0.5) * 1.5).toFixed(2);
     newEngineParams.rotSpeedYW = +((Math.random() - 0.5) * 1.5).toFixed(2);
-    newEngineParams.rotSpeedZW = +((Math.random() - 0.5) * 1.5).toFixed(2);
+  } else if (engine === ENGINE_TYPES.MOIRE) {
+    newEngineParams.lineColor = palette.primary;
+    newEngineParams.zDepth = +(0.8 + Math.random() * 1.5).toFixed(2);
+    newEngineParams.twistAngle = +((Math.random() - 0.5) * 2.0).toFixed(2);
+    newEngineParams.innerScale = +(0.15 + Math.random() * 0.35).toFixed(2);
+    newEngineParams.rotSpeedX = +((Math.random() - 0.5) * 0.8).toFixed(2);
+    newEngineParams.rotSpeedY = +((Math.random() - 0.5) * 0.8).toFixed(2);
+    newEngineParams.rotSpeedZ = +((Math.random() - 0.5) * 0.4).toFixed(2);
+    newEngineParams.lineDensity = Math.floor(18 + Math.random() * 20);
   } else if (engine === ENGINE_TYPES.HOPF) {
     newEngineParams.color1 = palette.primary;
     newEngineParams.color2 = palette.secondary;

@@ -1,6 +1,7 @@
 import { OrbStudio } from './core/studio.js';
 import { ENGINE_TYPES, createInitialState } from './core/state.js';
 import { createTesseractEngine } from './engines/tesseract-engine.js';
+import { createMoireEngine } from './engines/moire-engine.js';
 import { createAurisEngine } from './engines/auris-engine.js';
 import { createHopfEngine } from './engines/hopf-engine.js';
 import { createPolytopeEngine } from './engines/polytope-engine.js';
@@ -34,6 +35,7 @@ const studio = new OrbStudio(container);
 
 // Register Generator Engines
 studio.registerEngine(ENGINE_TYPES.TESSERACT, createTesseractEngine);
+studio.registerEngine(ENGINE_TYPES.MOIRE, createMoireEngine);
 studio.registerEngine(ENGINE_TYPES.AURIS, createAurisEngine);
 studio.registerEngine(ENGINE_TYPES.HOPF, createHopfEngine);
 studio.registerEngine(ENGINE_TYPES.POLYTOPE, createPolytopeEngine);
@@ -53,3 +55,58 @@ studio.setEngine(state.engine, state);
 setInterval(() => {
   ui.updateFps(studio.fpsTracker.fps);
 }, 250);
+
+// Exploration handle — patch modulation routes from the console without a reload.
+window.__orb = { studio, state, ui };
+
+// Variation grid: G toggles, click promotes a cell, shift-click marks for export,
+// R re-breeds, M cycles the mutation radius, E downloads the marked configs.
+const GRID_RADII = [0.12, 0.25, 0.45];
+let gridRadiusIndex = 1;
+
+function downloadGridSelection() {
+  const configs = studio.grid?.exportSelected();
+  if (!configs?.length) return;
+  const blob = new Blob([JSON.stringify(configs, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `orb-variations-${state.engine}-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function toggleGrid() {
+  if (studio.isGridMode) {
+    studio.exitGridMode();
+    studio.setEngine(state.engine, state);
+    ui.root.classList.remove('grid-mode');
+    ui.render();
+  } else {
+    studio.onGridPromote = (params) => Object.assign(state.engines[state.engine], params);
+    studio.enterGridMode(state, { radius: GRID_RADII[gridRadiusIndex] });
+    // Hide the inspector and dock — the sidebar covers the right-hand column and
+    // a grid you can only see two thirds of is useless for comparison. The top
+    // bar stays so the Grid button remains reachable to exit.
+    ui.root.classList.add('grid-mode');
+    ui.render();
+  }
+}
+
+// The top-bar Grid button and the G key run the same path.
+ui.onToggleGrid = toggleGrid;
+
+window.addEventListener('keydown', (e) => {
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+  if (e.code === 'KeyG') {
+    e.preventDefault();
+    toggleGrid();
+  } else if (studio.isGridMode && e.code === 'KeyM') {
+    e.preventDefault();
+    gridRadiusIndex = (gridRadiusIndex + 1) % GRID_RADII.length;
+    studio.reseedGrid({ radius: GRID_RADII[gridRadiusIndex] });
+  } else if (studio.isGridMode && e.code === 'KeyE') {
+    e.preventDefault();
+    downloadGridSelection();
+  }
+});

@@ -8,6 +8,12 @@ import {
   deleteCustomPreset,
 } from '../core/state.js';
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
+import {
+  LFO_SHAPES,
+  TIME_SCALE_DEST,
+  listModulationTargets,
+  createDefaultModulation,
+} from '../core/modulation.js';
 
 const ICONS = {
   dice: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="8.5" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="8.5" cy="15.5" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="15.5" r="1.5" fill="currentColor"></circle></svg>`,
@@ -35,7 +41,7 @@ export class StudioUI {
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const reqTab = urlParams?.get('tab');
-    const validTabs = ['presets', 'colors', 'geometry', 'motion', 'optics', 'space', 'export', 'perf'];
+    const validTabs = ['presets', 'colors', 'geometry', 'motion', 'motionlab', 'optics', 'space', 'export', 'perf'];
     this.activeTab = validTabs.includes(reqTab) ? reqTab : 'presets';
     this.initialOpenDropdown = urlParams?.get('openDropdown') === 'true';
     this.isZenMode = false;
@@ -80,6 +86,21 @@ export class StudioUI {
       }
     });
 
+    // Close the engine dropdown on an outside click. Bound once here rather than
+    // in attachTopBarListeners(), which render() calls from 13 different sites —
+    // each call used to add another document-level listener that retained the
+    // DOM subtree it closed over, so the app got progressively slower to click.
+    // Elements are resolved at click time because render() replaces them.
+    document.addEventListener('click', (e) => {
+      const btn = this.root.querySelector('#engine-dropdown-btn');
+      const menu = this.root.querySelector('#engine-dropdown-menu');
+      if (!btn || !menu) return;
+      if (btn.contains(e.target) || menu.contains(e.target)) return;
+      menu.classList.remove('open');
+      btn.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    });
+
     // Modal overlay click to close
     this.modalOverlay.addEventListener('click', (e) => {
       if (e.target === this.modalOverlay) {
@@ -115,7 +136,15 @@ export class StudioUI {
   }
 
   handleRandomize() {
-    this.state = randomizeState(this.state);
+    // randomizeState() returns a fresh object. Rebinding this.state to it would
+    // orphan every other holder of the original reference — main.js keeps a
+    // module-level `state` used for grid entry and export, so a rebind here made
+    // the grid breed from pre-randomize params. Copy in place instead; the
+    // constructor stays the only place this.state is ever assigned.
+    const next = randomizeState(this.state);
+    Object.assign(this.state.global, next.global);
+    Object.assign(this.state.engines[this.state.engine], next.engines[this.state.engine]);
+    this.state.activePresetName = next.activePresetName;
     this.onStateChange(this.state);
     this.render();
   }
@@ -184,6 +213,10 @@ export class StudioUI {
             ${ICONS.export}
             <span>Export</span>
           </button>
+          <button class="btn-action ${this.studio.isGridMode ? 'active' : ''}" id="btn-grid" title="Variation Grid — breed 9 mutations (Hotkey: G)">
+            ${ICONS.cube}
+            <span>Grid</span>
+          </button>
           <button class="btn-action" id="btn-zen" title="Zen Mode / Hide UI (Hotkey: H)">
             ${ICONS.eye}
           </button>
@@ -248,6 +281,7 @@ export class StudioUI {
           <button class="tab-btn ${this.activeTab === 'colors' ? 'active' : ''}" data-tab="colors">Colors</button>
           <button class="tab-btn ${this.activeTab === 'geometry' ? 'active' : ''}" data-tab="geometry">Geometry</button>
           <button class="tab-btn ${this.activeTab === 'motion' ? 'active' : ''}" data-tab="motion">Motion</button>
+          <button class="tab-btn ${this.activeTab === 'motionlab' ? 'active' : ''}" data-tab="motionlab">Motion Lab</button>
           <button class="tab-btn ${this.activeTab === 'optics' ? 'active' : ''}" data-tab="optics">Optics</button>
           <button class="tab-btn ${this.activeTab === 'space' ? 'active' : ''}" data-tab="space">Space</button>
           <button class="tab-btn ${this.activeTab === 'export' ? 'active' : ''}" data-tab="export">Export</button>
@@ -263,6 +297,7 @@ export class StudioUI {
     this.attachTopBarListeners();
     this.attachTabListeners();
     this.attachControlListeners();
+    this.attachMotionLabListeners();
   }
 
   attachTopBarListeners() {
@@ -293,15 +328,6 @@ export class StudioUI {
         });
       });
 
-      // Close dropdown if clicking outside
-      const closeDropdown = (e) => {
-        if (!dropdownBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
-          dropdownMenu.classList.remove('open');
-          dropdownBtn.classList.remove('open');
-          dropdownBtn.setAttribute('aria-expanded', 'false');
-        }
-      };
-      document.addEventListener('click', closeDropdown);
     }
 
     this.root.querySelector('#btn-randomize')?.addEventListener('click', () => this.handleRandomize());
@@ -312,6 +338,7 @@ export class StudioUI {
       this.activeTab = 'export';
       this.render();
     });
+    this.root.querySelector('#btn-grid')?.addEventListener('click', () => this.onToggleGrid?.());
     this.root.querySelector('#btn-zen')?.addEventListener('click', () => this.toggleZenMode());
     this.root.querySelector('#btn-toggle-panel')?.addEventListener('click', () => {
       this.isSidebarOpen = !this.isSidebarOpen;
@@ -337,32 +364,45 @@ export class StudioUI {
     this.root.querySelector('#dock-btn-reverse')?.addEventListener('click', () => this.toggleReverse());
   }
 
-  setPlaybackSpeed(speed) {
-    speed = Math.max(0, Math.min(3.0, speed));
-    this.state.global.timeScale = speed;
-    this.studio.timeScale = speed;
+  // `state.global.timeScale` is signed and is the single source of truth for both
+  // speed and direction. The slider sets magnitude, reverse sets sign, and the
+  // button derives its state from the sign — previously the slider clamped to >= 0
+  // and silently dropped reverse while a separate `isReversed` flag stayed true.
+  get isReversed() {
+    return this.state.global.timeScale < 0;
+  }
 
-    const slider = this.root.querySelector('#dock-speed-slider');
-    if (slider) slider.value = speed;
-    const badge = this.root.querySelector('#dock-speed-badge');
-    if (badge) badge.textContent = `${speed.toFixed(1)}x`;
-    const valMotion = this.root.querySelector('#val-timeScale');
-    if (valMotion) valMotion.textContent = speed.toFixed(1);
-    const motionSlider = this.root.querySelector('input[data-global="timeScale"]');
-    if (motionSlider) motionSlider.value = speed;
-
-    this.root.querySelectorAll('.dock-speed-pill').forEach((pill) => {
-      const pSpeed = parseFloat(pill.getAttribute('data-speed'));
-      pill.classList.toggle('active', Math.abs(pSpeed - speed) < 0.05);
-    });
+  setPlaybackSpeed(speed, { preserveDirection = true } = {}) {
+    const magnitude = Math.max(0, Math.min(3.0, Math.abs(speed)));
+    const sign = preserveDirection && this.isReversed ? -1 : Math.sign(speed) || 1;
+    this.applyTimeScale(magnitude * sign);
   }
 
   toggleReverse() {
-    this.isReversed = !this.isReversed;
-    this.state.global.timeScale = -this.state.global.timeScale;
-    this.studio.timeScale = this.state.global.timeScale;
+    this.applyTimeScale(-this.state.global.timeScale || -1);
+  }
+
+  applyTimeScale(signed) {
+    this.state.global.timeScale = signed;
+    this.studio.timeScale = signed;
+
+    const magnitude = Math.abs(signed);
+    const slider = this.root.querySelector('#dock-speed-slider');
+    if (slider) slider.value = magnitude;
+    const badge = this.root.querySelector('#dock-speed-badge');
+    if (badge) badge.textContent = `${signed < 0 ? '-' : ''}${magnitude.toFixed(1)}x`;
+    const valMotion = this.root.querySelector('#val-timeScale');
+    if (valMotion) valMotion.textContent = magnitude.toFixed(1);
+    const motionSlider = this.root.querySelector('input[data-global="timeScale"]');
+    if (motionSlider) motionSlider.value = magnitude;
+
+    this.root.querySelectorAll('.dock-speed-pill').forEach((pill) => {
+      const pSpeed = parseFloat(pill.getAttribute('data-speed'));
+      pill.classList.toggle('active', Math.abs(pSpeed - magnitude) < 0.05);
+    });
+
     const revBtn = this.root.querySelector('#dock-btn-reverse');
-    if (revBtn) revBtn.classList.toggle('active', this.isReversed);
+    if (revBtn) revBtn.classList.toggle('active', signed < 0);
   }
 
   updatePlayPauseBtn() {
@@ -401,6 +441,8 @@ export class StudioUI {
         return this.renderParamsSection('geometry');
       case 'motion':
         return this.renderParamsSection('motion');
+      case 'motionlab':
+        return this.renderMotionLabTab();
       case 'optics':
         return this.renderOpticsTab();
       case 'space':
@@ -490,8 +532,19 @@ export class StudioUI {
 
     const filteredKeys = Object.keys(defs).filter((key) => defs[key].section === sectionName);
 
+    // A modulated slider shows the *base* value while the engine renders the
+    // modulated one. Without a marker that divergence just looks like a broken
+    // control, so flag every param a route is currently driving.
+    const mod = this.state.modulation;
+    const modulated = new Set(
+      mod?.enabled ? (mod.routes || []).filter((r) => r.enabled !== false).map((r) => r.dest) : []
+    );
+    const modDot = (key) =>
+      modulated.has(key) ? '<span class="mod-dot" title="Driven by modulation"></span>' : '';
+
     if (filteredKeys.length === 0) {
-      return `<div class="empty-notice">No settings in this category for ${ENGINE_INFO[engine].name}.</div>`;
+      const info = ENGINE_INFO[engine] || { name: engine };
+      return `<div class="empty-notice">No settings in this category for ${info.name}.</div>`;
     }
 
     const isColors = sectionName === 'colors';
@@ -549,7 +602,7 @@ export class StudioUI {
               if (def.type === 'color') {
                 return `
                   <div class="control-row color-control">
-                    <label class="ctrl-label">${def.label}</label>
+                    <label class="ctrl-label">${def.label}${modDot(key)}</label>
                     <div class="color-input-wrapper">
                       <input type="color" class="color-picker-input" data-param="${key}" value="${value}" />
                       <input type="text" class="color-hex-input" data-param-hex="${key}" value="${value}" maxlength="7" />
@@ -559,7 +612,7 @@ export class StudioUI {
               } else if (def.type === 'select') {
                 return `
                   <div class="control-row select-control">
-                    <label class="ctrl-label">${def.label}</label>
+                    <label class="ctrl-label">${def.label}${modDot(key)}</label>
                     <select class="studio-select" data-param="${key}">
                       ${def.options
                         .map(
@@ -574,7 +627,7 @@ export class StudioUI {
                 return `
                   <div class="control-row slider-control">
                     <div class="ctrl-label-row">
-                      <label class="ctrl-label">${def.label}</label>
+                      <label class="ctrl-label">${def.label}${modDot(key)}</label>
                       <span class="ctrl-value" id="val-${key}">${value}</span>
                     </div>
                     <input
@@ -705,6 +758,184 @@ export class StudioUI {
     `;
   }
 
+  // --- Motion Lab -----------------------------------------------------------
+  //
+  // Every engine drives motion as `rate * linearTime`, so plain sliders can only
+  // explore faster/slower. This tab is where shape comes from: sources (LFO,
+  // noise, envelope) routed onto destinations.
+
+  modConfig() {
+    if (!this.state.modulation) this.state.modulation = createDefaultModulation();
+    return this.state.modulation;
+  }
+
+  modDestinations() {
+    const defs = ENGINE_PARAM_DEFINITIONS[this.state.engine] || {};
+    // listModulationTargets() already excludes structural params (geometry
+    // rebuilds) and rate params (phase jumps), so the dropdown cannot offer a
+    // destination that would break the render.
+    return [
+      { key: TIME_SCALE_DEST, label: 'Tempo — hesitate / accelerate' },
+      ...listModulationTargets(defs),
+    ];
+  }
+
+  renderMotionLabTab() {
+    const mod = this.modConfig();
+    const dests = this.modDestinations();
+    const src = mod.sources || {};
+    const lfo = src.lfo1 || {};
+    const noise = src.noise1 || {};
+    const env = src.env1 || {};
+
+    const slider = (attr, label, value, min, max, step) => `
+      <div class="control-row slider-control">
+        <label class="ctrl-label">${label}<span class="ctrl-value">${Number(value).toFixed(2)}</span></label>
+        <input type="range" class="studio-slider" ${attr} min="${min}" max="${max}" step="${step}" value="${value}" />
+      </div>`;
+
+    const routeRows = (mod.routes || []).map((r, i) => `
+      <div class="control-row mod-route-row" data-route="${i}">
+        <select class="studio-select mod-route-source" data-route="${i}">
+          ${Object.keys(src).map((id) => `<option value="${id}" ${r.source === id ? 'selected' : ''}>${id}</option>`).join('')}
+        </select>
+        <select class="studio-select mod-route-dest" data-route="${i}">
+          ${dests.map((d) => `<option value="${d.key}" ${r.dest === d.key ? 'selected' : ''}>${d.label}</option>`).join('')}
+        </select>
+        <input type="range" class="studio-slider mod-route-amount" data-route="${i}"
+               min="-1" max="1" step="0.02" value="${r.amount ?? 0}" title="Amount" />
+        <button class="cp-delete-btn mod-route-remove" data-route="${i}" title="Remove route">✕</button>
+      </div>`).join('');
+
+    return `
+      <div class="panel-section">
+        <div class="section-header">
+          <span class="section-title">MODULATION</span>
+          <span class="section-meta">${(mod.routes || []).length} route(s)</span>
+        </div>
+        <div class="controls-list">
+          <div class="control-row">
+            <label class="ctrl-label">Enable Modulation</label>
+            <button class="btn-sm ${mod.enabled ? 'btn-accent' : ''}" id="btn-mod-enable">
+              ${mod.enabled ? 'ON' : 'OFF'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="section-header"><span class="section-title">SOURCES</span></div>
+        <div class="controls-list">
+          <div class="control-row">
+            <label class="ctrl-label">LFO Shape</label>
+            <select class="studio-select" data-mod-src="lfo1" data-mod-field="shape">
+              ${LFO_SHAPES.map((sh) => `<option value="${sh}" ${lfo.shape === sh ? 'selected' : ''}>${sh}</option>`).join('')}
+            </select>
+          </div>
+          ${slider('data-mod-src="lfo1" data-mod-field="rate"', 'LFO Rate (Hz)', lfo.rate ?? 0.5, 0.02, 4, 0.02)}
+          ${slider('data-mod-src="lfo1" data-mod-field="phase"', 'LFO Phase', lfo.phase ?? 0, 0, 1, 0.01)}
+          ${slider('data-mod-src="noise1" data-mod-field="rate"', 'Noise Rate', noise.rate ?? 0.35, 0.02, 2, 0.01)}
+          ${slider('data-mod-src="noise1" data-mod-field="octaves"', 'Noise Octaves', noise.octaves ?? 3, 1, 5, 1)}
+          ${slider('data-mod-src="env1" data-mod-field="attack"', 'Env Attack (s)', env.attack ?? 0.08, 0, 1.5, 0.01)}
+          ${slider('data-mod-src="env1" data-mod-field="hold"', 'Env Hold (s)', env.hold ?? 0.06, 0, 1.5, 0.01)}
+          ${slider('data-mod-src="env1" data-mod-field="decay"', 'Env Decay (s)', env.decay ?? 0.9, 0.05, 3, 0.01)}
+          <div class="control-row">
+            <label class="ctrl-label">Fire Envelope</label>
+            <button class="btn-sm btn-accent" id="btn-mod-trigger">Trigger</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="section-header">
+          <span class="section-title">ROUTING</span>
+          <button class="btn-sm btn-accent" id="btn-mod-add-route">+ Route</button>
+        </div>
+        <div class="controls-list">
+          ${routeRows || '<div class="empty-notice">No routes yet. Add one to shape the motion.</div>'}
+        </div>
+      </div>
+    `;
+  }
+
+  attachMotionLabListeners() {
+    const mod = this.modConfig();
+    const commit = (rerender) => {
+      this.onStateChange(this.state);
+      if (rerender) this.render();
+    };
+
+    this.root.querySelector('#btn-mod-enable')?.addEventListener('click', () => {
+      mod.enabled = !mod.enabled;
+      commit(true);
+    });
+
+    this.root.querySelector('#btn-mod-trigger')?.addEventListener('click', () => {
+      this.studio.modulation.trigger(this.studio.virtualTime);
+    });
+
+    this.root.querySelector('#btn-mod-add-route')?.addEventListener('click', () => {
+      const dests = this.modDestinations();
+      mod.routes = mod.routes || [];
+      mod.routes.push({
+        source: Object.keys(mod.sources)[0],
+        dest: dests[0]?.key ?? TIME_SCALE_DEST,
+        amount: 0.4,
+      });
+      mod.enabled = true;
+      commit(true);
+    });
+
+    this.root.querySelectorAll('[data-mod-src]').forEach((el) => {
+      const id = el.getAttribute('data-mod-src');
+      const field = el.getAttribute('data-mod-field');
+      const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+      el.addEventListener(evt, (e) => {
+        const raw = e.target.value;
+        mod.sources[id][field] = field === 'shape' ? raw : Number(raw);
+        const label = el.parentElement?.querySelector('.ctrl-value');
+        if (label) label.textContent = Number(raw).toFixed(2);
+        commit(false);
+      });
+    });
+
+    this.root.querySelectorAll('.mod-route-source').forEach((el) => {
+      el.addEventListener('change', (e) => {
+        mod.routes[Number(el.getAttribute('data-route'))].source = e.target.value;
+        commit(false);
+      });
+    });
+    this.root.querySelectorAll('.mod-route-dest').forEach((el) => {
+      el.addEventListener('change', (e) => {
+        mod.routes[Number(el.getAttribute('data-route'))].dest = e.target.value;
+        commit(false);
+      });
+    });
+    this.root.querySelectorAll('.mod-route-amount').forEach((el) => {
+      el.addEventListener('input', (e) => {
+        mod.routes[Number(el.getAttribute('data-route'))].amount = Number(e.target.value);
+        commit(false);
+      });
+    });
+    this.root.querySelectorAll('.mod-route-remove').forEach((el) => {
+      el.addEventListener('click', () => {
+        mod.routes.splice(Number(el.getAttribute('data-route')), 1);
+        commit(true);
+      });
+    });
+  }
+
+  // The exported config is the save format for a finding — dropping the
+  // modulation block would lose the half of the design that makes it move.
+  exportConfig() {
+    return {
+      engine: this.state.engine,
+      global: this.state.global,
+      params: this.state.engines[this.state.engine],
+      modulation: this.state.modulation,
+    };
+  }
+
   renderExportTab() {
     const embedIframe = `<iframe src="./?engine=${this.state.engine}" width="100%" height="600" frameborder="0" allow="autoplay; fullscreen"></iframe>`;
 
@@ -813,6 +1044,7 @@ export class StudioUI {
         engine: this.state.engine,
         global: { ...this.state.global },
         params: { ...this.state.engines[this.state.engine] },
+        modulation: structuredClone(this.state.modulation),
       });
       this.state.activePresetName = name;
       this.render();
@@ -828,6 +1060,9 @@ export class StudioUI {
           this.state.activePresetName = found.name;
           Object.assign(this.state.global, found.global);
           Object.assign(this.state.engines[this.state.engine], found.params);
+          // Optional: presets saved before the Motion Lab existed have no
+          // modulation block, and should keep whatever rack is currently set.
+          if (found.modulation) this.state.modulation = structuredClone(found.modulation);
           this.onStateChange(this.state);
           this.render();
         }
@@ -925,6 +1160,13 @@ export class StudioUI {
       const key = slider.getAttribute('data-global');
       slider.addEventListener('input', (e) => {
         const val = Number(e.target.value);
+        // timeScale carries direction in its sign, so it has to go through the
+        // playback path rather than being written raw.
+        if (key === 'timeScale') {
+          this.setPlaybackSpeed(val);
+          this.onStateChange(this.state);
+          return;
+        }
         this.state.global[key] = val;
         const valLabel = this.root.querySelector(`#val-${key}`);
         if (valLabel) valLabel.textContent = val;
@@ -1000,14 +1242,14 @@ export class StudioUI {
     });
 
     this.root.querySelector('#btn-copy-json-tab')?.addEventListener('click', (e) => {
-      const jsonStr = JSON.stringify({ engine: this.state.engine, global: this.state.global, params: this.state.engines[this.state.engine] }, null, 2);
+      const jsonStr = JSON.stringify(this.exportConfig(), null, 2);
       navigator.clipboard.writeText(jsonStr);
       e.target.textContent = 'Copied JSON! ✓';
       setTimeout(() => (e.target.textContent = 'Copy JSON'), 2000);
     });
 
     this.root.querySelector('#btn-dl-json-tab')?.addEventListener('click', () => {
-      const jsonStr = JSON.stringify({ engine: this.state.engine, global: this.state.global, params: this.state.engines[this.state.engine] }, null, 2);
+      const jsonStr = JSON.stringify(this.exportConfig(), null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -1023,15 +1265,7 @@ export class StudioUI {
   }
 
   openExportModal() {
-    const jsonStr = JSON.stringify(
-      {
-        engine: this.state.engine,
-        global: this.state.global,
-        params: this.state.engines[this.state.engine],
-      },
-      null,
-      2
-    );
+    const jsonStr = JSON.stringify(this.exportConfig(), null, 2);
 
     const embedCode = this.generateEmbedSnippet();
 
@@ -1194,7 +1428,8 @@ export const ORB_CONFIG = {
     threshold: ${global.bloomThreshold},
   },
   exposure: ${global.exposure},
-  params: ${JSON.stringify(params, null, 2)}
+  params: ${JSON.stringify(params, null, 2)},
+  modulation: ${JSON.stringify(this.state.modulation, null, 2)}
 };
 
 // Usage Example:

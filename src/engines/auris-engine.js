@@ -5,20 +5,20 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 export function createAurisEngine({ scene, camera, renderer, params }) {
   const currentParams = {
-    archetype: 'geodesic', // 'geodesic' | 'cubic_compound' | 'vortex_square' | 'vortex_hex' | 'sacred_rosette' | 'vortex_triangle'
-    lightYaw: 45, // Azimuthal angle in degrees
-    lightPitch: 35, // Altitude angle in degrees
+    archetype: 'geodesic', // 'geodesic' | 'cubic_compound' | 'nested_square' | 'nested_hex' | 'nested_pentagon' | 'nested_triangle'
+    lightYaw: 45,
+    lightPitch: 35,
     lightIntensity: 1.6,
-    lightColor: '#ffea79', // Radiant auric gold light
-    facetColor: '#1e293b', // Deep architectural slate
-    wireColor: '#fef08a', // Crisp bright gold contour lines
+    lightColor: '#ffea79',
+    facetColor: '#1e293b',
+    wireColor: '#fef08a',
     shadowColor: '#090d16',
     wireWidth: 2.4,
     wireGlow: 1.3,
-    hatchDensity: 60.0, // Architectural hatching line frequency
+    hatchDensity: 60.0,
     hatchStrength: 0.55,
-    stellaHeight: 0.45, // Height of stellated pyramid peaks
-    twistAngle: 0.14, // Chiral twist per tier for vortexes
+    stellaHeight: 0.45,
+    twistAngle: 0.14,   // Per-layer rotation increment for nested polygons
     twistSpeed: 0.6,
     scale: 1.4,
     rotSpeedX: 0.20,
@@ -29,6 +29,11 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
 
   const group = new THREE.Group();
   scene.add(group);
+
+  // Accumulated rotation state (only driven by time, not pointer)
+  let accumRotX = 0;
+  let accumRotY = 0;
+  let accumRotZ = 0;
 
   // Dedicated Directional Light Vector
   const lightDir = new THREE.Vector3();
@@ -43,7 +48,7 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
   }
   updateLightVector();
 
-  // Directional Light Indicator Arrow in the background
+  // Directional Light Indicator
   const lightMarkerGeo = new THREE.SphereGeometry(0.08, 16, 16);
   const lightMarkerMat = new THREE.MeshBasicMaterial({
     color: new THREE.Color(currentParams.lightColor),
@@ -53,7 +58,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
   const lightMarker = new THREE.Mesh(lightMarkerGeo, lightMarkerMat);
   scene.add(lightMarker);
 
-  // Sub-groups for active meshes
   let facetMesh = null;
   let lineMesh = null;
   let lineGeometry = null;
@@ -98,7 +102,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
         varying vec3 vLocalPos;
 
         void main() {
-          // Flat geometric facet normal via screen-space derivatives
           vec3 fdx = dFdx(vWorldPosition);
           vec3 fdy = dFdy(vWorldPosition);
           vec3 N = normalize(cross(fdx, fdy));
@@ -108,17 +111,14 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
           vec3 L = normalize(uLightDir);
           float NdotL = dot(N, L);
 
-          // Object-space architectural pen-and-ink hatching
           float p1 = (vLocalPos.x * 0.707 + vLocalPos.y * 0.707 + vLocalPos.z * 0.35) * uHatchDensity;
           float p2 = (vLocalPos.x * 0.707 - vLocalPos.y * 0.707 + vLocalPos.z * 0.35) * uHatchDensity;
 
-          // Distinct, sharp pen strokes
           float d1 = abs(fract(p1) - 0.5);
           float d2 = abs(fract(p2) - 0.5);
           float hatch1 = smoothstep(0.05, 0.20, d1);
           float hatch2 = smoothstep(0.05, 0.20, d2);
 
-          // Directional chiaroscuro ink distribution:
           float ink = 1.0;
           if (NdotL < 0.25) {
             float t1 = clamp((0.25 - NdotL) / 0.35, 0.0, 1.0);
@@ -131,13 +131,11 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
 
           float hatchFactor = mix(1.0, ink, uHatchStrength);
 
-          // Base chiaroscuro tone
           float diff = clamp(NdotL * 0.5 + 0.5, 0.0, 1.0);
           vec3 tone = mix(uShadowColor, uFacetColor, diff);
           tone = mix(tone, uLightColor, clamp(NdotL * 0.65 * uLightIntensity, 0.0, 1.0));
           tone *= hatchFactor;
 
-          // Specular sheen
           vec3 H = normalize(L + V);
           float spec = pow(max(dot(N, H), 0.0), 32.0) * 0.35 * uLightIntensity;
           tone += uLightColor * spec * clamp(NdotL, 0.0, 1.0);
@@ -150,7 +148,21 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
     });
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // HELPER: Generate a regular polygon's vertices (2D, returns [x,y] pairs)
+  // ────────────────────────────────────────────────────────────────────────
+  function regularPolygon(sides, radius, angleOffset = 0) {
+    const pts = [];
+    for (let i = 0; i < sides; i++) {
+      const a = angleOffset + (i / sides) * Math.PI * 2;
+      pts.push([Math.cos(a) * radius, Math.sin(a) * radius]);
+    }
+    return pts;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
   // BUILD GEOMETRY ARCHETYPES
+  // ────────────────────────────────────────────────────────────────────────
   function buildGeometry() {
     // Clean up previous
     if (facetMesh) {
@@ -169,10 +181,10 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
     const stella = currentParams.stellaHeight;
 
     let facetGeo = new THREE.BufferGeometry();
-    let edgeSegments = []; // array of [p1, p2]
+    let edgeSegments = []; // array of [Vector3, Vector3]
 
     if (arch === 'geodesic') {
-      // 1. Multifaceted Geodesic Stellated Polyhedron (Image 1, top)
+      // ── Multifaceted Geodesic Stellated Polyhedron ──
       const baseIco = new THREE.IcosahedronGeometry(S * 1.2, 1);
       const posAttr = baseIco.attributes.position;
       const count = posAttr.count;
@@ -185,17 +197,14 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
         const b = new THREE.Vector3().fromBufferAttribute(posAttr, i + 1);
         const c = new THREE.Vector3().fromBufferAttribute(posAttr, i + 2);
 
-        // Center and normal of this triangular facet
         const center = new THREE.Vector3().add(a).add(b).add(c).divideScalar(3);
         const faceNorm = new THREE.Vector3().crossVectors(
           new THREE.Vector3().subVectors(b, a),
           new THREE.Vector3().subVectors(c, a)
         ).normalize();
 
-        // Extruded apex point for stellated pyramid
         const apex = center.clone().addScaledVector(faceNorm, stella * S * 0.85);
 
-        // 3 sub-triangles: (a, b, apex), (b, c, apex), (c, a, apex)
         const subFaces = [
           [a, b, apex],
           [b, c, apex],
@@ -211,7 +220,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
           normals.push(fn.x, fn.y, fn.z, fn.x, fn.y, fn.z, fn.x, fn.y, fn.z);
         }
 
-        // Add contour edges
         edgeSegments.push([a, b], [b, c], [c, a]);
         edgeSegments.push([a, apex], [b, apex], [c, apex]);
       }
@@ -221,8 +229,7 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
       facetGeo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
 
     } else if (arch === 'cubic_compound') {
-      // 2. Interlocking Stellated Cubic Cluster (Image 1, bottom)
-      // Compound of orthogonal cubes with 6 stellated pyramidal caps
+      // ── Interlocking Stellated Cubic Cluster ──
       const positions = [];
       const normals = [];
 
@@ -230,7 +237,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
       const armLength = S * (1.0 + stella * 0.6);
       const capHeight = S * (1.3 + stella * 0.8);
 
-      // Function to add a quad face
       function addQuad(p0, p1, p2, p3) {
         positions.push(
           p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z,
@@ -244,7 +250,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
         edgeSegments.push([p0, p1], [p1, p2], [p2, p3], [p3, p0]);
       }
 
-      // Function to add a pyramid cap on face
       function addPyramid(b0, b1, b2, b3, apex) {
         const sides = [[b0, b1, apex], [b1, b2, apex], [b2, b3, apex], [b3, b0, apex]];
         for (const [p0, p1, p2] of sides) {
@@ -258,7 +263,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
         edgeSegments.push([b0, apex], [b1, apex], [b2, apex], [b3, apex]);
       }
 
-      // 6 Orthogonal arms along ±X, ±Y, ±Z
       const axes = [
         new THREE.Vector3(1, 0, 0),
         new THREE.Vector3(-1, 0, 0),
@@ -282,7 +286,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
 
         addPyramid(b0, b1, b2, b3, pApex);
 
-        // Arm side panels connecting to central cube
         const dist = armLength - baseCubeHalf;
         const root0 = b0.clone().addScaledVector(axis, -dist);
         const root1 = b1.clone().addScaledVector(axis, -dist);
@@ -298,85 +301,66 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
       facetGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       facetGeo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
 
-    } else if (arch === 'vortex_square' || arch === 'vortex_hex' || arch === 'vortex_triangle') {
-      // 3. Sacred Geometric Wireframe Vortex (Image 2)
-      const sides = arch === 'vortex_hex' ? 6 : arch === 'vortex_triangle' ? 3 : 4;
-      const tiers = 32;
-      const positions = [];
-      const normals = [];
+    } else if (arch === 'nested_square' || arch === 'nested_hex' || arch === 'nested_pentagon' || arch === 'nested_triangle') {
+      // ── Clean Nested Rotated Polygons (ruled-surface string art) ──
+      // Produces the mathematically precise, museum-quality geometric patterns
+      // from the reference images: concentric polygons each rotated by a fixed
+      // angular increment, with optional string art lines between layers.
+      const sidesMap = {
+        nested_square: 4,
+        nested_hex: 6,
+        nested_pentagon: 5,
+        nested_triangle: 3,
+      };
+      const sides = sidesMap[arch];
 
-      const ringVertices = [];
+      const layers = 36;            // Number of concentric polygon rings
+      const maxRadius = S * 1.5;
+      const minRadius = S * 0.05;   // Tiny center aperture
 
-      for (let t = 0; t < tiers; t++) {
-        const ratio = t / (tiers - 1);
-        const radius = S * 1.5 * Math.pow(1.0 - ratio * 0.88, 1.15);
-        const angleOffset = t * currentParams.twistAngle;
-        const z = (ratio - 0.5) * S * 0.6;
+      const twistPerLayer = currentParams.twistAngle; // Rotation increment per ring
+
+      // Store all layer vertex arrays for string art connections
+      const allLayerVerts = [];
+
+      for (let i = 0; i < layers; i++) {
+        const t = i / (layers - 1);             // 0 → 1 from outermost to innermost
+        const radius = maxRadius * (1.0 - t) + minRadius * t;
+        const angle = twistPerLayer * i;         // Cumulative rotation
+        const z = (t - 0.5) * S * 0.4 * stella; // Subtle 3D depth
 
         const verts = [];
         for (let s = 0; s < sides; s++) {
-          const a = angleOffset + (s / sides) * Math.PI * 2;
-          verts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, z));
+          const a = angle + (s / sides) * Math.PI * 2;
+          verts.push(new THREE.Vector3(
+            Math.cos(a) * radius,
+            Math.sin(a) * radius,
+            z
+          ));
         }
-        ringVertices.push(verts);
+        allLayerVerts.push(verts);
 
-        // Ring contour edges
+        // Draw polygon ring edges
         for (let s = 0; s < sides; s++) {
           edgeSegments.push([verts[s], verts[(s + 1) % sides]]);
         }
       }
 
-      // Longitudinal asymptotic spiral lines
-      for (let t = 0; t < tiers - 1; t++) {
+      // String art: connect vertices across layers (ruled surfaces)
+      // Connect each vertex on layer i to the corresponding vertex on layer i+1
+      for (let i = 0; i < layers - 1; i++) {
         for (let s = 0; s < sides; s++) {
-          const v0 = ringVertices[t][s];
-          const v1 = ringVertices[t + 1][s];
-          const vNext = ringVertices[t][(s + 1) % sides];
-          edgeSegments.push([v0, v1]);
-
-          // Subtle translucent facet panels between tiers
-          positions.push(
-            v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, vNext.x, vNext.y, vNext.z
-          );
-          normals.push(0, 0, 1, 0, 0, 1, 0, 0, 1);
+          edgeSegments.push([allLayerVerts[i][s], allLayerVerts[i + 1][s]]);
         }
       }
 
-      facetGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      facetGeo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-
-    } else if (arch === 'sacred_rosette') {
-      // 4. Sacred Hypotrochoid / Spirograph Rosette Envelope (Image 2 mid-right)
-      const R = S * 1.25;
-      const r = S * 0.42;
-      const d = S * 0.72;
-      const steps = 360;
-      const curvePts = [];
-
-      for (let i = 0; i <= steps; i++) {
-        const theta = (i / steps) * Math.PI * 14; // 7 petal cycles
-        const x = (R - r) * Math.cos(theta) + d * Math.cos(((R - r) * theta) / r);
-        const y = (R - r) * Math.sin(theta) - d * Math.sin(((R - r) * theta) / r);
-        const z = Math.sin(theta * 3.0) * S * 0.15;
-        curvePts.push(new THREE.Vector3(x, y, z));
-      }
-
-      for (let i = 0; i < curvePts.length - 1; i++) {
-        edgeSegments.push([curvePts[i], curvePts[i + 1]]);
-      }
-
-      // Cross-chords connecting symmetric lobes
-      for (let i = 0; i < curvePts.length; i += 12) {
-        const target = (i + 72) % curvePts.length;
-        edgeSegments.push([curvePts[i], curvePts[target]]);
-      }
-
-      // Minimal facet backing
-      const positions = [0, 0, 0, curvePts[0].x, curvePts[0].y, 0, curvePts[12].x, curvePts[12].y, 0];
+      // Minimal facet geometry placeholder (wireframe-only archetype)
+      const positions = [0, 0, 0, 0.001, 0, 0, 0, 0.001, 0];
       const normals = [0, 0, 1, 0, 0, 1, 0, 0, 1];
       facetGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       facetGeo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     }
+
 
     const isSolid = arch === 'geodesic' || arch === 'cubic_compound';
 
@@ -388,7 +372,7 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
     group.add(facetMesh);
 
     // Create Line2 Antialiased Glowing Contours
-    const maxEdges = Math.min(edgeSegments.length, 1200);
+    const maxEdges = Math.min(edgeSegments.length, 2400);
     const linePosArr = new Float32Array(maxEdges * 6);
     const lineColArr = new Float32Array(maxEdges * 6);
     const cWire = new THREE.Color(currentParams.wireColor);
@@ -439,12 +423,18 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
     update({ time, delta, pointer }) {
       clickPulse *= 0.92;
 
-      // 3D Perspective Tumbling with mouse interaction
-      group.rotation.x += delta * currentParams.rotSpeedX + pointer.y * 0.02;
-      group.rotation.y += delta * currentParams.rotSpeedY + pointer.x * 0.03;
-      group.rotation.z += delta * currentParams.rotSpeedZ;
+      // Only accumulate rotation from delta (NOT from pointer)
+      // This ensures no movement when paused (delta=0)
+      accumRotX += delta * currentParams.rotSpeedX;
+      accumRotY += delta * currentParams.rotSpeedY;
+      accumRotZ += delta * currentParams.rotSpeedZ;
 
-      // Update Light Marker position in world space
+      // Apply accumulated rotation + gentle pointer influence (non-accumulating)
+      group.rotation.x = accumRotX + pointer.y * 0.15;
+      group.rotation.y = accumRotY + pointer.x * 0.15;
+      group.rotation.z = accumRotZ;
+
+      // Update Light Marker position
       updateLightVector();
       lightMarker.position.copy(lightDir).multiplyScalar(currentParams.scale * 2.5);
 
@@ -456,6 +446,19 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
     },
 
     setParams(newParams) {
+      // Map legacy archetype names to new clean versions
+      if (newParams.archetype !== undefined) {
+        const legacyMap = {
+          vortex_square: 'nested_square',
+          vortex_hex: 'nested_hex',
+          vortex_triangle: 'nested_triangle',
+          sacred_rosette: 'nested_hex', // Closest equivalent
+        };
+        if (legacyMap[newParams.archetype]) {
+          newParams.archetype = legacyMap[newParams.archetype];
+        }
+      }
+
       const needsRebuild =
         newParams.archetype !== undefined && newParams.archetype !== currentParams.archetype ||
         newParams.scale !== undefined && newParams.scale !== currentParams.scale ||

@@ -1266,3 +1266,56 @@ kbd {
     bottom: 16px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Variation grid mode — hide the inspector and playback dock so all 9 cells are
+   visible and comparable. The top bar stays put so the Grid toggle stays
+   reachable while the grid is showing.
+   --------------------------------------------------------------------------- */
+.studio-ui-root.grid-mode .studio-inspector,
+.studio-ui-root.grid-mode .studio-playback-dock {
+  display: none;
+}
+
+.btn-action.active {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Marks a parameter whose value is currently being driven by a modulation
+   route — the slider shows the base value while the engine renders the
+   modulated one, and without this the difference reads as a broken control. */
+.mod-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 6px var(--primary-glow);
+  vertical-align: middle;
+}
+
+/* Motion Lab routing rows: source -> destination -> amount -> remove */
+.mod-route-row {
+  display: grid;
+  grid-template-columns: 78px 1fr 82px 22px;
+  gap: 6px;
+  align-items: center;
+}
+
+.mod-route-row .studio-select {
+  min-width: 0;
+  font-size: 11px;
+  padding: 4px 6px;
+}
+
+.mod-route-row .studio-slider {
+  width: 100%;
+}
+
+.ctrl-value {
+  float: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
