@@ -11,6 +11,7 @@ import { createSingularityEngine } from './engines/singularity-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
 import { listSweepableParams } from './core/sweep.js';
+import { createAbCompare } from './core/ab-compare.js';
 
 import { PRESET_LIBRARY } from './presets/preset-library.js';
 
@@ -60,6 +61,39 @@ setInterval(() => {
 
 // Exploration handle — patch modulation routes from the console without a reload.
 window.__orb = { studio, state, ui };
+
+// --- A/B compare ------------------------------------------------------------
+// 1 / 2 store the current config into a slot, backquote flips between them.
+const ab = createAbCompare(studio, state);
+
+const abReadout = document.createElement('div');
+abReadout.className = 'ab-readout hidden';
+document.body.appendChild(abReadout);
+
+function refreshAbReadout(justSwapped = false) {
+  const filled = ['a', 'b'].filter((s) => ab.has(s));
+  if (!filled.length) {
+    abReadout.classList.add('hidden');
+    return;
+  }
+  abReadout.classList.remove('hidden');
+  abReadout.innerHTML = ['a', 'b']
+    .map((slot) => {
+      const stored = ab.has(slot);
+      const active = ab.activeSlot === slot && stored;
+      return `<span class="ab-slot ${active ? 'active' : ''} ${stored ? '' : 'empty'}">${slot.toUpperCase()}</span>`;
+    })
+    .join('') + `<span class="ab-hint">${ab.has('a') && ab.has('b') ? '` to swap' : 'press 2 to fill B'}</span>`;
+
+  if (justSwapped) {
+    abReadout.classList.remove('flash');
+    // Force a reflow so the animation restarts on every swap.
+    void abReadout.offsetWidth;
+    abReadout.classList.add('flash');
+  }
+}
+
+window.__orb.ab = ab;
 
 // --- parameter sweep --------------------------------------------------------
 // K sweeps one parameter across a row of cells. Which parameter: the last one
@@ -205,6 +239,26 @@ ui.onToggleGrid = toggleGrid;
 
 window.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+  // A/B slots. Skipped in grid mode, where digits and backquote are free for
+  // future cell selection and the single-orb view isn't on screen anyway.
+  if (!studio.isGridMode) {
+    if (e.code === 'Digit1' || e.code === 'Digit2') {
+      e.preventDefault();
+      ab.store(e.code === 'Digit1' ? 'a' : 'b');
+      refreshAbReadout();
+      return;
+    }
+    if (e.code === 'Backquote') {
+      e.preventDefault();
+      const now = ab.swap();
+      if (now) {
+        ui.render();
+        refreshAbReadout(true);
+      }
+      return;
+    }
+  }
 
   if (e.code === 'KeyK') {
     e.preventDefault();
