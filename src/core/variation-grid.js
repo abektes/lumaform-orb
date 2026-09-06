@@ -371,6 +371,10 @@ export function createVariationGrid({
       for (const cell of cells) cell.rack.trigger(cell.time);
     },
 
+    setAudioLevel(level) {
+      for (const cell of cells) cell.rack.setAudioLevel(level);
+    },
+
     toggleSelect(index) {
       if (!cells[index]) return false;
       cells[index].selected = !cells[index].selected;

@@ -1071,10 +1071,15 @@ export class StudioUI {
   // browsed by eye rather than by timestamp.
   saveFinding(note = '') {
     const config = this.exportConfig();
+    // App state already holds the A/B destination while the renderer is still
+    // travelling. Keep the live base so the stored config matches its thumbnail.
+    const params = this.studio.paramTween?.isRunning
+      ? this.studio.baseParams
+      : config.params;
     const entry = makeFinding({
       engine: config.engine,
       global: structuredClone(config.global),
-      params: structuredClone(config.params),
+      params: structuredClone(params),
       modulation: structuredClone(config.modulation),
       thumb: this.studio.captureThumbnail(),
       note,

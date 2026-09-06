@@ -207,6 +207,9 @@ export class OrbStudio {
   }
 
   updateParameters(state) {
+    // A direct edit, import or preset selection supersedes an in-flight A/B
+    // transition. Otherwise the old target would overwrite the edit next frame.
+    this.paramTween.cancel();
     this.syncModulation(state);
     this.updateGlobalSettings(state.global);
     if (this.activeEngine && this.activeEngineType) {
@@ -369,12 +372,16 @@ export class OrbStudio {
     if (this.paramTween.isRunning) {
       const tweened = this.paramTween.advance(delta * 1000);
       if (tweened) {
+        const patch = {};
+        for (const [key, value] of Object.entries(tweened)) {
+          if (!Object.is(this.baseParams[key], value)) patch[key] = value;
+        }
         Object.assign(this.baseParams, tweened);
         this.applyModulatedParams({});
-        if (typeof this.activeEngine?.setParams === 'function') {
-          this.activeEngine.setParams(tweened);
-        } else if (typeof this.activeEngine?.onParamsChange === 'function') {
-          this.activeEngine.onParamsChange(tweened);
+        if (Object.keys(patch).length && typeof this.activeEngine?.setParams === 'function') {
+          this.activeEngine.setParams(patch);
+        } else if (Object.keys(patch).length && typeof this.activeEngine?.onParamsChange === 'function') {
+          this.activeEngine.onParamsChange(patch);
         }
       }
     }
@@ -386,7 +393,9 @@ export class OrbStudio {
     // changes mid-flight would retroactively rewrite the accumulated angle.
     // Sample first so audio routes see this frame's level, not the previous one.
     if (this.audioInput?.isActive) {
-      this.modulation.setAudioLevel(this.audioInput.read());
+      const audioLevel = this.audioInput.read();
+      this.modulation.setAudioLevel(audioLevel);
+      this.grid?.setAudioLevel(audioLevel);
     }
     const mod = this.modulation.apply(this.baseParams, this.paramDefs, this.virtualTime);
 
@@ -445,7 +454,10 @@ export class OrbStudio {
     const started = mode === 'tone'
       ? this.audioInput.startTestTone()
       : await this.audioInput.startMic();
-    if (!started) this.modulation.setAudioLevel(0);
+    if (!started) {
+      this.modulation.setAudioLevel(0);
+      this.grid?.setAudioLevel(0);
+    }
     return started;
   }
 
@@ -453,6 +465,7 @@ export class OrbStudio {
     this.audioInput?.stop();
     // Otherwise every audio route freezes at its last value.
     this.modulation.setAudioLevel(0);
+    this.grid?.setAudioLevel(0);
   }
 
   ensureClipRecorder() {
@@ -593,6 +606,26 @@ export class OrbStudio {
     const prevBg = this.scene.background;
     let dataUrl;
 
+    if (this.isRecordingClip) {
+      // captureStream() watches the live canvas. Resizing or rendering a
+      // thumbnail into it would put that frame into the recording, so scale the
+      // already-painted frame through a temporary 2D canvas instead.
+      const output = document.createElement('canvas');
+      output.width = Math.max(1, Math.round(targetWidth * pixelRatio));
+      output.height = Math.max(1, Math.round(targetHeight * pixelRatio));
+      if (
+        transparent ||
+        output.width > this.renderer.domElement.width ||
+        output.height > this.renderer.domElement.height
+      ) {
+        throw new Error(
+          'Transparent and upscaled captures are unavailable while recording a clip.'
+        );
+      }
+      output.getContext('2d')?.drawImage(this.renderer.domElement, 0, 0, output.width, output.height);
+      return output.toDataURL(mimeType, quality);
+    }
+
     try {
       if (transparent) {
         this.renderer.setClearColor(0x000000, 0);
@@ -644,6 +677,10 @@ export class OrbStudio {
   }
 
   captureSnapshot({ transparent = false, multiplier = 1 } = {}) {
+    if (this.isRecordingClip && (transparent || multiplier > 1)) {
+      console.warn('Stop clip recording before taking a transparent or upscaled snapshot.');
+      return null;
+    }
     const dataUrl = this.renderToDataURL({
       width: window.innerWidth * multiplier,
       height: window.innerHeight * multiplier,

@@ -42,6 +42,8 @@ const DEFS = {
   edgeGlow: { type: 'number', min: 0, max: 3, step: 0.05, section: 'colors' },
   color1:   { type: 'color', section: 'colors' },
   shape:    { type: 'select', options: ['sphere', 'cube'], section: 'geometry' },
+  segments: { type: 'number', min: 4, max: 64, step: 1, section: 'geometry' },
+  rotSpeed: { type: 'number', min: 0, max: 2, step: 0.01, section: 'motion' },
 };
 
 // lerpHexColor
@@ -54,8 +56,8 @@ ok('colour lerp always valid hex', (() => {
 ok('colour lerp tolerates junk input', lerpHexColor('nope', '#ffffff', 0.5) === '#ffffff');
 
 // interpolateParams
-const A = { edgeGlow: 0, color1: '#000000', shape: 'sphere' };
-const B = { edgeGlow: 3, color1: '#ffffff', shape: 'cube' };
+const A = { edgeGlow: 0, color1: '#000000', shape: 'sphere', segments: 8, rotSpeed: 0.2 };
+const B = { edgeGlow: 3, color1: '#ffffff', shape: 'cube', segments: 48, rotSpeed: 1.5 };
 ok('t=0 yields the source', JSON.stringify(interpolateParams(A, B, DEFS, 0)) === JSON.stringify(A));
 ok('t=1 yields the target', JSON.stringify(interpolateParams(A, B, DEFS, 1)) === JSON.stringify(B));
 const midway = interpolateParams(A, B, DEFS, 0.5);
@@ -63,6 +65,14 @@ ok('numbers lerp', Math.abs(midway.edgeGlow - 1.5) < 1e-9, String(midway.edgeGlo
 ok('colours lerp', midway.color1 === '#808080', midway.color1);
 ok('selects snap at the midpoint', midway.shape === 'cube');
 ok('selects hold before the midpoint', interpolateParams(A, B, DEFS, 0.49).shape === 'sphere');
+ok('geometry numbers hold before the midpoint',
+  interpolateParams(A, B, DEFS, 0.49).segments === 8);
+ok('geometry numbers snap once at the midpoint',
+  interpolateParams(A, B, DEFS, 0.5).segments === 48);
+ok('rate numbers hold before the midpoint',
+  interpolateParams(A, B, DEFS, 0.49).rotSpeed === 0.2);
+ok('rate numbers snap once at the midpoint',
+  interpolateParams(A, B, DEFS, 0.5).rotSpeed === 1.5);
 ok('numbers stay clamped even when eased past 1',
   interpolateParams(A, B, DEFS, 1.3).edgeGlow === 3, String(interpolateParams(A, B, DEFS, 1.3).edgeGlow));
 ok('never emits NaN', (() => {

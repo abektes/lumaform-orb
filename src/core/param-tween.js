@@ -8,6 +8,7 @@
 // Pure — no DOM, no Three.js — so it can be tested in Node.
 
 import { applyEasing } from './easing.js';
+import { isModulatable } from './modulation.js';
 
 const HEX = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
 
@@ -29,17 +30,24 @@ export function interpolateParams(from, to, defs, t) {
     const def = defs?.[key];
     const source = from?.[key];
 
-    if (def?.type === 'number' && typeof source === 'number' && typeof target === 'number') {
+    if (
+      def?.type === 'number' &&
+      isModulatable(key, def) &&
+      typeof source === 'number' &&
+      typeof target === 'number'
+    ) {
       const raw = source + (target - source) * t;
       // A spring overshoots past 1, which would push a parameter outside its
       // declared range; each engine would then clamp it differently.
       const min = Number.isFinite(def.min) ? def.min : -Infinity;
       const max = Number.isFinite(def.max) ? def.max : Infinity;
       out[key] = Math.min(max, Math.max(min, raw));
-    } else if (def?.type === 'color') {
+    } else if (def?.type === 'color' && def.section !== 'geometry') {
       out[key] = lerpHexColor(source, target, Math.min(1, Math.max(0, t)));
     } else {
-      // Selects and anything unrecognised cannot be halfway between two values.
+      // Geometry, rates, selects and anything unrecognised cannot safely be
+      // changed every frame. Snap them once rather than rebuilding geometry or
+      // retroactively rewriting an accumulated angle throughout the tween.
       out[key] = t >= 0.5 ? target : (source ?? target);
     }
   }

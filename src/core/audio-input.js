@@ -17,6 +17,7 @@ export function createAudioInput(options = {}) {
   let streamSource = null;
   let oscillator = null;
   let mode = null;
+  let requestGeneration = 0;
   const follower = createLevelFollower(options);
 
   function ensureContext() {
@@ -40,6 +41,7 @@ export function createAudioInput(options = {}) {
 
   async function startMic() {
     stop();
+    const generation = requestGeneration;
     if (!navigator.mediaDevices?.getUserMedia) {
       console.warn('Microphone capture is not available in this browser.');
       return false;
@@ -49,18 +51,30 @@ export function createAudioInput(options = {}) {
       return false;
     }
 
+    let nextStream = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      nextStream = await navigator.mediaDevices.getUserMedia({
         // Browser processing fights the follower and makes the response depend
         // on the browser's guesses rather than on the actual signal.
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
+      if (generation !== requestGeneration || !context || context.state === 'closed') {
+        nextStream.getTracks().forEach((track) => track.stop());
+        return false;
+      }
       if (context.state === 'suspended') await context.resume();
+      if (generation !== requestGeneration) {
+        nextStream.getTracks().forEach((track) => track.stop());
+        return false;
+      }
+      stream = nextStream;
       streamSource = context.createMediaStreamSource(stream);
       streamSource.connect(analyser);
       mode = 'mic';
       return true;
     } catch (error) {
+      nextStream?.getTracks().forEach((track) => track.stop());
+      if (generation !== requestGeneration) return false;
       console.warn('Microphone access was refused or failed.', error);
       stop();
       return false;
@@ -89,6 +103,7 @@ export function createAudioInput(options = {}) {
   }
 
   function stop() {
+    requestGeneration += 1;
     streamSource?.disconnect();
     streamSource = null;
     if (stream) {
