@@ -9,6 +9,7 @@ import { createNebulaEngine } from './engines/nebula-engine.js';
 import { createQuantumEngine } from './engines/quantum-engine.js';
 import { createSingularityEngine } from './engines/singularity-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
+import { createGridHud } from './ui/grid-hud.js';
 
 import { PRESET_LIBRARY } from './presets/preset-library.js';
 
@@ -76,12 +77,28 @@ function downloadGridSelection() {
   URL.revokeObjectURL(link.href);
 }
 
+let gridHud = null;
+
+// The HUD shows how many cells are marked, but marking happens on a pointerdown
+// handled inside OrbStudio, so poll rather than threading a callback through.
+let markedPollId = null;
+
+function syncMarkedCount() {
+  if (!gridHud || !studio.grid) return;
+  gridHud.setMarked(studio.grid.cells.filter((c) => c.selected).length);
+}
+
 function toggleGrid() {
   if (studio.isGridMode) {
     studio.exitGridMode();
     studio.setEngine(state.engine, state);
     ui.root.classList.remove('grid-mode');
     ui.render();
+
+    clearInterval(markedPollId);
+    markedPollId = null;
+    gridHud?.destroy();
+    gridHud = null;
   } else {
     // Promoting a cell adopts both its look and its motion patch.
     studio.onGridPromote = ({ params, modulation }) => {
@@ -94,6 +111,20 @@ function toggleGrid() {
     // bar stays so the Grid button remains reachable to exit.
     ui.root.classList.add('grid-mode');
     ui.render();
+
+    gridHud = createGridHud({
+      initialRadius: GRID_RADII[gridRadiusIndex],
+      onChange: ({ sections, radius }) => {
+        gridRadiusIndex = Math.max(0, GRID_RADII.indexOf(radius));
+        studio.reseedGrid({ radius, sections });
+      },
+      onReseed: () => studio.reseedGrid({}),
+      onExport: () => downloadGridSelection(),
+      onExit: () => toggleGrid(),
+    });
+    // ui.root is pointer-events:none; the HUD sets pointer-events:auto itself.
+    ui.root.appendChild(gridHud.element);
+    markedPollId = setInterval(syncMarkedCount, 200);
   }
 }
 
@@ -110,6 +141,7 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     gridRadiusIndex = (gridRadiusIndex + 1) % GRID_RADII.length;
     studio.reseedGrid({ radius: GRID_RADII[gridRadiusIndex] });
+    gridHud?.setRadius(GRID_RADII[gridRadiusIndex]);
   } else if (studio.isGridMode && e.code === 'KeyT') {
     e.preventDefault();
     studio.grid.triggerEnvelopes();
