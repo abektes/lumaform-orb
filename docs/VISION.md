@@ -45,7 +45,7 @@ Four capabilities, in rough priority order:
 
 **Motion shape, not just motion speed.** Every engine natively drives motion as `rate × linearTime`, which means the only native axis is faster/slower. Character lives in *shape* — acceleration, hesitation, settle, irregularity. *(Built: the modulation rack — LFO / noise / envelope routed onto parameters and tempo.)*
 
-**Comparison.** Motion cannot be judged from a still frame, and cannot be compared from memory. Two designs must be viewable against each other, ideally without the animation restarting. *(Partly built: the grid compares nine at once. A/B compare of two configs is planned, not built.)*
+**Comparison.** Motion cannot be judged from a still frame, and cannot be compared from memory. Two designs must be viewable against each other, ideally without the animation restarting. *(Built: the grid compares nine at once with per-cell clocks; `1`/`2` store two configs and `` ` `` swaps between them without rebuilding the engine, so the animation never restarts; `K` ladders one parameter across five cells.)*
 
 **Capture.** Exploration produces a stream of near-misses and occasional hits. Without frictionless "keep this", exploration is amnesia. *(Built: JSON export of the current config and of marked grid cells. See §6 on what that format is and isn't.)*
 
@@ -116,6 +116,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 
 - **Verify, don't assert.** Claims about behaviour need a command and its output. Several bugs in this repo survived because something *looked* right.
 - **Beware the hidden browser pane.** If the pane isn't displayed, `requestAnimationFrame` never fires, the render loop is frozen, and the app looks broken. `studio.fpsTracker.fps` still reports its default `60`, so it is not a liveness signal. Step frames manually with `studio.renderFrame()`.
+- **CSS transitions are frozen too.** A hidden page produces no frames, so a transitioning property never advances and `getComputedStyle()` keeps returning the *starting* value indefinitely. Asserting on an animated property in a hidden pane produces confident, repeatable, wrong answers. Set `element.style.transition = 'none'` before measuring, or assert on the matching rule rather than the computed value.
 - **Tests are plain Node scripts** in `tests/`, run with `node tests/<name>.test.mjs`. No framework. Pure logic (mutation, modulation maths, config parsing) is extracted into DOM-free modules specifically so it can be tested this way. Keep doing that.
 - **The build must pass:** `npx vite build`.
 - **Commit in coherent slices** with messages that explain *why*, not just what changed.
@@ -132,7 +133,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 | Modulation | LFO / fbm noise / envelope → parameters and tempo; Motion Lab tab |
 | Variation grid | 3×3, per-cell patch + clock, promote, mark, export |
 | Capture | JSON export (config + marked cells), PNG snapshot, localStorage presets |
-| Import | Single config only; **drops modulation** — see the config-round-trip plan |
-| A/B compare | Not built — planned |
-| Parameter sweep | Not built — planned |
-| Section-locked mutation | Supported by `mutateParams()`, **not reachable from the UI** — planned |
+| Import | Single config or grid array; restores modulation; validates against the schema |
+| A/B compare | Built — `1`/`2` store, `` ` `` swaps without rebuilding the engine |
+| Parameter sweep | Built — `K` ladders one parameter across 5 cells |
+| Section-locked mutation | Built — chips in the grid HUD |

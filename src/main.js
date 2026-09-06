@@ -70,6 +70,14 @@ const abReadout = document.createElement('div');
 abReadout.className = 'ab-readout hidden';
 document.body.appendChild(abReadout);
 
+// Name the slot that is still empty, rather than assuming A is always filled
+// first — pressing 2 before 1 used to produce "press 2 to fill B".
+function abHint() {
+  const empty = ['a', 'b'].find((slot) => !ab.has(slot));
+  if (!empty) return '` to swap';
+  return `press ${empty === 'a' ? '1' : '2'} to fill ${empty.toUpperCase()}`;
+}
+
 function refreshAbReadout(justSwapped = false) {
   const filled = ['a', 'b'].filter((s) => ab.has(s));
   if (!filled.length) {
@@ -83,7 +91,7 @@ function refreshAbReadout(justSwapped = false) {
       const active = ab.activeSlot === slot && stored;
       return `<span class="ab-slot ${active ? 'active' : ''} ${stored ? '' : 'empty'}">${slot.toUpperCase()}</span>`;
     })
-    .join('') + `<span class="ab-hint">${ab.has('a') && ab.has('b') ? '` to swap' : 'press 2 to fill B'}</span>`;
+    .join('') + `<span class="ab-hint">${abHint()}</span>`;
 
   if (justSwapped) {
     abReadout.classList.remove('flash');
@@ -228,8 +236,12 @@ function toggleGrid() {
       onExport: () => downloadGridSelection(),
       onExit: () => toggleGrid(),
     });
-    // ui.root is pointer-events:none; the HUD sets pointer-events:auto itself.
-    ui.root.appendChild(gridHud.element);
+    // Mounted on document.body, not ui.root: StudioUI.render() assigns
+    // root.innerHTML, so anything parented there is destroyed by the next
+    // re-render — and Randomize, Export and the engine dropdown all stay
+    // clickable in the top bar during grid mode. The A/B readout and sweep
+    // caption are mounted the same way for the same reason.
+    document.body.appendChild(gridHud.element);
     markedPollId = setInterval(syncMarkedCount, 200);
   }
 }
@@ -239,6 +251,12 @@ ui.onToggleGrid = toggleGrid;
 
 window.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+  // Never claim a modified chord. These are all bare-key shortcuts, and matching
+  // on e.code alone would swallow Cmd+1 (switch browser tab), Cmd+` (cycle
+  // windows), Cmd+K (focus search) and Cmd+G (find next) along with them.
+  // StudioUI's own KeyS binding already guards this way.
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
 
   // A/B slots. Skipped in grid mode, where digits and backquote are free for
   // future cell selection and the single-orb view isn't on screen anyway.

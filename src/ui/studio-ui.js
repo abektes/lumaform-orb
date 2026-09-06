@@ -120,6 +120,12 @@ export class StudioUI {
   toggleZenMode() {
     this.isZenMode = !this.isZenMode;
     this.root.classList.toggle('zen-hidden', this.isZenMode);
+    // The grid HUD, A/B readout and sweep caption are mounted on document.body
+    // rather than inside root (root.innerHTML is replaced on every render), so
+    // they sit outside the .zen-hidden subtree. Mirror the flag onto body so
+    // they can be hidden by a plain descendant rule — a sibling combinator here
+    // would depend on the order overlays happen to be appended in.
+    document.body.classList.toggle('zen-hidden', this.isZenMode);
 
     let hint = document.getElementById('zen-hint');
     if (this.isZenMode) {

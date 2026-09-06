@@ -1350,7 +1350,10 @@ kbd {
    grid mode so this is the only control surface available over the cells.
    --------------------------------------------------------------------------- */
 .grid-hud {
-  position: absolute;
+  /* Fixed, not absolute: the HUD is mounted on document.body (out of reach of
+     StudioUI.render(), which replaces root.innerHTML) and body is not a
+     positioned ancestor. */
+  position: fixed;
   top: 88px;
   left: 50%;
   transform: translateX(-50%);
@@ -1563,4 +1566,25 @@ kbd {
 .import-file-label:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+/* ---------------------------------------------------------------------------
+   Zen mode hides the whole UI, but these three overlays are mounted on
+   document.body rather than inside .studio-ui-root so that StudioUI.render()
+   cannot destroy them. That puts them outside the .zen-hidden subtree, so fade
+   them out via a class mirrored onto <body> by toggleZenMode(). A sibling
+   combinator would work only for whichever order the overlays happen to be
+   appended in, which is not stable.
+   --------------------------------------------------------------------------- */
+body.zen-hidden .grid-hud,
+body.zen-hidden .ab-readout,
+body.zen-hidden .sweep-caption {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.grid-hud,
+.ab-readout,
+.sweep-caption {
+  transition: opacity 0.3s ease;
 }
