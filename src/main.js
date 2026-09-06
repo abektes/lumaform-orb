@@ -1,62 +1,55 @@
-import GUI from 'lil-gui';
-import * as THREE from 'three';
-import { createLiquidParticles } from './demos/liquid-particles.js';
-import { createQuantumCube } from './demos/quantum-cube.js';
-import { createSmoothOrb } from './demos/smooth-orb.js';
+import { OrbStudio } from './core/studio.js';
+import { ENGINE_TYPES, createInitialState } from './core/state.js';
+import { createTesseractEngine } from './engines/tesseract-engine.js';
+import { createAurisEngine } from './engines/auris-engine.js';
+import { createHopfEngine } from './engines/hopf-engine.js';
+import { createPolytopeEngine } from './engines/polytope-engine.js';
+import { createNebulaEngine } from './engines/nebula-engine.js';
+import { createQuantumEngine } from './engines/quantum-engine.js';
+import { createSingularityEngine } from './engines/singularity-engine.js';
+import { StudioUI } from './ui/studio-ui.js';
 
-const DEMO_IDS = {
-  SMOOTH_ORB: 'Smooth AI Orb',
-  QUANTUM_CUBE: 'Quantum Cube',
-  LIQUID_PARTICLES: 'Liquid Particles',
-};
-
-const demos = {
-  [DEMO_IDS.SMOOTH_ORB]: createSmoothOrb,
-  [DEMO_IDS.QUANTUM_CUBE]: createQuantumCube,
-  [DEMO_IDS.LIQUID_PARTICLES]: createLiquidParticles,
-};
+import { PRESET_LIBRARY } from './presets/preset-library.js';
 
 const container = document.getElementById('container');
-const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-  powerPreference: 'high-performance',
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-container.appendChild(renderer.domElement);
+const state = createInitialState();
 
-const clock = new THREE.Clock();
-const appState = { demo: DEMO_IDS.SMOOTH_ORB };
-
-let gui = null;
-let activeDemo = null;
-
-function buildGui() {
-  gui?.destroy();
-  gui = new GUI({ title: 'Prototype' });
-  gui
-    .add(appState, 'demo', Object.values(DEMO_IDS))
-    .name('Demo')
-    .onChange((demoId) => {
-      switchDemo(demoId);
-    });
+// Check for preset query parameter in URL
+const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+const reqPresetName = urlParams?.get('preset');
+if (reqPresetName) {
+  const matchedPreset = PRESET_LIBRARY.find(
+    (p) => p.name.toLowerCase() === reqPresetName.toLowerCase() || p.badge?.toLowerCase() === reqPresetName.toLowerCase()
+  );
+  if (matchedPreset) {
+    state.engine = matchedPreset.engine;
+    state.activePresetName = matchedPreset.name;
+    if (matchedPreset.global) Object.assign(state.global, matchedPreset.global);
+    if (matchedPreset.params) Object.assign(state.engines[matchedPreset.engine], matchedPreset.params);
+  }
 }
 
-function switchDemo(demoId) {
-  activeDemo?.dispose();
-  buildGui();
-  activeDemo = demos[demoId]({ container, renderer, gui });
-  activeDemo.resize();
-  gui.close();
-}
+// Initialize Three.js Studio Core
+const studio = new OrbStudio(container);
 
-function animate() {
-  requestAnimationFrame(animate);
-  activeDemo?.update(clock.getElapsedTime());
-}
+// Register Generator Engines
+studio.registerEngine(ENGINE_TYPES.TESSERACT, createTesseractEngine);
+studio.registerEngine(ENGINE_TYPES.AURIS, createAurisEngine);
+studio.registerEngine(ENGINE_TYPES.HOPF, createHopfEngine);
+studio.registerEngine(ENGINE_TYPES.POLYTOPE, createPolytopeEngine);
+studio.registerEngine(ENGINE_TYPES.NEBULA, createNebulaEngine);
+studio.registerEngine(ENGINE_TYPES.QUANTUM, createQuantumEngine);
+studio.registerEngine(ENGINE_TYPES.SINGULARITY, createSingularityEngine);
 
-window.addEventListener('resize', () => {
-  activeDemo?.resize();
+// Initialize Studio UI
+const ui = new StudioUI(document.body, studio, state, (updatedState) => {
+  studio.setEngine(updatedState.engine, updatedState);
 });
 
-switchDemo(appState.demo);
-animate();
+// Activate Initial Engine
+studio.setEngine(state.engine, state);
+
+// Update live FPS in UI
+setInterval(() => {
+  ui.updateFps(studio.fpsTracker.fps);
+}, 250);
