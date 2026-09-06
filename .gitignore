@@ -1,2 +1,6 @@
 node_modules
 dist
+
+# Local scratch and tooling artifacts, not part of the studio
+scratch
+gstack-design-review

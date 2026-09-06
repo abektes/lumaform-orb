@@ -32,3 +32,17 @@ export function createClickPulse(domElement, onPulse) {
     },
   };
 }
+
+export function createDoubleClickHandler(domElement, onDoubleClick) {
+  function onDblClick() {
+    onDoubleClick();
+  }
+
+  domElement.addEventListener('dblclick', onDblClick);
+
+  return {
+    dispose() {
+      domElement.removeEventListener('dblclick', onDblClick);
+    },
+  };
+}
