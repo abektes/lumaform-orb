@@ -9,6 +9,7 @@ import { createFpsTracker } from '../shared/fps.js';
 import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { createVariationGrid } from './variation-grid.js';
+import { isSweepable, sweepValues } from './sweep.js';
 
 export class OrbStudio {
   constructor(containerElement, options = {}) {
@@ -68,6 +69,7 @@ export class OrbStudio {
     this.gridRadius = 0.25;
     this.gridSections = null;
     this.onGridPromote = null;
+    this.sweepInfo = null;
 
     this.handleGridPointer = (event) => {
       if (!this.grid) return;
@@ -404,6 +406,48 @@ export class OrbStudio {
     return this.grid;
   }
 
+  // A sweep is the variation grid with a deterministic ramp instead of mutation:
+  // one row, N cells, one parameter walked from min to max. It reuses this.grid
+  // so grid mode's render branch, exit path and pointer handling all apply.
+  enterSweepMode(state, { paramKey, steps = 5 } = {}) {
+    const type = state.engine;
+    const factory = this.engineConstructors.get(type);
+    if (!factory) {
+      console.error(`Engine type "${type}" not registered.`);
+      return null;
+    }
+
+    const defs = ENGINE_PARAM_DEFINITIONS[type] || {};
+    const def = defs[paramKey];
+    if (!isSweepable(def)) {
+      console.warn(`Parameter "${paramKey}" is not sweepable on engine "${type}".`);
+      return null;
+    }
+
+    const values = sweepValues(def, steps);
+    const base = state.engines[type];
+
+    this.exitGridMode();
+    this.controls.enabled = false;
+
+    this.grid = createVariationGrid({
+      renderer: this.renderer,
+      engineFactory: factory,
+      engineType: type,
+      baseParams: base,
+      globalSettings: state.global,
+      modulation: state.modulation,
+      defs,
+      cols: values.length,
+      rows: 1,
+      cellFactory: (index) => ({ params: { ...base, [paramKey]: values[index] } }),
+    });
+    this.grid.populate();
+
+    this.sweepInfo = { key: paramKey, label: def.label, values };
+    return this.sweepInfo;
+  }
+
   reseedGrid({ radius, sections } = {}) {
     if (!this.grid) return;
     if (radius !== undefined) this.gridRadius = radius;
@@ -415,6 +459,7 @@ export class OrbStudio {
     if (!this.grid) return;
     this.grid.dispose();
     this.grid = null;
+    this.sweepInfo = null;
     this.controls.enabled = true;
     this.renderer.setScissorTest(false);
     this.onWindowResize();
