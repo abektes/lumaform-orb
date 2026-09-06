@@ -10,6 +10,9 @@ import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { createVariationGrid } from './variation-grid.js';
 import { isSweepable, sweepValues } from './sweep.js';
+import { createParamTween } from './param-tween.js';
+import { createAudioInput } from './audio-input.js';
+import { createClipRecorder } from './clip-recorder.js';
 
 export class OrbStudio {
   constructor(containerElement, options = {}) {
@@ -70,6 +73,14 @@ export class OrbStudio {
     this.gridSections = null;
     this.onGridPromote = null;
     this.sweepInfo = null;
+    // Created lazily: constructing an AudioContext before a user gesture is
+    // wasteful and some browsers start it suspended anyway.
+    this.audioInput = null;
+    // Sessions that never record should never create a canvas capture stream.
+    this.clipRecorder = null;
+    // Tweens move baseParams, so the modulation rack keeps layering on top of a
+    // moving base rather than fighting it.
+    this.paramTween = createParamTween();
 
     this.handleGridPointer = (event) => {
       if (!this.grid) return;
@@ -180,6 +191,8 @@ export class OrbStudio {
     this.baseParams = { ...state.engines[type] };
     this.paramDefs = ENGINE_PARAM_DEFINITIONS[type] || {};
     this.lastModulated = {};
+    // A tween in flight targets the previous engine's parameters.
+    this.paramTween.cancel();
 
     this.syncModulation(state);
     this.updateGlobalSettings(state.global);
@@ -209,11 +222,28 @@ export class OrbStudio {
     }
   }
 
+  // Travel from the current base to `targetParams`. Passing durationMs 0 is a
+  // hard cut, which is what A/B did before transitions existed.
+  tweenTo(targetParams, { durationMs = 400, easing = 'easeOut' } = {}) {
+    if (durationMs <= 0) {
+      Object.assign(this.baseParams, targetParams);
+      this.paramTween.cancel();
+      return;
+    }
+    this.paramTween.start({ ...this.baseParams }, targetParams, this.paramDefs, { durationMs, easing });
+  }
+
   // Modulation lives in app state so it round-trips through export and presets.
   // Called from both setEngine and updateParameters so the rack always reflects
   // whatever the Motion Lab last wrote.
   syncModulation(state) {
-    if (state?.modulation) this.modulation.setConfig(state.modulation);
+    if (state?.modulation) {
+      this.modulation.setConfig(state.modulation);
+      const audio = state.modulation.sources?.audio1;
+      if (audio && this.audioInput) {
+        this.audioInput.setOptions({ attack: audio.attack, release: audio.release });
+      }
+    }
   }
 
   updateGlobalSettings(global) {
@@ -333,11 +363,31 @@ export class OrbStudio {
     const delta = this.clock.getDelta();
     this.fpsTracker.tick();
 
+    // Advance before evaluating the rack so modulation reads this frame's base.
+    // Real milliseconds, not virtualTime: a transition's duration should not
+    // change when playback speed does.
+    if (this.paramTween.isRunning) {
+      const tweened = this.paramTween.advance(delta * 1000);
+      if (tweened) {
+        Object.assign(this.baseParams, tweened);
+        this.applyModulatedParams({});
+        if (typeof this.activeEngine?.setParams === 'function') {
+          this.activeEngine.setParams(tweened);
+        } else if (typeof this.activeEngine?.onParamsChange === 'function') {
+          this.activeEngine.onParamsChange(tweened);
+        }
+      }
+    }
+
     // Modulation is evaluated against the *previous* virtualTime, then its tempo
     // multiplier is integrated into the next step. Integrating (rather than
     // assigning a rate) is what lets tempo hesitate and accelerate without the
     // geometry jumping — engines compute angle as `time * rate`, so a rate that
     // changes mid-flight would retroactively rewrite the accumulated angle.
+    // Sample first so audio routes see this frame's level, not the previous one.
+    if (this.audioInput?.isActive) {
+      this.modulation.setAudioLevel(this.audioInput.read());
+    }
     const mod = this.modulation.apply(this.baseParams, this.paramDefs, this.virtualTime);
 
     if (!this.isPaused) {
@@ -377,6 +427,56 @@ export class OrbStudio {
   }
 
   // --- variation grid ------------------------------------------------------
+
+  // A refused microphone is a normal outcome, not an error.
+  async enableAudio(mode = 'mic') {
+    const audio = this.modulation.config.sources?.audio1 || {};
+    if (!this.audioInput) {
+      this.audioInput = createAudioInput({
+        attack: audio.attack ?? 0.5,
+        release: audio.release ?? 0.12,
+      });
+    } else {
+      this.audioInput.setOptions({
+        attack: audio.attack ?? 0.5,
+        release: audio.release ?? 0.12,
+      });
+    }
+    const started = mode === 'tone'
+      ? this.audioInput.startTestTone()
+      : await this.audioInput.startMic();
+    if (!started) this.modulation.setAudioLevel(0);
+    return started;
+  }
+
+  disableAudio() {
+    this.audioInput?.stop();
+    // Otherwise every audio route freezes at its last value.
+    this.modulation.setAudioLevel(0);
+  }
+
+  ensureClipRecorder() {
+    if (!this.clipRecorder) {
+      this.clipRecorder = createClipRecorder({
+        canvas: this.renderer.domElement,
+        fps: 60,
+        getEngineName: () => this.activeEngineType,
+      });
+    }
+    return this.clipRecorder;
+  }
+
+  get isRecordingClip() {
+    return !!this.clipRecorder?.isRecording;
+  }
+
+  startClip() {
+    return this.ensureClipRecorder().start();
+  }
+
+  stopClip() {
+    return this.clipRecorder ? this.clipRecorder.stop() : Promise.resolve(null);
+  }
 
   enterGridMode(state, { cols = 3, rows = 3, radius = 0.25, sections = null } = {}) {
     const type = state.engine;
@@ -469,49 +569,88 @@ export class OrbStudio {
     return !!this.grid;
   }
 
-  captureSnapshot({ transparent = false, multiplier = 1 } = {}) {
-    const origWidth = window.innerWidth;
-    const origHeight = window.innerHeight;
-    const targetWidth = Math.round(origWidth * multiplier);
-    const targetHeight = Math.round(origHeight * multiplier);
-
+  // Fixed-size renders use DPR 1 by default, which makes a 240x150 thumbnail
+  // exactly that size. Snapshots opt back into the live DPR below.
+  renderToDataURL({
+    width,
+    height,
+    transparent = false,
+    mimeType = 'image/png',
+    quality,
+    pixelRatio = 1,
+  } = {}) {
+    const rendererSize = this.renderer.getSize(new THREE.Vector2());
+    const rendererPixelRatio = this.renderer.getPixelRatio();
+    const composerWidth = this.composer._width;
+    const composerHeight = this.composer._height;
+    const composerPixelRatio = this.composer._pixelRatio;
+    const cameraAspect = this.camera.aspect;
+    const targetWidth = Math.max(1, Math.round(width ?? rendererSize.x));
+    const targetHeight = Math.max(1, Math.round(height ?? rendererSize.y));
     const prevClearColor = new THREE.Color();
     this.renderer.getClearColor(prevClearColor);
     const prevClearAlpha = this.renderer.getClearAlpha();
     const prevBg = this.scene.background;
+    let dataUrl;
 
-    if (transparent) {
-      this.renderer.setClearColor(0x000000, 0);
-      this.scene.background = null;
+    try {
+      if (transparent) {
+        this.renderer.setClearColor(0x000000, 0);
+        this.scene.background = null;
+      }
+
+      this.renderer.setPixelRatio(pixelRatio);
+      this.composer.setPixelRatio(pixelRatio);
+      this.renderer.setSize(targetWidth, targetHeight, false);
+      this.composer.setSize(targetWidth, targetHeight);
+      this.camera.aspect = targetWidth / targetHeight;
+      this.camera.updateProjectionMatrix();
+      if (this.activeEngine?.resize) {
+        this.activeEngine.resize(targetWidth, targetHeight);
+      } else {
+        this.activeEngine?.onResize?.(targetWidth, targetHeight);
+      }
+
+      this.composer.render();
+      dataUrl = this.renderer.domElement.toDataURL(mimeType, quality);
+    } finally {
+      // Canvas encoding can fail (for example after a cross-origin texture).
+      // Restoration still has to happen or the live studio remains thumbnail-sized.
+      this.renderer.setClearColor(prevClearColor, prevClearAlpha);
+      this.scene.background = prevBg;
+      this.renderer.setPixelRatio(rendererPixelRatio);
+      this.composer.setPixelRatio(composerPixelRatio);
+      this.renderer.setSize(rendererSize.x, rendererSize.y, false);
+      this.composer.setSize(composerWidth, composerHeight);
+      this.camera.aspect = cameraAspect;
+      this.camera.updateProjectionMatrix();
+      if (this.activeEngine?.resize) {
+        this.activeEngine.resize(rendererSize.x, rendererSize.y);
+      } else {
+        this.activeEngine?.onResize?.(rendererSize.x, rendererSize.y);
+      }
     }
 
-    // Temporarily resize
-    this.renderer.setSize(targetWidth, targetHeight, false);
-    this.composer.setSize(targetWidth, targetHeight);
-    this.camera.aspect = targetWidth / targetHeight;
-    this.camera.updateProjectionMatrix();
+    return dataUrl;
+  }
 
-    if (this.activeEngine?.resize) {
-      this.activeEngine.resize(targetWidth, targetHeight);
-    }
+  captureThumbnail() {
+    return this.renderToDataURL({
+      width: 240,
+      height: 150,
+      mimeType: 'image/jpeg',
+      quality: 0.72,
+    });
+  }
 
-    // Render snapshot
-    this.composer.render();
-    const dataUrl = this.renderer.domElement.toDataURL('image/png');
+  captureSnapshot({ transparent = false, multiplier = 1 } = {}) {
+    const dataUrl = this.renderToDataURL({
+      width: window.innerWidth * multiplier,
+      height: window.innerHeight * multiplier,
+      transparent,
+      pixelRatio: this.renderer.getPixelRatio(),
+    });
 
-    // Restore
-    this.renderer.setClearColor(prevClearColor, prevClearAlpha);
-    this.scene.background = prevBg;
-    this.renderer.setSize(origWidth, origHeight, false);
-    this.composer.setSize(origWidth, origHeight);
-    this.camera.aspect = origWidth / origHeight;
-    this.camera.updateProjectionMatrix();
-
-    if (this.activeEngine?.resize) {
-      this.activeEngine.resize(origWidth, origHeight);
-    }
-
-    // Trigger download
     const link = document.createElement('a');
     link.download = `orb-${this.activeEngineType}-${Date.now()}.png`;
     link.href = dataUrl;
@@ -525,7 +664,9 @@ export class OrbStudio {
     window.removeEventListener('resize', this.handleResize);
     this.clickPulseTracker?.dispose();
     this.pointerTracker?.dispose();
+    this.audioInput?.dispose();
     this.renderer.domElement.removeEventListener('pointerdown', this.handleGridPointer);
+    this.clipRecorder?.dispose();
     this.exitGridMode();
     this.controls.dispose();
     this.activeEngine?.dispose();

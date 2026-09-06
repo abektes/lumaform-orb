@@ -2,7 +2,7 @@
 //
 // Every engine in this project drives motion as `rate * linearTime`, so the only
 // thing you can explore is faster/slower. This layer adds the missing axis: shape.
-// Sources (LFO / noise / envelope) are patched to destinations (parameters), and
+// Sources (LFO / noise / envelope / audio) are patched to destinations (parameters), and
 // the studio applies the result per frame before handing params to the engine.
 //
 // Pure — no THREE, no DOM — so it can be exercised directly in node.
@@ -119,6 +119,8 @@ export function createDefaultModulation() {
       lfo1: { type: 'lfo', shape: 'sine', rate: 0.5, phase: 0 },
       noise1: { type: 'noise', rate: 0.35, octaves: 3, seed: 1 },
       env1: { type: 'env', attack: 0.08, hold: 0.06, decay: 0.9 },
+      // Inert until an audio input is attached and pushes a level in.
+      audio1: { type: 'audio', gain: 1, attack: 0.5, release: 0.12 },
     },
     routes: [],
   };
@@ -129,6 +131,9 @@ export function createDefaultModulation() {
 export function createModulationRack(initialConfig) {
   let config = initialConfig || createDefaultModulation();
   let triggerTime = -Infinity;
+  // Pushed in from outside once per frame by the studio. Stays 0 when no audio
+  // input is attached, which makes audio routes inert rather than broken.
+  let audioLevel = 0;
 
   function evaluateSources(time) {
     const out = {};
@@ -139,6 +144,9 @@ export function createModulationRack(initialConfig) {
         out[id] = fbm(time * (src.rate ?? 0.35), src.octaves ?? 3, src.seed ?? 0);
       } else if (src.type === 'env') {
         out[id] = envelopeValue(time - triggerTime, src);
+      } else if (src.type === 'audio') {
+        // [0, 1] like an envelope — an amplitude has no meaningful negative half.
+        out[id] = Math.min(1, Math.max(0, audioLevel * (src.gain ?? 1)));
       } else {
         out[id] = 0;
       }
@@ -155,6 +163,12 @@ export function createModulationRack(initialConfig) {
     },
     trigger(time) {
       triggerTime = time;
+    },
+    setAudioLevel(level) {
+      audioLevel = Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 0;
+    },
+    get audioLevel() {
+      return audioLevel;
     },
     evaluateSources,
 

@@ -9,6 +9,7 @@ import {
 } from '../core/state.js';
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
 import { parseConfigFile, applyConfig } from '../core/config-io.js';
+import { createFindingsStore, makeFinding } from '../core/findings.js';
 import { highlightJs, ensureHighlighter } from './highlight.js';
 import {
   LFO_SHAPES,
@@ -16,6 +17,21 @@ import {
   listModulationTargets,
   createDefaultModulation,
 } from '../core/modulation.js';
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char]);
+}
+
+function safeThumbnail(value) {
+  const src = String(value ?? '');
+  return /^data:image\/(?:jpeg|png);base64,/i.test(src) ? escapeHtml(src) : '';
+}
 
 const ICONS = {
   dice: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="8.5" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="8.5" cy="15.5" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="15.5" r="1.5" fill="currentColor"></circle></svg>`,
@@ -43,11 +59,18 @@ export class StudioUI {
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const reqTab = urlParams?.get('tab');
-    const validTabs = ['presets', 'colors', 'geometry', 'motion', 'motionlab', 'optics', 'space', 'export', 'perf'];
+    const validTabs = ['presets', 'findings', 'colors', 'geometry', 'motion', 'motionlab', 'optics', 'space', 'export', 'perf'];
     this.activeTab = validTabs.includes(reqTab) ? reqTab : 'presets';
     this.initialOpenDropdown = urlParams?.get('openDropdown') === 'true';
     this.isZenMode = false;
     this.isSidebarOpen = true;
+    let findingsStorage = null;
+    try {
+      findingsStorage = window.localStorage;
+    } catch (err) {
+      console.warn('Findings storage is unavailable', err);
+    }
+    this.findings = createFindingsStore(findingsStorage);
 
     this.initElements();
     this.bindEvents();
@@ -286,6 +309,7 @@ export class StudioUI {
       <aside class="studio-inspector ${this.isSidebarOpen ? '' : 'collapsed'}">
         <div class="inspector-tabs">
           <button class="tab-btn ${this.activeTab === 'presets' ? 'active' : ''}" data-tab="presets">Presets</button>
+          <button class="tab-btn ${this.activeTab === 'findings' ? 'active' : ''}" data-tab="findings">Findings</button>
           <button class="tab-btn ${this.activeTab === 'colors' ? 'active' : ''}" data-tab="colors">Colors</button>
           <button class="tab-btn ${this.activeTab === 'geometry' ? 'active' : ''}" data-tab="geometry">Geometry</button>
           <button class="tab-btn ${this.activeTab === 'motion' ? 'active' : ''}" data-tab="motion">Motion</button>
@@ -306,6 +330,7 @@ export class StudioUI {
     this.attachTabListeners();
     this.attachControlListeners();
     this.attachMotionLabListeners();
+    this.attachFindingsListeners();
   }
 
   attachTopBarListeners() {
@@ -443,6 +468,8 @@ export class StudioUI {
     switch (this.activeTab) {
       case 'presets':
         return this.renderPresetsTab();
+      case 'findings':
+        return this.renderFindingsTab();
       case 'colors':
         return this.renderParamsSection('colors');
       case 'geometry':
@@ -770,10 +797,21 @@ export class StudioUI {
   //
   // Every engine drives motion as `rate * linearTime`, so plain sliders can only
   // explore faster/slower. This tab is where shape comes from: sources (LFO,
-  // noise, envelope) routed onto destinations.
+  // noise, envelope, audio) routed onto destinations.
 
   modConfig() {
     if (!this.state.modulation) this.state.modulation = createDefaultModulation();
+    // Captures made before audio reactivity have no audio source. Add only that
+    // source in place so their existing routes and source settings stay intact.
+    if (!this.state.modulation.sources) this.state.modulation.sources = {};
+    if (!this.state.modulation.sources.audio1) {
+      this.state.modulation.sources.audio1 = {
+        type: 'audio',
+        gain: 1,
+        attack: 0.5,
+        release: 0.12,
+      };
+    }
     return this.state.modulation;
   }
 
@@ -795,6 +833,7 @@ export class StudioUI {
     const lfo = src.lfo1 || {};
     const noise = src.noise1 || {};
     const env = src.env1 || {};
+    const audio = src.audio1 || {};
 
     const slider = (attr, label, value, min, max, step) => `
       <div class="control-row slider-control">
@@ -851,6 +890,21 @@ export class StudioUI {
             <label class="ctrl-label">Fire Envelope</label>
             <button class="btn-sm btn-accent" id="btn-mod-trigger">Trigger</button>
           </div>
+          <div class="control-row">
+            <label class="ctrl-label">Audio Input</label>
+            <div class="audio-input-row">
+              <button class="btn-sm ${this.studio.audioInput?.mode === 'mic' ? 'btn-accent' : ''}" id="btn-audio-mic">Mic</button>
+              <button class="btn-sm ${this.studio.audioInput?.mode === 'tone' ? 'btn-accent' : ''}" id="btn-audio-tone">Test Tone</button>
+              <button class="btn-sm" id="btn-audio-off">Off</button>
+            </div>
+          </div>
+          <div class="control-row">
+            <label class="ctrl-label">Audio Level</label>
+            <div class="audio-meter"><div class="audio-meter-fill" id="audio-meter-fill"></div></div>
+          </div>
+          ${slider('data-mod-src="audio1" data-mod-field="gain"', 'Audio Gain', audio.gain ?? 1, 0, 4, 0.05)}
+          ${slider('data-mod-src="audio1" data-mod-field="attack"', 'Audio Attack', audio.attack ?? 0.5, 0, 1, 0.01)}
+          ${slider('data-mod-src="audio1" data-mod-field="release"', 'Audio Release', audio.release ?? 0.12, 0, 1, 0.01)}
         </div>
       </div>
 
@@ -896,6 +950,38 @@ export class StudioUI {
       this.studio.modulation.trigger(this.studio.virtualTime);
     });
 
+    this.root.querySelector('#btn-audio-mic')?.addEventListener('click', async () => {
+      const started = await this.studio.enableAudio('mic');
+      if (!started) alert('Could not access the microphone. Check the browser permission prompt.');
+      mod.enabled = true;
+      commit(true);
+    });
+
+    this.root.querySelector('#btn-audio-tone')?.addEventListener('click', async () => {
+      await this.studio.enableAudio('tone');
+      mod.enabled = true;
+      commit(true);
+    });
+
+    this.root.querySelector('#btn-audio-off')?.addEventListener('click', () => {
+      this.studio.disableAudio();
+      commit(true);
+    });
+
+    clearInterval(this._audioMeterId);
+    this._audioMeterId = null;
+    if (this.root.querySelector('#audio-meter-fill')) {
+      this._audioMeterId = setInterval(() => {
+        const fill = this.root.querySelector('#audio-meter-fill');
+        if (!fill) {
+          clearInterval(this._audioMeterId);
+          this._audioMeterId = null;
+          return;
+        }
+        fill.style.width = `${Math.round((this.studio.modulation.audioLevel ?? 0) * 100)}%`;
+      }, 100);
+    }
+
     this.root.querySelector('#btn-mod-add-route')?.addEventListener('click', () => {
       const dests = this.modDestinations();
       mod.routes = mod.routes || [];
@@ -915,6 +1001,9 @@ export class StudioUI {
       el.addEventListener(evt, (e) => {
         const raw = e.target.value;
         mod.sources[id][field] = field === 'shape' ? raw : Number(raw);
+        if (id === 'audio1' && (field === 'attack' || field === 'release')) {
+          this.studio.audioInput?.setOptions({ [field]: Number(raw) });
+        }
         const label = el.parentElement?.querySelector('.ctrl-value');
         if (label) label.textContent = Number(raw).toFixed(2);
         commit(false);
@@ -976,6 +1065,115 @@ export class StudioUI {
       alert(`Loaded 1 of ${result.configs.length} configs in that file (the first).`);
     }
     return true;
+  }
+
+  // A finding is the exported config plus a thumbnail, so the shelf can be
+  // browsed by eye rather than by timestamp.
+  saveFinding(note = '') {
+    const config = this.exportConfig();
+    const entry = makeFinding({
+      engine: config.engine,
+      global: structuredClone(config.global),
+      params: structuredClone(config.params),
+      modulation: structuredClone(config.modulation),
+      thumb: this.studio.captureThumbnail(),
+      note,
+    });
+    this.findings.add(entry);
+    if (this.activeTab === 'findings') this.render();
+    return entry;
+  }
+
+  renderFindingsTab() {
+    const entries = this.findings.list();
+    if (!entries.length) {
+      return `
+        <div class="panel-section">
+          <div class="section-header"><span class="section-title">FINDINGS</span></div>
+          <div class="empty-notice">
+            Nothing kept yet. Press <b>C</b> to stash the current orb with a thumbnail.
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="panel-section">
+        <div class="section-header">
+          <span class="section-title">FINDINGS</span>
+          <span class="section-meta">${entries.length} kept</span>
+        </div>
+        <div class="findings-grid">
+          ${entries.map((entry) => {
+            const id = escapeHtml(entry.id);
+            return `
+              <div class="finding-card" data-finding="${id}">
+                <img class="finding-thumb" src="${safeThumbnail(entry.thumb)}" alt="" loading="lazy" />
+                <div class="finding-meta">
+                  <input class="finding-note" data-finding-note="${id}"
+                         value="${escapeHtml(entry.note)}" placeholder="name this…" />
+                  <span class="finding-engine">${escapeHtml(entry.engine)}</span>
+                </div>
+                <div class="finding-actions">
+                  <button class="btn-sm btn-accent" data-finding-load="${id}">Load</button>
+                  <button class="cp-delete-btn" data-finding-delete="${id}" title="Delete">✕</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <div class="modal-footer-row findings-footer">
+          <button class="btn-sm" id="btn-findings-clear">Clear all</button>
+        </div>
+      </div>
+    `;
+  }
+
+  attachFindingsListeners() {
+    this.root.querySelectorAll('[data-finding-load]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.getAttribute('data-finding-load');
+        const entry = this.findings.list().find((candidate) => candidate.id === id);
+        if (!entry) return;
+        this.importConfigText(JSON.stringify({
+          engine: entry.engine,
+          global: entry.global,
+          params: entry.params,
+          modulation: entry.modulation,
+        }));
+      });
+    });
+
+    this.root.querySelectorAll('[data-finding-delete]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.findings.remove(button.getAttribute('data-finding-delete'));
+        if (this.findings.lastError) {
+          alert('Could not delete that finding from browser storage.');
+          return;
+        }
+        this.render();
+      });
+    });
+
+    this.root.querySelectorAll('[data-finding-note]').forEach((input) => {
+      // Re-rendering on every keystroke would destroy and blur the input.
+      input.addEventListener('change', (event) => {
+        this.findings.rename(input.getAttribute('data-finding-note'), event.target.value);
+        if (this.findings.lastError) {
+          alert('Could not rename that finding in browser storage.');
+        }
+      });
+    });
+
+    this.root.querySelector('#btn-findings-clear')?.addEventListener('click', () => {
+      if (!confirm('Delete every kept finding? This cannot be undone.')) return;
+      this.findings.clear();
+      if (this.findings.lastError) {
+        alert('Could not clear findings from browser storage.');
+        return;
+      }
+      this.render();
+    });
   }
 
   // The exported config is the save format for a finding — dropping the
@@ -1066,6 +1264,7 @@ export class StudioUI {
           <div class="hotkey-row"><kbd>R</kbd> <span>Randomize color palette & math</span></div>
           <div class="hotkey-row"><kbd>H</kbd> <span>Toggle Zen Mode (hide UI)</span></div>
           <div class="hotkey-row"><kbd>S</kbd> <span>Quick PNG snapshot</span></div>
+          <div class="hotkey-row"><kbd>C</kbd> <span>Keep on the findings shelf</span></div>
           <div class="hotkey-row"><kbd>Esc</kbd> <span>Close active modal</span></div>
         </div>
       </div>

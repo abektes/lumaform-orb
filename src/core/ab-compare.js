@@ -1,4 +1,5 @@
-// A/B compare — two configuration slots and an instant swap between them.
+// A/B compare — two configuration slots with an optional transition between
+// them.
 //
 // Motion can't be judged from a still frame or from memory. Flipping between two
 // versions while the animation keeps running surfaces differences that
@@ -36,7 +37,7 @@ export function applySnapshot(state, snapshot) {
   return engineChanged;
 }
 
-export function createAbCompare(studio, state) {
+export function createAbCompare(studio, state, { getTransition = null } = {}) {
   const slots = { a: null, b: null };
   let activeSlot = null;
 
@@ -45,12 +46,23 @@ export function createAbCompare(studio, state) {
     if (!snapshot) return null;
     const engineChanged = applySnapshot(state, snapshot);
     if (engineChanged) {
-      // Unavoidable rebuild: the two slots hold different engines.
+      // Unavoidable rebuild: the two slots hold different engines. Nothing can
+      // be tweened across a dispose, so this is always a cut.
       studio.setEngine(state.engine, state);
     } else {
-      // Same engine — push params into the live engine so rotation phase and
-      // virtualTime survive the flip. That continuity is the whole point.
-      studio.updateParameters(state);
+      const transition = getTransition?.();
+      if (transition && transition.durationMs > 0) {
+        // Global settings and modulation land immediately, while engine
+        // parameters travel from the live base to the stored target.
+        const target = { ...state.engines[state.engine] };
+        studio.syncModulation(state);
+        studio.updateGlobalSettings(state.global);
+        studio.tweenTo(target, transition);
+      } else {
+        // Same engine — push params into the live engine so rotation phase and
+        // virtualTime survive the flip. That continuity is the whole point.
+        studio.updateParameters(state);
+      }
     }
     activeSlot = slot;
     return slot;

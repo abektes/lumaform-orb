@@ -1588,3 +1588,164 @@ body.zen-hidden .sweep-caption {
 .sweep-caption {
   transition: opacity 0.3s ease;
 }
+
+/* The A/B hint carries transition settings once both slots are filled, so it
+   needs more room than the original "` to swap". */
+.ab-readout .ab-hint {
+  max-width: 340px;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Audio input controls and level meter in the Motion Lab.
+   --------------------------------------------------------------------------- */
+.audio-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.audio-meter {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.audio-meter-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--primary));
+  /* This readout should report the signal, not ease behind it. */
+}
+
+/* ---------------------------------------------------------------------------
+   Recording indicator. Top-right, clear of the top bar and grid HUD.
+   --------------------------------------------------------------------------- */
+.clip-indicator {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--panel-bg);
+  border: 1px solid #ef4444;
+  backdrop-filter: blur(20px);
+  border-radius: var(--radius-pill);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ef4444;
+  z-index: 70;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.3s ease;
+}
+
+.clip-indicator.hidden {
+  display: none;
+}
+
+.clip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef4444;
+  animation: clip-pulse 1s ease-in-out infinite;
+}
+
+@keyframes clip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.clip-hint {
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+body.zen-hidden .clip-indicator {
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Findings gallery — browse kept configs by eye rather than by timestamp.
+   --------------------------------------------------------------------------- */
+.findings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finding-card {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.finding-card:hover {
+  border-color: rgba(255, 237, 0, 0.4);
+}
+
+.finding-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  background: #000;
+}
+
+.finding-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 2px;
+}
+
+.finding-note {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  user-select: text;
+}
+
+.finding-note:focus {
+  outline: none;
+  border-bottom-color: var(--primary);
+}
+
+.finding-engine {
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.finding-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 8px;
+}
+
+.finding-actions .btn-sm {
+  flex: 1;
+}
+
+.findings-footer {
+  margin-top: 12px;
+}

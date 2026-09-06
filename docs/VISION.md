@@ -43,11 +43,11 @@ Four capabilities, in rough priority order:
 
 **Variation throughput.** Tuning one orb one slider at a time is a terrible discovery rate. The tool should generate many candidates at once and let you steer toward the interesting ones. *(Built: the 3×3 variation grid — click to promote, shift-click to mark.)*
 
-**Motion shape, not just motion speed.** Every engine natively drives motion as `rate × linearTime`, which means the only native axis is faster/slower. Character lives in *shape* — acceleration, hesitation, settle, irregularity. *(Built: the modulation rack — LFO / noise / envelope routed onto parameters and tempo.)*
+**Motion shape, not just motion speed.** Every engine natively drives motion as `rate × linearTime`, which means the only native axis is faster/slower. Character lives in *shape* — acceleration, hesitation, settle, irregularity. *(Built: the modulation rack — LFO / noise / envelope / live audio routed onto parameters and tempo.)*
 
 **Comparison.** Motion cannot be judged from a still frame, and cannot be compared from memory. Two designs must be viewable against each other, ideally without the animation restarting. *(Built: the grid compares nine at once with per-cell clocks; `1`/`2` store two configs and `` ` `` swaps between them without rebuilding the engine, so the animation never restarts; `K` ladders one parameter across five cells.)*
 
-**Capture.** Exploration produces a stream of near-misses and occasional hits. Without frictionless "keep this", exploration is amnesia. *(Built: JSON export of the current config and of marked grid cells. See §6 on what that format is and isn't.)*
+**Capture.** Exploration produces a stream of near-misses and occasional hits. Without frictionless "keep this", exploration is amnesia. *(Built: JSON export of the current config and of marked grid cells, PNG snapshots, up to 30-second live canvas clips, and a thumbnail findings shelf. See §6 on what the config format is and isn't.)*
 
 ## 5. Architectural invariants
 
@@ -98,7 +98,6 @@ Export currently emits `{ engine, global, params, modulation }`, and the grid em
 Not "forgotten" — actively decided against, for now.
 
 - **The state schema and a `setState()` runtime.** Blocked on §3. This is the eventual destination, not the next step.
-- **Audio reactivity.** An orb that doesn't breathe with mic input or TTS amplitude reads as a screensaver, and this will matter — but it is meaningless before states exist, since the whole point is `speaking`.
 - **Video / WebM export.** A rendered loop per state ships everywhere with no WebGL cost, and may end up being the honest primary export for non-web targets. Premature until there are states to render.
 - **Bloom in grid cells.** Needs per-cell render targets. See §5.
 - **Re-rooting the tab IA on a state axis.** The current tabs are organised by parameter category, which is right for tuning one look and wrong for authoring behaviour. Correct eventually; premature now.
@@ -130,9 +129,9 @@ These are genuinely unresolved. If your work bears on one, say so.
 | --- | --- |
 | Engines | 8, all registered and disposing correctly |
 | Parameter schema | `ENGINE_PARAM_DEFINITIONS` in `src/core/state.js` — drives the entire UI |
-| Modulation | LFO / fbm noise / envelope → parameters and tempo; Motion Lab tab |
+| Modulation | LFO / fbm noise / envelope / live mic or test tone → parameters and tempo; Motion Lab tab |
 | Variation grid | 3×3, per-cell patch + clock, promote, mark, export |
-| Capture | JSON export (config + marked cells), PNG snapshot, localStorage presets |
+| Capture | JSON export (config + marked cells), PNG snapshot, 30s live WebM/MP4 clip recording, localStorage presets, thumbnail findings gallery |
 | Import | Single config or grid array; restores modulation; validates against the schema |
 | A/B compare | Built — `1`/`2` store, `` ` `` swaps without rebuilding the engine |
 | Parameter sweep | Built — `K` ladders one parameter across 5 cells |

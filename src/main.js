@@ -12,6 +12,7 @@ import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
 import { listSweepableParams } from './core/sweep.js';
 import { createAbCompare } from './core/ab-compare.js';
+import { EASING_NAMES } from './core/easing.js';
 
 import { PRESET_LIBRARY } from './presets/preset-library.js';
 
@@ -62,9 +63,79 @@ setInterval(() => {
 // Exploration handle — patch modulation routes from the console without a reload.
 window.__orb = { studio, state, ui };
 
+// --- clip recording ---------------------------------------------------------
+// Mounted on body because StudioUI.render() replaces root.innerHTML.
+const clipIndicator = document.createElement('div');
+clipIndicator.className = 'clip-indicator hidden';
+document.body.appendChild(clipIndicator);
+
+let clipTimerId = null;
+let clipTogglePending = false;
+
+function refreshClipIndicator() {
+  if (!studio.isRecordingClip) {
+    clipIndicator.classList.add('hidden');
+    clearInterval(clipTimerId);
+    clipTimerId = null;
+    return;
+  }
+  clipIndicator.classList.remove('hidden');
+  const seconds = (studio.clipRecorder.elapsedMs / 1000).toFixed(1);
+  clipIndicator.innerHTML =
+    `<span class="clip-dot"></span>REC ${seconds}s <span class="clip-hint">V to stop</span>`;
+}
+
+function downloadClip(result) {
+  if (!result?.blob || result.blob.size === 0) {
+    console.warn('Recording produced no data — was the page visible while recording?');
+    return;
+  }
+  const url = URL.createObjectURL(result.blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = result.filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Some browsers begin consuming the object URL after click() returns.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function toggleClip() {
+  if (clipTogglePending) return;
+  clipTogglePending = true;
+  try {
+    if (studio.isRecordingClip) {
+      const result = await studio.stopClip();
+      refreshClipIndicator();
+      downloadClip(result);
+      return;
+    }
+    if (!studio.startClip()) return;
+    studio.clipRecorder.onAutoStop = (result) => {
+      refreshClipIndicator();
+      downloadClip(result);
+    };
+    refreshClipIndicator();
+    clipTimerId = setInterval(refreshClipIndicator, 100);
+  } finally {
+    clipTogglePending = false;
+  }
+}
+
+window.__orb.toggleClip = toggleClip;
+
 // --- A/B compare ------------------------------------------------------------
 // 1 / 2 store the current config into a slot, backquote flips between them.
-const ab = createAbCompare(studio, state);
+// Transition settings for the A/B swap. Duration 0 is a hard cut, which is how
+// A/B behaved before transitions existed.
+const TRANSITION_DURATIONS = [0, 200, 400, 900];
+let transitionIndex = 2;
+let transitionEasing = 'easeOut';
+
+const ab = createAbCompare(studio, state, {
+  getTransition: () => ({ durationMs: TRANSITION_DURATIONS[transitionIndex], easing: transitionEasing }),
+});
 
 const abReadout = document.createElement('div');
 abReadout.className = 'ab-readout hidden';
@@ -74,7 +145,10 @@ document.body.appendChild(abReadout);
 // first — pressing 2 before 1 used to produce "press 2 to fill B".
 function abHint() {
   const empty = ['a', 'b'].find((slot) => !ab.has(slot));
-  if (!empty) return '` to swap';
+  if (!empty) {
+    const ms = TRANSITION_DURATIONS[transitionIndex];
+    return `\` to swap · ${ms === 0 ? 'cut' : `${ms}ms ${transitionEasing}`} · D/F to change`;
+  }
   return `press ${empty === 'a' ? '1' : '2'} to fill ${empty.toUpperCase()}`;
 }
 
@@ -276,6 +350,44 @@ window.addEventListener('keydown', (e) => {
       }
       return;
     }
+    // D cycles transition duration, F cycles the curve. Both are bare keys —
+    // the handler returns early on any modifier.
+    if (e.code === 'KeyD') {
+      e.preventDefault();
+      transitionIndex = (transitionIndex + 1) % TRANSITION_DURATIONS.length;
+      refreshAbReadout();
+      return;
+    }
+    if (e.code === 'KeyF') {
+      e.preventDefault();
+      const i = EASING_NAMES.indexOf(transitionEasing);
+      transitionEasing = EASING_NAMES[(i + 1) % EASING_NAMES.length];
+      refreshAbReadout();
+      return;
+    }
+  }
+
+  if (e.code === 'KeyV') {
+    e.preventDefault();
+    toggleClip();
+    return;
+  }
+
+  // Capture stays prompt-free so it is usable in the middle of exploration.
+  if (e.code === 'KeyC' && !studio.isGridMode) {
+    e.preventDefault();
+    try {
+      const entry = ui.saveFinding();
+      if (ui.findings.lastError) {
+        alert('The finding was captured, but browser storage could not save it.');
+        return;
+      }
+      console.info(`Kept finding ${entry.id}`);
+    } catch (err) {
+      console.error('Could not keep finding', err);
+      alert(err instanceof Error ? err.message : 'Could not keep this finding.');
+    }
+    return;
   }
 
   if (e.code === 'KeyK') {
