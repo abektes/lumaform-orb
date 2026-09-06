@@ -163,6 +163,10 @@ export function createVariationGrid({
   defs,
   cols = 3,
   rows = 3,
+  // Optional. When supplied, populate() asks this for each cell's config instead
+  // of breeding one. The sweep strip uses it to lay out a deterministic ramp;
+  // omit it and the grid mutates exactly as before.
+  cellFactory = null,
 }) {
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
   camera.position.set(0, 0, 7.5);
@@ -246,6 +250,15 @@ export function createVariationGrid({
     for (const cell of cells) disposeCell(cell);
     cells.length = 0;
     const count = cols * rows;
+
+    if (cellFactory) {
+      for (let i = 0; i < count; i++) {
+        const spec = cellFactory(i, count);
+        cells.push(buildCell(spec.params, spec.patch ?? structuredClone(parentPatch)));
+      }
+      return;
+    }
+
     // When the mutation is locked to a section, only breed the patch if motion is
     // in scope — otherwise "colours only" would still change how the orb moves.
     const breedPatch = !sections || sections.includes('motion');
