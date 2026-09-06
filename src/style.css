@@ -1539,3 +1539,28 @@ kbd {
   0% { border-color: var(--primary); box-shadow: 0 0 18px var(--primary-glow); }
   100% { border-color: var(--panel-border); box-shadow: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   File picker in the export modal. A bare <input type="file"> can't be styled,
+   so the input is hidden and this label is the button.
+   --------------------------------------------------------------------------- */
+.import-file-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  margin-left: 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.import-file-label:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}

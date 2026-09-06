@@ -1345,6 +1345,8 @@ export class StudioUI {
               <button class="btn-primary" id="btn-copy-json">Copy JSON</button>
               <button class="btn-secondary" id="btn-download-json">Download .json</button>
               <button class="btn-accent" id="btn-import-json">Load from Textarea</button>
+              <label class="import-file-label" for="import-config-file">Load .json file…</label>
+              <input type="file" id="import-config-file" accept="application/json,.json" hidden />
             </div>
           </div>
 
@@ -1420,6 +1422,25 @@ export class StudioUI {
     this.modalOverlay.querySelector('#btn-import-json')?.addEventListener('click', () => {
       const area = this.modalOverlay.querySelector('#export-json-area');
       this.importConfigText(area?.value ?? '');
+    });
+
+    this.modalOverlay.querySelector('#import-config-file')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        // Show what was loaded in the textarea too, so a rejected file can be
+        // inspected and corrected in place rather than re-picked.
+        const area = this.modalOverlay.querySelector('#export-json-area');
+        if (area) area.value = text;
+        this.importConfigText(text);
+      } catch (err) {
+        console.warn('Could not read that file', err);
+        alert('Could not read that file.');
+      } finally {
+        // Reset so picking the same file twice fires `change` again.
+        e.target.value = '';
+      }
     });
 
     // Snapshot scale selection
