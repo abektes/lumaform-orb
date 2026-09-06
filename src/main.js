@@ -60,7 +60,8 @@ setInterval(() => {
 window.__orb = { studio, state, ui };
 
 // Variation grid: G toggles, click promotes a cell, shift-click marks for export,
-// R re-breeds, M cycles the mutation radius, E downloads the marked configs.
+// M cycles the mutation radius, T fires every cell's envelope, E downloads the
+// marked configs.
 const GRID_RADII = [0.12, 0.25, 0.45];
 let gridRadiusIndex = 1;
 
@@ -82,7 +83,11 @@ function toggleGrid() {
     ui.root.classList.remove('grid-mode');
     ui.render();
   } else {
-    studio.onGridPromote = (params) => Object.assign(state.engines[state.engine], params);
+    // Promoting a cell adopts both its look and its motion patch.
+    studio.onGridPromote = ({ params, modulation }) => {
+      Object.assign(state.engines[state.engine], params);
+      if (modulation) state.modulation = modulation;
+    };
     studio.enterGridMode(state, { radius: GRID_RADII[gridRadiusIndex] });
     // Hide the inspector and dock — the sidebar covers the right-hand column and
     // a grid you can only see two thirds of is useless for comparison. The top
@@ -105,6 +110,9 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     gridRadiusIndex = (gridRadiusIndex + 1) % GRID_RADII.length;
     studio.reseedGrid({ radius: GRID_RADII[gridRadiusIndex] });
+  } else if (studio.isGridMode && e.code === 'KeyT') {
+    e.preventDefault();
+    studio.grid.triggerEnvelopes();
   } else if (studio.isGridMode && e.code === 'KeyE') {
     e.preventDefault();
     downloadGridSelection();

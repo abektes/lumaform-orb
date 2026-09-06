@@ -347,7 +347,7 @@ export class OrbStudio {
     // Grid mode bypasses the composer: bloom is a full-screen pass and would
     // bleed across cell boundaries, so cells render straight to the framebuffer.
     if (this.grid) {
-      this.grid.render(this.virtualTime, window.innerWidth, window.innerHeight);
+      this.grid.render(this.virtualTime, this.isPaused ? 0 : delta * this.timeScale, window.innerWidth, window.innerHeight);
       return;
     }
 

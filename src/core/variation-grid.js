@@ -14,6 +14,13 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import {
+  LFO_SHAPES,
+  TIME_SCALE_DEST,
+  createModulationRack,
+  createDefaultModulation,
+  listModulationTargets,
+} from './modulation.js';
 
 // --- colour jitter ---------------------------------------------------------
 
@@ -88,6 +95,62 @@ export function mutateParams(base, defs, radius = 0.25, sections = null) {
   return out;
 }
 
+
+// --- patch mutation --------------------------------------------------------
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const jitter = (amount) => (Math.random() * 2 - 1) * amount;
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+const MAX_ROUTES = 4;
+
+// Breeding the *patch* is what makes the grid surprising. Mutating parameters
+// alone gives nine orbs that differ in colour, size and speed but share one
+// motion character, because the character now lives in the routing: which source
+// drives what, and how hard. Swapping an LFO for noise, or moving a route from
+// glow to tempo, changes what the orb *does* rather than how it looks.
+export function mutatePatch(patch, destKeys, radius = 0.25) {
+  const next = structuredClone(patch || createDefaultModulation());
+  next.enabled = true;
+  const sourceIds = Object.keys(next.sources || {});
+  if (!sourceIds.length || !destKeys.length) return next;
+
+  for (const src of Object.values(next.sources)) {
+    if (src.type === 'lfo') {
+      src.rate = clamp((src.rate ?? 0.5) + jitter(radius * 2), 0.02, 4);
+      src.phase = ((src.phase ?? 0) + jitter(radius) + 1) % 1;
+      if (Math.random() < radius) src.shape = pick(LFO_SHAPES);
+    } else if (src.type === 'noise') {
+      src.rate = clamp((src.rate ?? 0.35) + jitter(radius), 0.02, 2);
+      if (Math.random() < radius * 0.5) src.octaves = 1 + Math.floor(Math.random() * 5);
+    } else if (src.type === 'env') {
+      src.attack = clamp((src.attack ?? 0.08) + jitter(radius * 0.5), 0, 1.5);
+      src.decay = clamp((src.decay ?? 0.9) + jitter(radius), 0.05, 3);
+    }
+  }
+
+  const routes = (next.routes || []).map((r) => ({ ...r }));
+  for (const r of routes) {
+    r.amount = clamp((r.amount ?? 0) + jitter(radius * 1.5), -1, 1);
+    if (Math.random() < radius * 0.6) r.source = pick(sourceIds);
+    if (Math.random() < radius * 0.6) r.dest = pick(destKeys);
+  }
+
+  if (routes.length < MAX_ROUTES && Math.random() < radius) {
+    routes.push({ source: pick(sourceIds), dest: pick(destKeys), amount: jitter(1) });
+  } else if (routes.length > 1 && Math.random() < radius * 0.5) {
+    routes.splice(Math.floor(Math.random() * routes.length), 1);
+  }
+
+  // A cell with no routes has no character to judge, so always keep one.
+  if (!routes.length) {
+    routes.push({ source: pick(sourceIds), dest: pick(destKeys), amount: 0.5 });
+  }
+
+  next.routes = routes;
+  return next;
+}
+
 // --- grid ------------------------------------------------------------------
 
 export function createVariationGrid({
@@ -107,6 +170,10 @@ export function createVariationGrid({
 
   const cells = [];
   let parent = { ...baseParams };
+  let parentPatch = structuredClone(modulation || createDefaultModulation());
+
+  // Destinations are the same for every cell (same engine), so resolve once.
+  const destKeys = [TIME_SCALE_DEST, ...listModulationTargets(defs).map((t) => t.key)];
 
   // The engines' shaders emit linear colour and rely on OutputPass for tone
   // mapping and the sRGB conversion, so rendering a cell straight to the
@@ -118,7 +185,7 @@ export function createVariationGrid({
   cellComposer.addPass(cellRenderPass);
   cellComposer.addPass(new OutputPass());
 
-  function buildCell(params) {
+  function buildCell(params, patch) {
     const scene = new THREE.Scene();
     const engine = engineFactory({
       studio: null,
@@ -132,7 +199,42 @@ export function createVariationGrid({
     });
     if (typeof engine.setParams === 'function') engine.setParams(params);
     else if (typeof engine.onParamsChange === 'function') engine.onParamsChange(params);
-    return { scene, engine, params, selected: false };
+    return {
+      scene,
+      engine,
+      params,
+      modulation: patch,
+      rack: createModulationRack(patch),
+      // Each cell integrates its own clock so a route onto tempo actually reads
+      // as hesitation. All cells start at 0 on populate(), so equal wall time has
+      // elapsed for each and the comparison stays honest.
+      time: 0,
+      lastMod: {},
+      selected: false,
+    };
+  }
+
+  // Same contract as the studio's applyModulatedParams: push only what changed,
+  // and restore base explicitly when a route stops driving a key.
+  function pushCellParams(cell, modulated) {
+    const patchOut = {};
+    let dirty = false;
+    for (const [key, value] of Object.entries(modulated)) {
+      if (cell.lastMod[key] === undefined || Math.abs(cell.lastMod[key] - value) > 1e-4) {
+        patchOut[key] = value;
+        dirty = true;
+      }
+    }
+    for (const key of Object.keys(cell.lastMod)) {
+      if (modulated[key] === undefined && cell.params[key] !== undefined) {
+        patchOut[key] = cell.params[key];
+        dirty = true;
+      }
+    }
+    cell.lastMod = { ...modulated };
+    if (!dirty) return;
+    if (typeof cell.engine.setParams === 'function') cell.engine.setParams(patchOut);
+    else if (typeof cell.engine.onParamsChange === 'function') cell.engine.onParamsChange(patchOut);
   }
 
   function disposeCell(cell) {
@@ -144,15 +246,23 @@ export function createVariationGrid({
     for (const cell of cells) disposeCell(cell);
     cells.length = 0;
     const count = cols * rows;
+    // When the mutation is locked to a section, only breed the patch if motion is
+    // in scope — otherwise "colours only" would still change how the orb moves.
+    const breedPatch = !sections || sections.includes('motion');
     for (let i = 0; i < count; i++) {
       // Cell 0 is the unmutated parent, so you always have the reference in frame.
       const params = i === 0 ? { ...parent } : mutateParams(parent, defs, radius, sections);
-      cells.push(buildCell(params));
+      const patch =
+        i === 0 || !breedPatch
+          ? structuredClone(parentPatch)
+          : mutatePatch(parentPatch, destKeys, radius);
+      cells.push(buildCell(params, patch));
     }
   }
 
   // Marked cells get a border drawn as four scissored clears — cheaper than a DOM
   // overlay and it stays in sync with the cell rects automatically.
+  const ORIGIN = new THREE.Vector2(0, 0);
   const MARK_COLOR = new THREE.Color(0xffed00);
   const prevClear = new THREE.Color();
 
@@ -190,7 +300,7 @@ export function createVariationGrid({
     },
     populate,
 
-    render(time, width, height) {
+    render(time, delta, width, height) {
       cellComposer.setSize(width, height);
       renderer.setScissorTest(true);
       camera.aspect = width / cols / (height / rows);
@@ -200,13 +310,18 @@ export function createVariationGrid({
         const { x, y, w, h } = cellRect(i, width, height);
         renderer.setViewport(x, y, w, h);
         renderer.setScissor(x, y, w, h);
-        // Every cell is driven from the same `time`, so they stay phase-locked.
-        // Free-running cells would each show a different moment of their loop and
-        // the comparison would be meaningless.
-        cells[i].engine?.update?.({
-          time,
-          delta: 0,
-          pointer: new THREE.Vector2(0, 0),
+        // Cells share a start time and a delta, so they stay comparable; each one
+        // then applies its own patch, which is what lets a tempo route read as
+        // hesitation rather than as a random phase offset.
+        const cell = cells[i];
+        const m = cell.rack.apply(cell.params, defs, cell.time);
+        pushCellParams(cell, m.params);
+        cell.time += delta * m.timeScale;
+
+        cell.engine?.update?.({
+          time: cell.time,
+          delta: delta * m.timeScale,
+          pointer: ORIGIN,
           marchQuality: 0.7,
           fps: 60,
         });
@@ -234,7 +349,13 @@ export function createVariationGrid({
     promote(index) {
       if (!cells[index]) return null;
       parent = { ...cells[index].params };
-      return { ...parent };
+      parentPatch = structuredClone(cells[index].modulation);
+      return { params: { ...parent }, modulation: structuredClone(parentPatch) };
+    },
+
+    // Fire every cell's envelope at once so attack shapes can be compared.
+    triggerEnvelopes() {
+      for (const cell of cells) cell.rack.trigger(cell.time);
     },
 
     toggleSelect(index) {
@@ -244,7 +365,9 @@ export function createVariationGrid({
     },
 
     getSelected() {
-      return cells.filter((c) => c.selected).map((c) => ({ ...c.params }));
+      return cells
+        .filter((c) => c.selected)
+        .map((c) => ({ params: { ...c.params }, modulation: structuredClone(c.modulation) }));
     },
 
     exportSelected() {
@@ -254,7 +377,7 @@ export function createVariationGrid({
         engine: engineType,
         global: { ...globalSettings },
         params: { ...c.params },
-        modulation,
+        modulation: structuredClone(c.modulation),
       }));
     },
 
