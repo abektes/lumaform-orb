@@ -4,6 +4,7 @@ import { createVocalisEngine } from '../src/engines/vocalis-engine.js';
 import { createAetheriaEngine } from '../src/engines/aetheria-engine.js';
 import { createSuperpositionEngine } from '../src/engines/superposition-engine.js';
 import { createSynthesisEngine } from '../src/engines/synthesis-engine.js';
+import { createFerroTrailsEngine } from '../src/engines/ferro-trails-engine.js';
 import { ENGINE_PARAM_DEFINITIONS, ENGINE_TYPES, getDefaultEngineParams } from '../src/core/state.js';
 
 function mockRenderer() {
@@ -86,6 +87,7 @@ testEngineContract(ENGINE_TYPES.VOCALIS, createVocalisEngine);
 testEngineContract(ENGINE_TYPES.AETHERIA, createAetheriaEngine);
 testEngineContract(ENGINE_TYPES.SUPERPOSITION, createSuperpositionEngine);
 testEngineContract(ENGINE_TYPES.SYNTHESIS, createSynthesisEngine);
+testEngineContract(ENGINE_TYPES.FERRO_TRAILS, createFerroTrailsEngine);
 
 // 2. Ten engine switch cycles to ensure no accumulated memory leaks
 console.log('\nTesting 10 switch cycles for memory stability...');
@@ -98,6 +100,7 @@ const testEngines = [
   { id: ENGINE_TYPES.AETHERIA, factory: createAetheriaEngine },
   { id: ENGINE_TYPES.SUPERPOSITION, factory: createSuperpositionEngine },
   { id: ENGINE_TYPES.SYNTHESIS, factory: createSynthesisEngine },
+  { id: ENGINE_TYPES.FERRO_TRAILS, factory: createFerroTrailsEngine },
 ];
 
 for (let cycle = 0; cycle < 10; cycle++) {

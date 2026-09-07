@@ -21,6 +21,7 @@ import { createVocalisEngine } from './engines/vocalis-engine.js';
 import { createAetheriaEngine } from './engines/aetheria-engine.js';
 import { createSuperpositionEngine } from './engines/superposition-engine.js';
 import { createSynthesisEngine } from './engines/synthesis-engine.js';
+import { createFerroTrailsEngine } from './engines/ferro-trails-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
 import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
@@ -79,6 +80,7 @@ studio.registerEngine(ENGINE_TYPES.VOCALIS, createVocalisEngine);
 studio.registerEngine(ENGINE_TYPES.AETHERIA, createAetheriaEngine);
 studio.registerEngine(ENGINE_TYPES.SUPERPOSITION, createSuperpositionEngine);
 studio.registerEngine(ENGINE_TYPES.SYNTHESIS, createSynthesisEngine);
+studio.registerEngine(ENGINE_TYPES.FERRO_TRAILS, createFerroTrailsEngine);
 
 // Initialize Studio UI
 const ui = new StudioUI(document.body, studio, state, (updatedState) => {

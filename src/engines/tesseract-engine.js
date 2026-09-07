@@ -263,8 +263,20 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
           const y2 = y0 * cosYW - w1 * sinYW;
           const w2 = y0 * sinYW + w1 * cosYW;
 
-          const factor = S / Math.max(D - w2 * 0.6, 0.4);
-          vertices3D[i].set(x1 * factor, y2 * factor, z0 * factor);
+          if ((currentParams.projection ?? 'cell_first') === 'cell_first') {
+            const factor = S / Math.max(D - w2 * 0.6, 0.4);
+            vertices3D[i].set(x1 * factor, y2 * factor, z0 * factor);
+          } else {
+            // Same hyperspace rotation, then viewed down the chosen axis rather than
+            // down w — otherwise picking a projection would silently do nothing in
+            // the one mode that is actually rotating through four dimensions.
+            rotated4D[0] = x1;
+            rotated4D[1] = y2;
+            rotated4D[2] = z0;
+            rotated4D[3] = w2;
+            projectVertex(rotated4D, projectionBasis, D, S, projected);
+            vertices3D[i].set(projected[0], projected[1], projected[2]);
+          }
         }
       }
 

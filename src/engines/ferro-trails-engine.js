@@ -189,12 +189,14 @@ const FERRO_FRAGMENT_SHADER = /* glsl */ `
   }
 `;
 
-// Circular particle texture helper
+// Circular particle texture helper (guarded for Node.js test environment)
 function createCircleTexture() {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
   const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
   gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
   gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.8)');
@@ -407,19 +409,20 @@ export function createFerroTrailsEngine({ scene, camera, renderer, params }) {
     const headPositions = new Float32Array(trailCount * 3);
     headsGeometry = new THREE.BufferGeometry();
     headsGeometry.setAttribute('position', new THREE.BufferAttribute(headPositions, 3));
-    headsMaterial = new THREE.PointsMaterial({
+    const headsMatOptions = {
       color: colorTrail1RGB,
       size: 7.0,
-      map: circleTexture,
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-    });
+    };
+    if (circleTexture) headsMatOptions.map = circleTexture;
+    headsMaterial = new THREE.PointsMaterial(headsMatOptions);
     headsPoints = new THREE.Points(headsGeometry, headsMaterial);
     group.add(headsPoints);
 
     // 6. Build Ambient Magnetic Motes
-    const motePositions = new Float32Array(moteCount * 3);
+    const motesPositions = new Float32Array(moteCount * 3);
     motesSeeds = [];
     for (let m = 0; m < moteCount; m++) {
       const u = Math.random() * Math.PI * 2;
@@ -431,16 +434,17 @@ export function createFerroTrailsEngine({ scene, camera, renderer, params }) {
       motesSeeds.push({ u, v, dist, speed: 0.2 + Math.random() * 0.4 });
     }
     motesGeometry = new THREE.BufferGeometry();
-    motesGeometry.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
-    motesMaterial = new THREE.PointsMaterial({
+    motesGeometry.setAttribute('position', new THREE.BufferAttribute(motesPositions, 3));
+    const motesMatOptions = {
       color: colorCrestRGB,
       size: 4.5,
-      map: circleTexture,
       transparent: true,
       opacity: 0.65,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-    });
+    };
+    if (circleTexture) motesMatOptions.map = circleTexture;
+    motesMaterial = new THREE.PointsMaterial(motesMatOptions);
     motesPoints = new THREE.Points(motesGeometry, motesMaterial);
     group.add(motesPoints);
   }

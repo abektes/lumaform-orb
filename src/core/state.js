@@ -24,6 +24,7 @@ export const ENGINE_TYPES = {
   AETHERIA: 'aetheria',
   SUPERPOSITION: 'superposition',
   SYNTHESIS: 'synthesis',
+  FERRO_TRAILS: 'ferrotrails',
 };
 
 export const ENGINE_INFO = {
@@ -153,6 +154,12 @@ export const ENGINE_INFO = {
     badge: 'Harmonic Fluid Fusion',
     description: 'Four luminous fluid bodies orbit in celestial figure-8 choreography, organically fusing with liquid bridges, gravitational filaments, and stardust.',
   },
+  [ENGINE_TYPES.FERRO_TRAILS]: {
+    id: ENGINE_TYPES.FERRO_TRAILS,
+    name: 'Ferro Trails',
+    badge: 'Magnetic Fluid & Arc Trails',
+    description: 'An oval ferrofluid core pulsating with organic magnetic crests, wrapped in sweeping luminous ribbon trails and glowing velocity arcs.',
+  },
 };
 
 export const DEFAULT_GLOBAL_SETTINGS = {
@@ -184,6 +191,7 @@ export const ENGINE_PARAM_DEFINITIONS = {
     cellColor: { type: 'color', label: 'Glass Facet Tint', default: '#ffed00', section: 'colors' },
     edgeGlow: { type: 'number', label: 'Edge Radiance', min: 0.5, max: 3.5, step: 0.1, default: 1.2, section: 'colors' },
 
+    projection: { type: 'select', label: '4D Viewing Axis', options: ['cell_first', 'face_first', 'edge_first', 'vertex_first'], default: 'cell_first', section: 'geometry' },
     edgeMode: { type: 'select', label: 'Edge Architecture', options: ['sketch', 'cubes', 'outer_struts', 'inner_struts', 'struts'], default: 'sketch', section: 'geometry' },
     innerScale: { type: 'number', label: 'Inner Cube Ratio', min: 0.25, max: 0.75, step: 0.01, default: 0.48, section: 'geometry' },
     cubeSize: { type: 'number', label: 'Hypercube Scale', min: 0.6, max: 2.5, step: 0.05, default: 1.35, section: 'geometry' },
@@ -620,6 +628,29 @@ export const ENGINE_PARAM_DEFINITIONS = {
     glowIntensity: { type: 'number', label: 'Volumetric Radiance', min: 0.4, max: 3.0, step: 0.1, default: 1.80, section: 'colors' },
   },
 
+  [ENGINE_TYPES.FERRO_TRAILS]: {
+    ovalRatio: { type: 'number', label: 'Orb Oval Aspect Ratio', min: 0.8, max: 1.6, step: 0.02, default: 1.25, section: 'geometry' },
+    coreRadius: { type: 'number', label: 'Ferrofluid Core Radius', min: 0.8, max: 2.0, step: 0.05, default: 1.35, section: 'geometry' },
+    trailCount: { type: 'select', label: 'Sweeping Arc Trails', options: [6, 12, 18, 24], default: 12, section: 'geometry' },
+    trailDetail: { type: 'select', label: 'Trail Arc Resolution', options: [60, 90, 120], default: 90, section: 'geometry' },
+    particleMotes: { type: 'select', label: 'Magnetic Mote Swarm', options: [32, 64, 128], default: 64, section: 'geometry' },
+
+    arcCurvature: { type: 'number', label: 'Arc Curvature Bend', min: 0.2, max: 2.0, step: 0.05, default: 0.85, section: 'motion' },
+    trailSweepSpeed: { type: 'number', label: 'Trail Orbital Velocity', min: 0.1, max: 2.5, step: 0.05, default: 0.65, section: 'motion' },
+    magneticSpikes: { type: 'number', label: 'Magnetic Crest Excursion', min: 0.0, max: 0.45, step: 0.01, default: 0.16, section: 'motion' },
+    spikeFrequency: { type: 'number', label: 'Ferro Spike Density', min: 1.0, max: 6.0, step: 0.1, default: 3.2, section: 'motion' },
+    fluidViscosity: { type: 'number', label: 'Fluid Viscous Tension', min: 0.2, max: 2.5, step: 0.05, default: 0.9, section: 'motion' },
+    breatheAmp: { type: 'number', label: 'Magnetic Breathing Depth', min: 0.0, max: 0.12, step: 0.005, default: 0.035, section: 'motion' },
+    pulseSurge: { type: 'number', label: 'Speech Pulse Surge', min: 0.2, max: 2.5, step: 0.05, default: 1.5, section: 'motion' },
+
+    colorLiquid: { type: 'color', label: 'Ferrofluid Liquid Body', default: '#0b1021', section: 'colors' },
+    colorCrest: { type: 'color', label: 'Magnetic Crest Radiance', default: '#00f0ff', section: 'colors' },
+    colorTrail1: { type: 'color', label: 'Trail Head Azure Neon', default: '#38bdf8', section: 'colors' },
+    colorTrail2: { type: 'color', label: 'Trail Tail Violet Neon', default: '#a855f7', section: 'colors' },
+    colorCore: { type: 'color', label: 'Magnetic Spark Core', default: '#ffffff', section: 'colors', paletteRole: 'fixed' },
+    glowIntensity: { type: 'number', label: 'Volumetric Arc Radiance', min: 0.4, max: 3.0, step: 0.1, default: 1.8, section: 'colors' },
+  },
+
 };
 
 export function getDefaultEngineParams(engineType) {
@@ -677,6 +708,8 @@ export function createInitialState() {
         ? 'Quantum Superposition'
         : engine === ENGINE_TYPES.SYNTHESIS
         ? 'Gemini Harmonic'
+        : engine === ENGINE_TYPES.FERRO_TRAILS
+        ? 'Magnetic Nebula Oval'
         : 'Aurora Core',
     global: { ...DEFAULT_GLOBAL_SETTINGS },
     modulation: createDefaultModulation(),
@@ -702,6 +735,7 @@ export function createInitialState() {
       [ENGINE_TYPES.AETHERIA]: getDefaultEngineParams(ENGINE_TYPES.AETHERIA),
       [ENGINE_TYPES.SUPERPOSITION]: getDefaultEngineParams(ENGINE_TYPES.SUPERPOSITION),
       [ENGINE_TYPES.SYNTHESIS]: getDefaultEngineParams(ENGINE_TYPES.SYNTHESIS),
+      [ENGINE_TYPES.FERRO_TRAILS]: getDefaultEngineParams(ENGINE_TYPES.FERRO_TRAILS),
     },
   };
 }
@@ -893,6 +927,13 @@ export function randomizeState(currentState) {
     newEngineParams.color4 = palette.primary;
     newEngineParams.orbitSpread = +(0.5 + Math.random() * 0.5).toFixed(2);
     newEngineParams.fusionTension = +(0.3 + Math.random() * 0.7).toFixed(2);
+  } else if (engine === ENGINE_TYPES.FERRO_TRAILS) {
+    newEngineParams.colorLiquid = palette.secondary;
+    newEngineParams.colorCrest = palette.accent;
+    newEngineParams.colorTrail1 = palette.primary;
+    newEngineParams.colorTrail2 = palette.accent;
+    newEngineParams.arcCurvature = +(0.4 + Math.random() * 0.8).toFixed(2);
+    newEngineParams.magneticSpikes = +(0.1 + Math.random() * 0.25).toFixed(2);
   }
 
   const newGlobal = {

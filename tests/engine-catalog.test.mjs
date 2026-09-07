@@ -33,9 +33,10 @@ const NEW_ENGINES = [
   'aetheria',
   'superposition',
   'synthesis',
+  'ferrotrails',
 ];
 
-ok('all twelve new engines are in the catalog',
+ok('all thirteen new engines are in the catalog',
   NEW_ENGINES.every((id) => Object.values(ENGINE_TYPES).includes(id)));
 
 for (const engine of Object.values(ENGINE_TYPES)) {
@@ -96,6 +97,7 @@ for (const engine of NEW_ENGINES) {
     aetheria: 'aetheria',
     superposition: 'superposition',
     synthesis: 'synthesis',
+    ferrotrails: 'ferro-trails',
   }[engine];
   const factory = {
     aqueous: 'createAqueousEngine',
@@ -110,6 +112,7 @@ for (const engine of NEW_ENGINES) {
     aetheria: 'createAetheriaEngine',
     superposition: 'createSuperpositionEngine',
     synthesis: 'createSynthesisEngine',
+    ferrotrails: 'createFerroTrailsEngine',
   }[engine];
 
   ok(`${info.name} factory file exists and exports its factory`, (() => {
