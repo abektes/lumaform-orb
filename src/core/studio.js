@@ -13,6 +13,7 @@ import { isSweepable, sweepValues } from './sweep.js';
 import { createParamTween } from './param-tween.js';
 import { createAudioInput } from './audio-input.js';
 import { createClipRecorder } from './clip-recorder.js';
+import { createSequencePlayer } from './sequence.js';
 
 export class OrbStudio {
   constructor(containerElement, options = {}) {
@@ -81,6 +82,12 @@ export class OrbStudio {
     // Tweens move baseParams, so the modulation rack keeps layering on top of a
     // moving base rather than fighting it.
     this.paramTween = createParamTween();
+    this.sequencePlayer = createSequencePlayer();
+    this.sequenceState = null;
+    this.currentSequence = null;
+    this.onSequenceStep = null;
+    this.onSequenceStop = null;
+    this.applyingSequenceStep = false;
 
     this.handleGridPointer = (event) => {
       if (!this.grid) return;
@@ -148,6 +155,11 @@ export class OrbStudio {
   }
 
   setEngine(type, state) {
+    if (this.currentSequence && !this.applyingSequenceStep) {
+      // The caller already wrote the requested engine into state.
+      this.stopSequence({ reconcile: false });
+    }
+
     if (this.activeEngineType === type && this.activeEngine) {
       this.updateParameters(state);
       return;
@@ -209,6 +221,12 @@ export class OrbStudio {
   updateParameters(state) {
     // A direct edit, import or preset selection supersedes an in-flight A/B
     // transition. Otherwise the old target would overwrite the edit next frame.
+    if (this.currentSequence && !this.applyingSequenceStep) {
+      // A slider, preset or import has already written its desired value into
+      // state, so stopping rehearsal must not replace that edit with the
+      // intermediate visual value.
+      this.stopSequence({ reconcile: false });
+    }
     this.paramTween.cancel();
     this.syncModulation(state);
     this.updateGlobalSettings(state.global);
@@ -225,9 +243,89 @@ export class OrbStudio {
     }
   }
 
+  get isPlayingSequence() {
+    return this.sequencePlayer.isPlaying;
+  }
+
+  playSequence(sequence, state, { loop = true } = {}) {
+    if (!sequence?.length || !state) return false;
+    if (this.currentSequence) this.stopSequence();
+    this.sequenceState = state;
+    // Editing is disabled during playback, but a shallow copy also keeps a
+    // caller replacing its array from changing index lookup mid-frame.
+    this.currentSequence = [...sequence];
+    this.sequencePlayer.load(this.currentSequence, { loop });
+    this.sequencePlayer.play();
+    return this.sequencePlayer.isPlaying;
+  }
+
+  pauseSequence() {
+    this.sequencePlayer.pause();
+  }
+
+  resumeSequence() {
+    if (!this.currentSequence) return;
+    this.sequencePlayer.play();
+  }
+
+  stopSequence({ reconcile = true } = {}) {
+    const hadSequence = !!this.currentSequence;
+    if (
+      reconcile &&
+      hadSequence &&
+      this.sequenceState?.engines?.[this.activeEngineType] &&
+      this.paramTween.isRunning
+    ) {
+      // Sequence steps put their target in state before the visual tween starts.
+      // Stopping halfway must make the durable config match the frame on screen,
+      // or an immediate finding/export captures a target it never displayed.
+      Object.assign(this.sequenceState.engines[this.activeEngineType], this.baseParams);
+    }
+    this.sequencePlayer.stop();
+    this.sequenceState = null;
+    this.currentSequence = null;
+    this.paramTween.cancel();
+    if (hadSequence) this.onSequenceStop?.();
+  }
+
+  // Apply globals and modulation without updateParameters(): that method
+  // deliberately treats a direct edit as cancellation of the rehearsal.
+  applySequenceStep(step) {
+    const state = this.sequenceState;
+    if (!state || !step || !state.engines?.[step.engine]) return false;
+
+    this.applyingSequenceStep = true;
+    try {
+      if (step.global) Object.assign(state.global, structuredClone(step.global));
+      if (step.modulation) state.modulation = structuredClone(step.modulation);
+      Object.assign(state.engines[step.engine], structuredClone(step.params));
+
+      if (step.engine !== state.engine) {
+        // Disposing one engine and constructing another cannot be interpolated.
+        state.engine = step.engine;
+        this.setEngine(step.engine, state);
+        return true;
+      }
+
+      this.syncModulation(state);
+      this.updateGlobalSettings(state.global);
+      this.tweenTo(step.params, {
+        durationMs: step.transitionMs,
+        easing: step.easing,
+      });
+      return true;
+    } finally {
+      this.applyingSequenceStep = false;
+    }
+  }
+
   // Travel from the current base to `targetParams`. Passing durationMs 0 is a
   // hard cut, which is what A/B did before transitions existed.
   tweenTo(targetParams, { durationMs = 400, easing = 'easeOut' } = {}) {
+    if (this.currentSequence && !this.applyingSequenceStep) {
+      // A/B applied its target to state before asking for this tween.
+      this.stopSequence({ reconcile: false });
+    }
     if (durationMs <= 0) {
       Object.assign(this.baseParams, targetParams);
       this.paramTween.cancel();
@@ -366,11 +464,35 @@ export class OrbStudio {
     const delta = this.clock.getDelta();
     this.fpsTracker.tick();
 
+    let tweenDeltaMs = delta * 1000;
+    let sequenceCompleted = false;
+    if (this.sequencePlayer.isPlaying) {
+      const at = this.sequencePlayer.advance(tweenDeltaMs);
+      sequenceCompleted = !!at?.completed;
+      if (at?.entered) {
+        const step = this.currentSequence?.[at.index];
+        if (step && this.applySequenceStep(step)) {
+          // A throttled frame can skip boundaries. Advance a newly started
+          // tween only by the elapsed portion of its own step, not by the whole
+          // frame delta that may include earlier steps.
+          tweenDeltaMs = at.phase === 'transition'
+            ? at.stepElapsedMs
+            : Math.max(0, Number(step.transitionMs) || 0);
+          this.onSequenceStep?.({ index: at.index, step });
+        }
+      }
+    }
+
     // Advance before evaluating the rack so modulation reads this frame's base.
     // Real milliseconds, not virtualTime: a transition's duration should not
     // change when playback speed does.
-    if (this.paramTween.isRunning) {
-      const tweened = this.paramTween.advance(delta * 1000);
+    // Pausing a rehearsal freezes both its clock and the transition already in
+    // flight; stop instead cancels that transition and resets the clock.
+    const sequencePaused = this.currentSequence
+      && !this.sequencePlayer.isPlaying
+      && !sequenceCompleted;
+    if (this.paramTween.isRunning && !sequencePaused) {
+      const tweened = this.paramTween.advance(tweenDeltaMs);
       if (tweened) {
         const patch = {};
         for (const [key, value] of Object.entries(tweened)) {
@@ -385,6 +507,7 @@ export class OrbStudio {
         }
       }
     }
+    if (sequenceCompleted) this.stopSequence();
 
     // Modulation is evaluated against the *previous* virtualTime, then its tempo
     // multiplier is integrated into the next step. Integrating (rather than
@@ -492,6 +615,7 @@ export class OrbStudio {
   }
 
   enterGridMode(state, { cols = 3, rows = 3, radius = 0.25, sections = null } = {}) {
+    if (this.currentSequence) this.stopSequence();
     const type = state.engine;
     const factory = this.engineConstructors.get(type);
     if (!factory) {
@@ -523,6 +647,7 @@ export class OrbStudio {
   // one row, N cells, one parameter walked from min to max. It reuses this.grid
   // so grid mode's render branch, exit path and pointer handling all apply.
   enterSweepMode(state, { paramKey, steps = 5 } = {}) {
+    if (this.currentSequence) this.stopSequence();
     const type = state.engine;
     const factory = this.engineConstructors.get(type);
     if (!factory) {
@@ -726,6 +851,7 @@ export class OrbStudio {
   }
 
   dispose() {
+    this.stopSequence();
     cancelAnimationFrame(this.rafId);
     window.removeEventListener('resize', this.handleResize);
     this.clickPulseTracker?.dispose();

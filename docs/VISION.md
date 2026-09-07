@@ -67,6 +67,8 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 **Only the active engine's parameter bag is meaningful.** State holds a bag per engine. Snapshot, export and import must touch only `state.engines[state.engine]` — writing all eight would silently rewrite engines the user never opened.
 
+**Chrome is layered, and the layer decides before the z-index does.** `.studio-ui-root` is positioned with a z-index and so forms a stacking context — a `z-index: 1000` inside it cannot outrank a `200` outside it. Inside the root are two layers: `overlayLayer` (never rewritten by `render()`, holds long-lived chrome, paints *below* the panel) and `panelLayer` (replaced wholesale on every `render()`). Mounting an overlay on `document.body` to survive `render()` puts it above the entire panel — that is what made the grid HUD cover the engine dropdown. Pick the layer first, then take a value from the scale declared in `:root` in `src/style.css`; only a full-screen dialog belongs at body level. `tests/layering.test.mjs` fails on any raw `z-index` literal.
+
 **Bloom is a full-screen pass.** It bleeds across scissored cell boundaries, which is why grid cells render through a RenderPass+OutputPass composer with no bloom. Cells look flatter than the main view; that is deliberate, not a bug. Do not "fix" it without per-cell render targets.
 
 ## 6. What the export format is — and is not
@@ -120,6 +122,8 @@ These are genuinely unresolved. If your work bears on one, say so.
 - **The build must pass:** `npx vite build`.
 - **Commit in coherent slices** with messages that explain *why*, not just what changed.
 - **Comments explain why.** The codebase is full of non-obvious constraints; a comment that restates the code is worse than none.
+- **Placement comments move with the thing they describe.** Re-rooting or repositioning chrome means rewriting its placement comment in the same change; stale placement guidance can recreate the bug the move fixed.
+- **Keyboard bindings and the map move together.** Every `e.code` shortcut in `main.js` or `studio-ui.js` needs a matching entry in `src/core/shortcuts.js`; `tests/shortcuts.test.mjs` scans both directions so hidden or stale bindings fail validation.
 
 ---
 
@@ -133,6 +137,10 @@ These are genuinely unresolved. If your work bears on one, say so.
 | Variation grid | 3×3, per-cell patch + clock, promote, mark, export |
 | Capture | JSON export (config + marked cells), PNG snapshot, 30s live WebM/MP4 clip recording, localStorage presets, thumbnail findings gallery |
 | Import | Single config or grid array; restores modulation; validates against the schema |
-| A/B compare | Built — `1`/`2` store, `` ` `` swaps without rebuilding the engine |
+| A/B compare | Built — `1`/`2` store, findings can fill both slots, `` ` `` swaps without rebuilding the engine |
+| Rehearsal room | Built — findings can be arranged, retimed and looped with per-step transitions to judge movement between configs |
 | Parameter sweep | Built — `K` ladders one parameter across 5 cells |
 | Section-locked mutation | Built — chips in the grid HUD |
+| Chrome layering | Two layers inside the root, named `--z-*` scale, guarded by `tests/layering.test.mjs` |
+| Responsive | Breakpoints at 1280px (laptop) and 900px (phone) |
+| Keyboard map | Built — `?` or the top-bar button opens the complete, source-scan-guarded shortcut inventory |

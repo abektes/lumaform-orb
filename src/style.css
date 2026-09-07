@@ -19,6 +19,40 @@
   --text-muted: #64748b;
   --input-bg: rgba(255, 255, 255, 0.05);
   --input-border: rgba(255, 255, 255, 0.12);
+
+  /* ---------------------------------------------------------------------------
+     Stacking contract. Three independent scales, because .studio-ui-root is a
+     positioned element with a z-index and therefore forms a STACKING CONTEXT:
+     values inside it are only ever compared with their siblings inside it. The
+     engine dropdown's old raw 1000 could never outrank the modal's 200 for this
+     reason, and the grid HUD once covered that dropdown because it was mounted
+     outside the root entirely. Enforced by tests/layering.test.mjs.
+
+     1. Body level — real siblings, compared with each other.
+     2. Layers inside .studio-ui-root — this pair decides overlay-vs-panel, and
+        nothing inside either layer can override it.
+     3. Within a layer — ordering among that layer's own children.
+
+     Adding chrome? Pick the layer first, then a value from that layer's scale.
+     Only a full-screen dialog belongs at body level.
+     --------------------------------------------------------------------------- */
+  --z-canvas: 1;
+  --z-ui-root: 10;
+  --z-zen-pill: 100;
+  --z-dialog: 150;
+  --z-modal: 200;
+
+  --z-layer-overlays: 1;
+  --z-layer-panel: 2;
+
+  --z-overlay-hud: 40;
+  --z-overlay-caption: 50;
+  --z-overlay-readout: 60;
+  --z-overlay-clip: 70;
+
+  --z-panel-topbar: 100;
+  --z-panel-dock: 120;
+  --z-panel-dropdown: 1000;
 }
 
 * {
@@ -44,7 +78,7 @@ html, body {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  z-index: var(--z-canvas);
 }
 
 canvas {
@@ -65,7 +99,7 @@ canvas:active {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 10;
+  z-index: var(--z-ui-root);
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
@@ -89,7 +123,7 @@ canvas:active {
   padding: 8px 22px;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  z-index: 100;
+  z-index: var(--z-zen-pill);
   box-shadow: 0 0 20px var(--primary-glow);
   transition: all 0.2s ease;
 }
@@ -115,6 +149,14 @@ canvas:active {
   border-radius: var(--radius-pill);
   box-shadow: 0 12px 36px var(--panel-glow);
   pointer-events: auto;
+  z-index: var(--z-panel-topbar);
+}
+
+/* The top bar normally sits below the playback dock. While its menu is open,
+   raise the whole stacking context so the dropdown can clear the dock rather
+   than being trapped by its parent's lower z-index. */
+.studio-topbar:has(.engine-dropdown-menu.open) {
+  z-index: var(--z-panel-dropdown);
 }
 
 .topbar-brand {
@@ -241,7 +283,7 @@ canvas:active {
   display: none;
   flex-direction: column;
   gap: 3px;
-  z-index: 1000;
+  z-index: var(--z-panel-dropdown);
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
   pointer-events: none;
@@ -451,7 +493,7 @@ canvas:active {
   border-radius: var(--radius-pill);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 24px rgba(255, 237, 0, 0.12);
   pointer-events: auto;
-  z-index: 120;
+  z-index: var(--z-panel-dock);
 }
 
 .dock-play-btn {
@@ -1052,7 +1094,7 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: var(--z-modal);
   pointer-events: auto;
 }
 
@@ -1254,19 +1296,6 @@ kbd {
   display: none !important;
 }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .pill-name {
-    display: none;
-  }
-  .studio-inspector {
-    width: calc(100vw - 32px);
-    max-height: 52vh;
-    top: auto;
-    bottom: 16px;
-  }
-}
-
 /* ---------------------------------------------------------------------------
    Variation grid mode — hide the inspector and playback dock so all 9 cells are
    visible and comparable. The top bar stays put so the Grid toggle stays
@@ -1350,10 +1379,12 @@ kbd {
    grid mode so this is the only control surface available over the cells.
    --------------------------------------------------------------------------- */
 .grid-hud {
-  /* Fixed, not absolute: the HUD is mounted on document.body (out of reach of
-     StudioUI.render(), which replaces root.innerHTML) and body is not a
-     positioned ancestor. */
-  position: fixed;
+  /* Absolute against .studio-overlay-layer, which is inset:0 over the viewport.
+     Not fixed: fixed positioning silently re-anchors to the nearest ancestor
+     with a transform, filter or backdrop-filter, and this file applies
+     backdrop-filter to almost every panel — one added to the root or a layer
+     would move all four overlays at once. */
+  position: absolute;
   top: 88px;
   left: 50%;
   transform: translateX(-50%);
@@ -1367,7 +1398,7 @@ kbd {
   border-radius: var(--radius-pill);
   box-shadow: 0 12px 36px var(--panel-glow);
   pointer-events: auto;
-  z-index: 40;
+  z-index: var(--z-overlay-hud);
   font-family: var(--font);
 }
 
@@ -1442,11 +1473,11 @@ kbd {
    cell — a ladder with no numbers is just a row of shapes.
    --------------------------------------------------------------------------- */
 .sweep-caption {
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 18px;
-  z-index: 50;
+  z-index: var(--z-overlay-caption);
   pointer-events: none;
   font-family: var(--font);
   text-align: center;
@@ -1485,7 +1516,7 @@ kbd {
    A/B compare readout. Bottom-left, out of the playback dock's way.
    --------------------------------------------------------------------------- */
 .ab-readout {
-  position: fixed;
+  position: absolute;
   bottom: 24px;
   left: 24px;
   display: flex;
@@ -1498,7 +1529,7 @@ kbd {
   border-radius: var(--radius-pill);
   font-family: var(--font);
   font-size: 11px;
-  z-index: 60;
+  z-index: var(--z-overlay-readout);
   pointer-events: none;
 }
 
@@ -1568,20 +1599,13 @@ kbd {
   color: var(--primary);
 }
 
-/* ---------------------------------------------------------------------------
-   Zen mode hides the whole UI, but these three overlays are mounted on
-   document.body rather than inside .studio-ui-root so that StudioUI.render()
-   cannot destroy them. That puts them outside the .zen-hidden subtree, so fade
-   them out via a class mirrored onto <body> by toggleZenMode(). A sibling
-   combinator would work only for whichever order the overlays happen to be
-   appended in, which is not stable.
-   --------------------------------------------------------------------------- */
-/* Two layers inside .studio-ui-root. The root is positioned with a z-index and
-   so forms a stacking context: anything mounted outside it outranks the entire
-   panel subtree regardless of the panel's own z-index, which is what put the
-   grid HUD over the engine dropdown. Keeping the overlays in here — below the
-   panel layer — restores the intended order, and the root's zen rule hides them
-   along with everything else. */
+/* Two layers inside .studio-ui-root, and the pair that decides overlay-vs-panel
+   for everything below them — see the stacking contract in :root.
+   overlayLayer is never rewritten, so long-lived chrome (grid HUD, A/B readout,
+   sweep caption, clip indicator) survives render(); panelLayer is replaced
+   wholesale on every render. Both are inside the root, so zen mode fades them
+   with everything else and a full-screen dialog must mount at body level to
+   cover them. */
 .studio-overlay-layer,
 .studio-panel-layer {
   position: absolute;
@@ -1589,8 +1613,8 @@ kbd {
   pointer-events: none;
 }
 
-.studio-overlay-layer { z-index: 1; }
-.studio-panel-layer { z-index: 2; }
+.studio-overlay-layer { z-index: var(--z-layer-overlays); }
+.studio-panel-layer { z-index: var(--z-layer-panel); }
 
 .grid-hud,
 .ab-readout,
@@ -1633,9 +1657,9 @@ kbd {
    Recording indicator. Top-right, clear of the top bar and grid HUD.
    --------------------------------------------------------------------------- */
 .clip-indicator {
-  position: fixed;
-  /* Bottom-left, stacked above the A/B readout. The old top-right position sits
-     under the inspector now that the panel layer paints above the overlays. */
+  position: absolute;
+  /* Bottom-left, stacked above the A/B readout. The old top-right position sat
+     under the inspector, which paints above the overlay layer. */
   bottom: 64px;
   left: 24px;
   display: flex;
@@ -1651,7 +1675,7 @@ kbd {
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #ef4444;
-  z-index: 70;
+  z-index: var(--z-overlay-clip);
   pointer-events: none;
   font-variant-numeric: tabular-nums;
   transition: opacity 0.3s ease;
@@ -1759,6 +1783,39 @@ kbd {
   margin-top: 12px;
 }
 
+/* The ring belongs to the card so it remains visible while its note has focus. */
+.finding-card.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary), 0 0 14px var(--primary-glow);
+}
+
+.finding-card .finding-thumb {
+  cursor: pointer;
+}
+
+.findings-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.findings-selection-count {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.findings-selection-bar button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 
 /* ---------------------------------------------------------------------------
    Previous / next engine steppers. Cycling is the common case; the dropdown is
@@ -1796,4 +1853,417 @@ kbd {
 
 .engine-step:active {
   transform: scale(0.92);
+}
+
+/* Laptop widths. The inspector is a fixed 360px and the grid HUD is a single
+   wide flex row, so they start competing well before the 900px phone
+   breakpoint — at 1280px the HUD is wider than the canvas left beside the
+   panel. Narrow the panel and let the HUD wrap rather than overflow. These
+   queries stay after the overlay rules so their equal-specificity overrides
+   win in the cascade. */
+@media (max-width: 1280px) {
+  .studio-inspector {
+    width: 300px;
+  }
+
+  .grid-hud {
+    max-width: calc(100vw - 48px);
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 6px;
+  }
+
+  /* A wrapped HUD is two rows tall and would sit under the top bar. */
+  .studio-ui-root.grid-mode .grid-hud {
+    top: 96px;
+  }
+}
+
+@media (max-width: 900px) {
+  .pill-name {
+    display: none;
+  }
+
+  /* Preserve every top-bar action as an icon at the phone breakpoint. Without
+     this compaction the newly discoverable keyboard button lands off-screen. */
+  .topbar-brand .brand-text,
+  #btn-randomize > span,
+  #btn-reset-cam > span,
+  #btn-snapshot > span,
+  #btn-export > span,
+  #btn-grid > span {
+    display: none;
+  }
+
+  .topbar-actions {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .topbar-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-actions .btn-action {
+    flex: 0 0 auto;
+    padding: 7px 9px;
+  }
+
+  /* Keep help discoverable even when the remaining actions need scrolling. */
+  .topbar-actions #btn-shortcuts {
+    order: -1;
+  }
+
+  .studio-topbar {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .topbar-engine-group {
+    flex: 0 1 220px;
+    min-width: 0;
+  }
+
+  .topbar-engine-dropdown,
+  .engine-dropdown-trigger {
+    min-width: 0;
+  }
+
+  .engine-dropdown-trigger .trigger-name {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .studio-inspector {
+    width: calc(100vw - 32px);
+    max-height: 52vh;
+    top: auto;
+    bottom: 16px;
+  }
+
+  /* Bottom-left overlays would land on top of the bottom-docked inspector. */
+  .ab-readout {
+    bottom: auto;
+    top: 88px;
+  }
+
+  .clip-indicator {
+    bottom: auto;
+    top: 128px;
+  }
+
+  .sweep-caption {
+    bottom: 56vh;
+  }
+}
+
+@media (max-width: 620px) {
+  .topbar-brand {
+    display: none;
+  }
+
+  .topbar-engine-group {
+    flex-basis: 150px;
+  }
+
+  .engine-dropdown-trigger {
+    padding-inline: 8px;
+  }
+
+  .engine-dropdown-trigger .trigger-icon,
+  .engine-dropdown-trigger .trigger-badge,
+  .engine-dropdown-trigger .trigger-chevron {
+    display: none;
+  }
+
+  .engine-dropdown-trigger .trigger-name {
+    max-width: 64px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Rehearsal room — findings are the palette; this strip is a disposable
+   arrangement for judging movement between them.
+   --------------------------------------------------------------------------- */
+.rehearsal-shelf {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.rehearsal-chip {
+  flex: 0 0 auto;
+  width: 76px;
+  padding: 0 0 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.rehearsal-chip:hover:not([disabled]) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.rehearsal-chip img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  background: #000;
+}
+
+.rehearsal-chip span {
+  display: block;
+  padding: 3px 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rehearsal-chip[disabled],
+.seq-step :disabled,
+.seq-footer :disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.seq-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.seq-step {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.seq-step.playing {
+  border-color: var(--primary);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.seq-thumb {
+  width: 48px;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #000;
+}
+
+.seq-body {
+  min-width: 0;
+}
+
+.seq-name {
+  overflow: hidden;
+  margin-bottom: 1px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seq-engine {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.seq-timings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.seq-timings label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.seq-timings input {
+  width: 50px;
+  padding: 2px 3px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 9px;
+}
+
+.seq-timings select {
+  max-width: 78px;
+  padding: 2px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 9px;
+}
+
+.seq-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seq-footer {
+  margin-top: 12px;
+}
+
+.seq-active-note {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+/* ---------------------------------------------------------------------------
+   Keyboard map. This full-screen dialog is a sibling of .studio-ui-root rather
+   than a child of its lower overlay layer, so it covers the inspector while
+   still yielding to the modal layer.
+   --------------------------------------------------------------------------- */
+.shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 6, 9, 0.7);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.shortcuts-card {
+  width: min(760px, 100%);
+  max-height: min(72vh, 620px);
+  overflow-y: auto;
+  padding: 18px 20px 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px var(--panel-glow);
+}
+
+.shortcuts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.shortcuts-title {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.shortcuts-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px 24px;
+}
+
+.shortcuts-group h3 {
+  margin: 0 0 6px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.shortcut-row kbd {
+  flex: 0 0 auto;
+  min-width: 22px;
+  padding: 2px 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.shortcut-row em {
+  color: var(--text-muted);
+  font-style: normal;
+}
+
+.shortcuts-foot {
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.btn-shortcuts {
+  min-width: 32px;
+  justify-content: center;
+  padding-inline: 10px;
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .shortcuts-overlay {
+    align-items: flex-start;
+    padding: 88px 16px 16px;
+  }
+
+  .shortcuts-card {
+    max-height: calc(100vh - 104px);
+  }
+
+  .shortcuts-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 20px;
+  }
+}
+
+@media (max-width: 620px) {
+  .shortcuts-columns {
+    grid-template-columns: 1fr;
+  }
 }

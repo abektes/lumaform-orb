@@ -10,6 +10,9 @@ import {
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
 import { parseConfigFile, applyConfig } from '../core/config-io.js';
 import { createFindingsStore, makeFinding } from '../core/findings.js';
+import { makeStep, totalDuration } from '../core/sequence.js';
+import { EASING_NAMES } from '../core/easing.js';
+import { SHORTCUT_GROUPS, formatKey, shortcutsInGroup } from '../core/shortcuts.js';
 import { highlightJs, ensureHighlighter } from './highlight.js';
 import {
   LFO_SHAPES,
@@ -59,7 +62,7 @@ export class StudioUI {
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const reqTab = urlParams?.get('tab');
-    const validTabs = ['presets', 'findings', 'colors', 'geometry', 'motion', 'motionlab', 'optics', 'space', 'export', 'perf'];
+    const validTabs = ['presets', 'findings', 'rehearsal', 'colors', 'geometry', 'motion', 'motionlab', 'optics', 'space', 'export', 'perf'];
     this.activeTab = validTabs.includes(reqTab) ? reqTab : 'presets';
     this.initialOpenDropdown = urlParams?.get('openDropdown') === 'true';
     this.isZenMode = false;
@@ -71,6 +74,31 @@ export class StudioUI {
       console.warn('Findings storage is unavailable', err);
     }
     this.findings = createFindingsStore(findingsStorage);
+    // A rehearsal is a scratch arrangement. Findings are durable; this ordering
+    // remains intentionally session-local until exploration reveals a format
+    // worth preserving.
+    this.sequence = [];
+    this.activeSequenceIndex = -1;
+    this.studio.onSequenceStep = ({ index }) => {
+      this.activeSequenceIndex = index;
+      this.root.querySelectorAll('[data-seq-step]').forEach((element) => {
+        element.classList.toggle(
+          'playing',
+          Number(element.getAttribute('data-seq-step')) === index
+        );
+      });
+    };
+    this.studio.onSequenceStop = () => {
+      this.activeSequenceIndex = -1;
+      this.updateRehearsalPlaybackUi();
+    };
+    // Selection describes the current comparison, not persistent shelf data.
+    // It is capped at two because its consumer has exactly two slots.
+    this.selectedFindings = new Set();
+    this.onCompareFindings = null;
+    this.onBreedFinding = null;
+    this.onToggleShortcuts = null;
+    this.onCloseShortcuts = null;
 
     this.initElements();
     this.bindEvents();
@@ -107,8 +135,12 @@ export class StudioUI {
   bindEvents() {
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
-      // Don't trigger if user is typing in an input
-      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      // Selects and contenteditable controls are typing surfaces too. Letting a
+      // bare shortcut through would re-render the panel and steal their focus.
+      if (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) ||
+        e.target.isContentEditable
+      ) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
@@ -123,6 +155,13 @@ export class StudioUI {
         e.preventDefault();
         this.studio.captureSnapshot();
       } else if (e.code === 'Escape') {
+        // The modal's body-level layer outranks the keyboard map, so dismiss it
+        // first if both exist. Exactly one surface closes per key press.
+        if (!this.modalOverlay.classList.contains('hidden')) {
+          this.closeModal();
+          return;
+        }
+        if (this.onCloseShortcuts?.()) return;
         this.closeModal();
       }
     });
@@ -269,6 +308,7 @@ export class StudioUI {
           <button class="btn-action" id="btn-toggle-panel" title="Toggle Inspector">
             ${ICONS.sliders}
           </button>
+          <button class="btn-action btn-shortcuts" id="btn-shortcuts" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
         </div>
       </header>
 
@@ -325,6 +365,7 @@ export class StudioUI {
         <div class="inspector-tabs">
           <button class="tab-btn ${this.activeTab === 'presets' ? 'active' : ''}" data-tab="presets">Presets</button>
           <button class="tab-btn ${this.activeTab === 'findings' ? 'active' : ''}" data-tab="findings">Findings</button>
+          <button class="tab-btn ${this.activeTab === 'rehearsal' ? 'active' : ''}" data-tab="rehearsal">Rehearsal</button>
           <button class="tab-btn ${this.activeTab === 'colors' ? 'active' : ''}" data-tab="colors">Colors</button>
           <button class="tab-btn ${this.activeTab === 'geometry' ? 'active' : ''}" data-tab="geometry">Geometry</button>
           <button class="tab-btn ${this.activeTab === 'motion' ? 'active' : ''}" data-tab="motion">Motion</button>
@@ -346,6 +387,7 @@ export class StudioUI {
     this.attachControlListeners();
     this.attachMotionLabListeners();
     this.attachFindingsListeners();
+    this.attachRehearsalListeners();
   }
 
   attachTopBarListeners() {
@@ -401,6 +443,7 @@ export class StudioUI {
       this.render();
     });
     this.root.querySelector('#btn-grid')?.addEventListener('click', () => this.onToggleGrid?.());
+    this.root.querySelector('#btn-shortcuts')?.addEventListener('click', () => this.onToggleShortcuts?.());
     this.root.querySelector('#btn-zen')?.addEventListener('click', () => this.toggleZenMode());
     this.root.querySelector('#btn-toggle-panel')?.addEventListener('click', () => {
       this.isSidebarOpen = !this.isSidebarOpen;
@@ -499,6 +542,8 @@ export class StudioUI {
         return this.renderPresetsTab();
       case 'findings':
         return this.renderFindingsTab();
+      case 'rehearsal':
+        return this.renderRehearsalTab();
       case 'colors':
         return this.renderParamsSection('colors');
       case 'geometry':
@@ -1130,8 +1175,224 @@ export class StudioUI {
     return entry;
   }
 
+  selectedEntries(entries = this.findings.list()) {
+    const available = new Set(entries.map((entry) => String(entry.id)));
+    for (const id of this.selectedFindings) {
+      if (!available.has(id)) this.selectedFindings.delete(id);
+    }
+    // Shelf order, rather than click order, makes the top selection A.
+    return entries.filter((entry) => this.selectedFindings.has(String(entry.id)));
+  }
+
+  renderFindingsSelectionBar() {
+    const count = this.selectedFindings.size;
+    if (!count) return '';
+    return `
+      <div class="findings-selection-bar">
+        <span class="findings-selection-count">${count} selected</span>
+        <button class="btn-sm btn-accent" id="btn-findings-compare" ${count === 2 ? '' : 'disabled'}
+                title="Load into A and B, then press \` to flip">Compare A/B</button>
+        <button class="btn-sm" id="btn-findings-breed" ${count === 1 ? '' : 'disabled'}
+                title="Open the variation grid seeded from this finding">Breed</button>
+        <button class="btn-sm" id="btn-findings-deselect">Clear</button>
+      </div>
+    `;
+  }
+
+  updateRehearsalPlaybackUi() {
+    const active = !!this.studio.currentSequence;
+    const playing = this.studio.isPlayingSequence;
+    const play = this.root.querySelector('#btn-seq-play');
+    if (play) play.textContent = playing ? 'Pause' : active ? 'Resume' : 'Play loop';
+    const stop = this.root.querySelector('#btn-seq-stop');
+    if (stop) stop.disabled = !active;
+    if (!active) {
+      this.root.querySelectorAll('[data-seq-step]').forEach((element) => {
+        element.classList.remove('playing');
+      });
+    }
+  }
+
+  toggleSequencePlayback() {
+    if (this.studio.currentSequence) {
+      if (this.studio.isPlayingSequence) {
+        this.studio.pauseSequence();
+      } else {
+        this.studio.resumeSequence();
+      }
+    } else if (this.sequence.length) {
+      this.activeSequenceIndex = -1;
+      this.studio.playSequence(this.sequence, this.state, { loop: true });
+    }
+
+    if (this.activeTab === 'rehearsal') this.render();
+  }
+
+  stopSequencePlayback() {
+    this.studio.stopSequence();
+    if (this.activeTab === 'rehearsal') this.render();
+  }
+
+  renderRehearsalTab() {
+    const findings = this.findings.list();
+    const active = !!this.studio.currentSequence;
+    const playing = this.studio.isPlayingSequence;
+    const total = totalDuration(this.sequence);
+    const disabled = active ? 'disabled' : '';
+
+    const shelf = findings.length
+      ? `<div class="rehearsal-shelf">
+          ${findings.map((finding) => `
+            <button class="rehearsal-chip" data-seq-add="${escapeHtml(finding.id)}"
+                    title="Append to sequence" ${disabled}>
+              <img src="${safeThumbnail(finding.thumb)}" alt="" loading="lazy" />
+              <span>${escapeHtml(finding.note || finding.engine)}</span>
+            </button>
+          `).join('')}
+        </div>`
+      : `<div class="empty-notice">Keep some findings first — press <b>C</b> to stash the current orb.</div>`;
+
+    const strip = this.sequence.length
+      ? this.sequence.map((step, index) => `
+          <div class="seq-step ${index === this.activeSequenceIndex ? 'playing' : ''}"
+               data-seq-step="${index}">
+            <img class="seq-thumb" src="${safeThumbnail(step.thumb)}" alt="" loading="lazy" />
+            <div class="seq-body">
+              <div class="seq-name">${escapeHtml(step.note || step.engine)}</div>
+              <div class="seq-engine">${escapeHtml(step.engine)}</div>
+              <div class="seq-timings">
+                <label>in
+                  <input type="number" min="0" max="5000" step="50"
+                         value="${step.transitionMs}" data-seq-transition="${index}" ${disabled} />
+                </label>
+                <label>hold
+                  <input type="number" min="0" max="10000" step="50"
+                         value="${step.holdMs}" data-seq-hold="${index}" ${disabled} />
+                </label>
+                <select data-seq-easing="${index}" ${disabled}>
+                  ${EASING_NAMES.map((name) => (
+                    `<option value="${name}" ${step.easing === name ? 'selected' : ''}>${name}</option>`
+                  )).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="seq-actions">
+              <button class="cp-delete-btn" data-seq-up="${index}" title="Move earlier" ${disabled}>↑</button>
+              <button class="cp-delete-btn" data-seq-down="${index}" title="Move later" ${disabled}>↓</button>
+              <button class="cp-delete-btn" data-seq-remove="${index}" title="Remove" ${disabled}>✕</button>
+            </div>
+          </div>
+        `).join('')
+      : `<div class="empty-notice">Click a finding above to add it as a step.</div>`;
+
+    return `
+      <div class="panel-section">
+        <div class="section-header">
+          <span class="section-title">FINDINGS</span>
+          <span class="section-meta">click to append</span>
+        </div>
+        ${shelf}
+      </div>
+
+      <div class="panel-section">
+        <div class="section-header">
+          <span class="section-title">SEQUENCE</span>
+          <span class="section-meta">${this.sequence.length} steps · ${(total / 1000).toFixed(1)}s loop</span>
+        </div>
+        <div class="seq-strip">${strip}</div>
+        <div class="modal-footer-row seq-footer">
+          <button class="btn-sm btn-accent" id="btn-seq-play" ${this.sequence.length ? '' : 'disabled'}>
+            ${playing ? 'Pause' : active ? 'Resume' : 'Play loop'}
+          </button>
+          <button class="btn-sm" id="btn-seq-stop" ${active ? '' : 'disabled'}>Stop</button>
+          <button class="btn-sm" id="btn-seq-clear" ${disabled}>Clear</button>
+        </div>
+        ${active
+          ? '<div class="seq-active-note">Stop playback to edit the arrangement.</div>'
+          : ''}
+      </div>
+    `;
+  }
+
+  attachRehearsalListeners() {
+    this.root.querySelectorAll('[data-seq-add]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (this.studio.currentSequence) return;
+        const id = button.getAttribute('data-seq-add');
+        const finding = this.findings.list().find((entry) => String(entry.id) === id);
+        if (!finding) return;
+        try {
+          this.sequence.push(makeStep(finding));
+          this.render();
+        } catch (err) {
+          console.error('Could not add finding to rehearsal', err);
+          alert('Could not add that finding to the rehearsal.');
+        }
+      });
+    });
+
+    const mutateAt = (attribute, mutate) => {
+      this.root.querySelectorAll(`[${attribute}]`).forEach((element) => {
+        element.addEventListener('click', () => {
+          if (this.studio.currentSequence) return;
+          mutate(Number(element.getAttribute(attribute)));
+          this.render();
+        });
+      });
+    };
+
+    mutateAt('data-seq-remove', (index) => this.sequence.splice(index, 1));
+    mutateAt('data-seq-up', (index) => {
+      if (index <= 0) return;
+      [this.sequence[index - 1], this.sequence[index]] =
+        [this.sequence[index], this.sequence[index - 1]];
+    });
+    mutateAt('data-seq-down', (index) => {
+      if (index >= this.sequence.length - 1) return;
+      [this.sequence[index + 1], this.sequence[index]] =
+        [this.sequence[index], this.sequence[index + 1]];
+    });
+
+    const retime = (attribute, key, max) => {
+      this.root.querySelectorAll(`[${attribute}]`).forEach((element) => {
+        element.addEventListener('change', (event) => {
+          if (this.studio.currentSequence) return;
+          const step = this.sequence[Number(element.getAttribute(attribute))];
+          if (!step) return;
+          const value = Number(event.target.value);
+          step[key] = Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : 0;
+          this.render();
+        });
+      });
+    };
+    retime('data-seq-transition', 'transitionMs', 5000);
+    retime('data-seq-hold', 'holdMs', 10000);
+
+    this.root.querySelectorAll('[data-seq-easing]').forEach((element) => {
+      element.addEventListener('change', (event) => {
+        if (this.studio.currentSequence) return;
+        const step = this.sequence[Number(element.getAttribute('data-seq-easing'))];
+        if (step && EASING_NAMES.includes(event.target.value)) step.easing = event.target.value;
+      });
+    });
+
+    this.root.querySelector('#btn-seq-play')?.addEventListener('click', () => {
+      this.toggleSequencePlayback();
+    });
+    this.root.querySelector('#btn-seq-stop')?.addEventListener('click', () => {
+      this.stopSequencePlayback();
+    });
+    this.root.querySelector('#btn-seq-clear')?.addEventListener('click', () => {
+      if (this.studio.currentSequence) return;
+      this.sequence.length = 0;
+      this.activeSequenceIndex = -1;
+      this.render();
+    });
+  }
+
   renderFindingsTab() {
     const entries = this.findings.list();
+    this.selectedEntries(entries);
     if (!entries.length) {
       return `
         <div class="panel-section">
@@ -1151,10 +1412,12 @@ export class StudioUI {
         </div>
         <div class="findings-grid">
           ${entries.map((entry) => {
-            const id = escapeHtml(entry.id);
+            const rawId = String(entry.id);
+            const id = escapeHtml(rawId);
             return `
-              <div class="finding-card" data-finding="${id}">
-                <img class="finding-thumb" src="${safeThumbnail(entry.thumb)}" alt="" loading="lazy" />
+              <div class="finding-card ${this.selectedFindings.has(rawId) ? 'selected' : ''}" data-finding="${id}">
+                <img class="finding-thumb" src="${safeThumbnail(entry.thumb)}" alt="" loading="lazy"
+                     data-finding-select="${id}" title="Click to select for comparison" />
                 <div class="finding-meta">
                   <input class="finding-note" data-finding-note="${id}"
                          value="${escapeHtml(entry.note)}" placeholder="name this…" />
@@ -1168,6 +1431,7 @@ export class StudioUI {
             `;
           }).join('')}
         </div>
+        ${this.renderFindingsSelectionBar()}
         <div class="modal-footer-row findings-footer">
           <button class="btn-sm" id="btn-findings-clear">Clear all</button>
         </div>
@@ -1176,6 +1440,52 @@ export class StudioUI {
   }
 
   attachFindingsListeners() {
+    this.root.querySelectorAll('[data-finding-select]').forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const id = thumb.getAttribute('data-finding-select');
+        if (this.selectedFindings.has(id)) {
+          this.selectedFindings.delete(id);
+        } else {
+          if (this.selectedFindings.size >= 2) {
+            this.selectedFindings.delete(this.selectedFindings.values().next().value);
+          }
+          this.selectedFindings.add(id);
+        }
+        this.render();
+      });
+    });
+
+    this.root.querySelector('#btn-findings-deselect')?.addEventListener('click', () => {
+      this.selectedFindings.clear();
+      this.render();
+    });
+
+    this.root.querySelector('#btn-findings-compare')?.addEventListener('click', () => {
+      const entries = this.selectedEntries();
+      if (entries.length !== 2 || typeof this.onCompareFindings !== 'function') return;
+      try {
+        if (this.onCompareFindings(entries[0], entries[1]) === false) {
+          alert('Could not compare those findings.');
+        }
+      } catch (err) {
+        console.error('Could not compare findings', err);
+        alert('Could not compare those findings.');
+      }
+    });
+
+    this.root.querySelector('#btn-findings-breed')?.addEventListener('click', () => {
+      const entries = this.selectedEntries();
+      if (entries.length !== 1 || typeof this.onBreedFinding !== 'function') return;
+      try {
+        if (this.onBreedFinding(entries[0]) === false) {
+          alert('Could not breed from that finding.');
+        }
+      } catch (err) {
+        console.error('Could not breed from finding', err);
+        alert('Could not breed from that finding.');
+      }
+    });
+
     this.root.querySelectorAll('[data-finding-load]').forEach((button) => {
       button.addEventListener('click', () => {
         const id = button.getAttribute('data-finding-load');
@@ -1192,7 +1502,9 @@ export class StudioUI {
 
     this.root.querySelectorAll('[data-finding-delete]').forEach((button) => {
       button.addEventListener('click', () => {
-        this.findings.remove(button.getAttribute('data-finding-delete'));
+        const id = button.getAttribute('data-finding-delete');
+        this.selectedFindings.delete(id);
+        this.findings.remove(id);
         if (this.findings.lastError) {
           alert('Could not delete that finding from browser storage.');
           return;
@@ -1213,6 +1525,7 @@ export class StudioUI {
 
     this.root.querySelector('#btn-findings-clear')?.addEventListener('click', () => {
       if (!confirm('Delete every kept finding? This cannot be undone.')) return;
+      this.selectedFindings.clear();
       this.findings.clear();
       if (this.findings.lastError) {
         alert('Could not clear findings from browser storage.');
@@ -1306,12 +1619,12 @@ export class StudioUI {
           <span class="section-title">KEYBOARD SHORTCUTS</span>
         </div>
         <div class="hotkeys-table">
-          <div class="hotkey-row"><kbd>Space</kbd> <span>Pause / Play animation</span></div>
-          <div class="hotkey-row"><kbd>R</kbd> <span>Randomize color palette & math</span></div>
-          <div class="hotkey-row"><kbd>H</kbd> <span>Toggle Zen Mode (hide UI)</span></div>
-          <div class="hotkey-row"><kbd>S</kbd> <span>Quick PNG snapshot</span></div>
-          <div class="hotkey-row"><kbd>C</kbd> <span>Keep on the findings shelf</span></div>
-          <div class="hotkey-row"><kbd>Esc</kbd> <span>Close active modal</span></div>
+          ${SHORTCUT_GROUPS.flatMap((group) => shortcutsInGroup(group)).map((shortcut) => `
+            <div class="hotkey-row">
+              <kbd>${formatKey(shortcut.code)}</kbd>
+              <span>${shortcut.label}</span>
+            </div>
+          `).join('')}
         </div>
       </div>
     `;

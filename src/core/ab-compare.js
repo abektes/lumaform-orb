@@ -16,6 +16,35 @@ export function snapshotState(state) {
   });
 }
 
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+// Findings carry shelf metadata in addition to the four config keys. Keeping
+// that metadata out of slots prevents it leaking into later config exports.
+export function normalizeSnapshot(source) {
+  try {
+    if (!isPlainObject(source) || typeof source.engine !== 'string' || !source.engine.trim()) {
+      return null;
+    }
+    if (!isPlainObject(source.global) || !isPlainObject(source.params)) return null;
+    if (source.modulation != null && !isPlainObject(source.modulation)) return null;
+
+    return {
+      engine: source.engine,
+      global: structuredClone(source.global),
+      modulation: source.modulation == null ? null : structuredClone(source.modulation),
+      params: structuredClone(source.params),
+    };
+  } catch {
+    // A corrupted localStorage entry can contain a shape structuredClone cannot
+    // copy. Refusing it is safer than partially replacing a slot.
+    return null;
+  }
+}
+
 // Writes in place. `state`, `state.global` and each `state.engines[...]` bag are
 // held by reference in main.js, StudioUI and OrbStudio, so reassigning any of
 // them would orphan those holders — the same class of bug that made randomize
@@ -29,7 +58,10 @@ export function applySnapshot(state, snapshot) {
 
   state.engine = restored.engine;
   Object.assign(state.global, restored.global);
-  state.modulation = restored.modulation;
+  // Findings created before modulation existed carry null here. Match config
+  // import semantics and keep the current rack rather than leaving state null
+  // while the live rack continues to run its previous routes.
+  if (restored.modulation) state.modulation = restored.modulation;
 
   if (!state.engines[restored.engine]) state.engines[restored.engine] = {};
   Object.assign(state.engines[restored.engine], restored.params);
@@ -70,8 +102,24 @@ export function createAbCompare(studio, state, { getTransition = null } = {}) {
 
   return {
     store(slot) {
+      if (slot !== 'a' && slot !== 'b') return false;
       slots[slot] = snapshotState(state);
       activeSlot = slot;
+      return true;
+    },
+    // Stashing does not make the slot active because nothing has been applied.
+    stash(slot, source) {
+      if (slot !== 'a' && slot !== 'b') return false;
+      const snapshot = normalizeSnapshot(source);
+      if (!snapshot || !state.engines[snapshot.engine]) return false;
+      slots[slot] = snapshot;
+      return true;
+    },
+    slotSummary() {
+      const describe = (slot) => (
+        slots[slot] ? { filled: true, engine: slots[slot].engine } : null
+      );
+      return { a: describe('a'), b: describe('b'), active: activeSlot };
     },
     has(slot) {
       return !!slots[slot];

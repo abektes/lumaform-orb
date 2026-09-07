@@ -10,8 +10,9 @@ import { createQuantumEngine } from './engines/quantum-engine.js';
 import { createSingularityEngine } from './engines/singularity-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
+import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
 import { listSweepableParams } from './core/sweep.js';
-import { createAbCompare } from './core/ab-compare.js';
+import { createAbCompare, normalizeSnapshot } from './core/ab-compare.js';
 import { EASING_NAMES } from './core/easing.js';
 
 import { PRESET_LIBRARY } from './presets/preset-library.js';
@@ -70,6 +71,18 @@ window.__orb = { studio, state, ui };
 const clipIndicator = document.createElement('div');
 clipIndicator.className = 'clip-indicator hidden';
 ui.overlayLayer.appendChild(clipIndicator);
+
+// This is a full-screen dialog and therefore sits beside the UI root. Putting it
+// in overlayLayer would trap it below the inspector inside the root's stacking
+// context, leaving the controls it explains on top of it.
+const shortcutsOverlay = createShortcutsOverlay();
+ui.container.appendChild(shortcutsOverlay.element);
+ui.onToggleShortcuts = () => shortcutsOverlay.toggle();
+ui.onCloseShortcuts = () => {
+  if (!shortcutsOverlay.isOpen) return false;
+  shortcutsOverlay.hide();
+  return true;
+};
 
 let clipTimerId = null;
 let clipTogglePending = false;
@@ -325,8 +338,35 @@ function toggleGrid() {
 // The top-bar Grid button and the G key run the same path.
 ui.onToggleGrid = toggleGrid;
 
+// Resolve both inputs before touching either slot, so one corrupt shelf entry
+// cannot leave a half-updated comparison behind.
+ui.onCompareFindings = (first, second) => {
+  const a = normalizeSnapshot(first);
+  const b = normalizeSnapshot(second);
+  if (!a || !b || !state.engines[a.engine] || !state.engines[b.engine]) return false;
+  if (!ab.stash('a', a) || !ab.stash('b', b)) return false;
+  if (!ab.activate('a')) return false;
+  ui.render();
+  refreshAbReadout(true);
+  return true;
+};
+
+// Grid entry always seeds from live state, so first load the finding through
+// the same validating import path used by the shelf's Load action.
+ui.onBreedFinding = (entry) => {
+  const snapshot = normalizeSnapshot(entry);
+  if (!snapshot || !state.engines[snapshot.engine]) return false;
+  if (studio.isGridMode) exitGridView();
+  if (!ui.importConfigText(JSON.stringify(snapshot))) return false;
+  toggleGrid();
+  return studio.isGridMode;
+};
+
 window.addEventListener('keydown', (e) => {
-  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if (
+    ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) ||
+    e.target.isContentEditable
+  ) return;
 
   // Never claim a modified chord. These are all bare-key shortcuts, and matching
   // on e.code alone would swallow Cmd+1 (switch browser tab), Cmd+` (cycle
@@ -369,6 +409,14 @@ window.addEventListener('keydown', (e) => {
     }
   }
 
+  // Shift+/ arrives as code Slash. The modifier guard deliberately permits
+  // Shift while excluding command chords, so this follows the key users press.
+  if (e.code === 'Slash') {
+    e.preventDefault();
+    shortcutsOverlay.toggle();
+    return;
+  }
+
   if (e.code === 'KeyV') {
     e.preventDefault();
     toggleClip();
@@ -389,6 +437,14 @@ window.addEventListener('keydown', (e) => {
       console.error('Could not keep finding', err);
       alert(err instanceof Error ? err.message : 'Could not keep this finding.');
     }
+    return;
+  }
+
+  // Rehearsal playback remains reachable when the inspector is closed. P
+  // pauses rather than resets; the Rehearsal tab has an explicit Stop control.
+  if (e.code === 'KeyP' && !studio.isGridMode) {
+    e.preventDefault();
+    ui.toggleSequencePlayback();
     return;
   }
 
