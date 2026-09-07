@@ -6,7 +6,11 @@
 
 import {
   ALL_SECTIONS,
+  BREADTH_OPTIONS,
+  DEFAULT_BREADTH,
   RADIUS_STEPS,
+  breadthLabel,
+  cycleBreadth,
   nextRadius,
   sectionsForMutation,
   toggleSection,
@@ -21,6 +25,8 @@ const SECTION_LABELS = {
 export function createGridHud({
   initialSections = [...ALL_SECTIONS],
   initialRadius = RADIUS_STEPS[1],
+  initialBreadth = DEFAULT_BREADTH,
+  initialBreedPatch = true,
   onChange = () => {},
   onReseed = () => {},
   onExport = () => {},
@@ -28,6 +34,9 @@ export function createGridHud({
 } = {}) {
   let sections = [...initialSections];
   let radius = initialRadius;
+  let breadth = BREADTH_OPTIONS.includes(initialBreadth) ? initialBreadth : DEFAULT_BREADTH;
+  let breedPatch = initialBreedPatch !== false;
+  let marked = 0;
 
   const element = document.createElement('div');
   element.className = 'grid-hud';
@@ -47,6 +56,8 @@ export function createGridHud({
           <button class="grid-hud-chip ${sections.includes(name) ? 'active' : ''}"
                   data-section="${name}">${SECTION_LABELS[name]}</button>`
         ).join('')}
+        <button class="grid-hud-chip ${breedPatch ? 'active' : ''}"
+                id="grid-hud-patch">Patch</button>
       </div>
 
       <div class="grid-hud-sep"></div>
@@ -61,9 +72,19 @@ export function createGridHud({
       <div class="grid-hud-sep"></div>
 
       <div class="grid-hud-group">
+        <span class="grid-hud-label">Vary</span>
+        <button class="grid-hud-chip active" id="grid-hud-breadth"
+                title="Cycle how many parameters vary (B)">
+          ${breadthLabel(breadth)}
+        </button>
+      </div>
+
+      <div class="grid-hud-sep"></div>
+
+      <div class="grid-hud-group">
         <button class="grid-hud-btn" id="grid-hud-reseed" title="Re-breed all cells">Re-breed</button>
         <button class="grid-hud-btn" id="grid-hud-export" title="Download marked cells (E)">
-          Export <span class="grid-hud-count" id="grid-hud-count">0</span>
+          Export <span class="grid-hud-count" id="grid-hud-count">${marked}</span>
         </button>
         <button class="grid-hud-btn" id="grid-hud-exit" title="Leave grid mode (G)">Exit</button>
       </div>
@@ -73,14 +94,30 @@ export function createGridHud({
 
     element.querySelectorAll('[data-section]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        sections = toggleSection(sections, btn.getAttribute('data-section'));
+        const next = toggleSection(sections, btn.getAttribute('data-section'));
+        // At least one of parameter or patch mutation must remain enabled.
+        if (!next.length && !breedPatch) return;
+        sections = next;
         render();
         emit();
       });
     });
 
+    element.querySelector('#grid-hud-patch')?.addEventListener('click', () => {
+      if (breedPatch && !sections.length) return;
+      breedPatch = !breedPatch;
+      render();
+      emit();
+    });
+
     element.querySelector('#grid-hud-radius')?.addEventListener('click', () => {
       radius = nextRadius(radius);
+      render();
+      emit();
+    });
+
+    element.querySelector('#grid-hud-breadth')?.addEventListener('click', () => {
+      breadth = cycleBreadth(breadth);
       render();
       emit();
     });
@@ -91,7 +128,12 @@ export function createGridHud({
   }
 
   function emit() {
-    onChange({ sections: sectionsForMutation(sections), radius });
+    onChange({
+      sections: sectionsForMutation(sections),
+      radius,
+      breadth,
+      breedPatch,
+    });
   }
 
   render();
@@ -105,7 +147,15 @@ export function createGridHud({
       radius = value;
       render();
     },
+    get breadth() {
+      return breadth;
+    },
+    setBreadth(value) {
+      breadth = BREADTH_OPTIONS.includes(value) ? value : DEFAULT_BREADTH;
+      render();
+    },
     setMarked(count) {
+      marked = count;
       const el = element.querySelector('#grid-hud-count');
       if (el) el.textContent = String(count);
     },

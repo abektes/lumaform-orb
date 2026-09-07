@@ -559,6 +559,7 @@ canvas:active {
   border-radius: 2px;
   outline: none;
   cursor: pointer;
+  font-family: var(--font);
 }
 
 .dock-speed-slider::-webkit-slider-thumb {
@@ -597,6 +598,7 @@ canvas:active {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: transparent;
   color: var(--text-secondary);
+  font-family: var(--font);
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
@@ -622,6 +624,7 @@ canvas:active {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
+  font-family: var(--font);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -640,6 +643,19 @@ canvas:active {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--ink);
+}
+
+/* Both spans are JS hooks — updatePlayPauseBtn() rewrites them in place — so
+   the classes stay; the fixed text width keeps the dock from reflowing
+   sideways between PLAY and PAUSE. */
+.dock-play-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.dock-play-text {
+  min-width: 34px;
+  text-align: left;
 }
 
 /* INSPECTOR SIDEBAR */
@@ -735,13 +751,6 @@ canvas:active {
   color: var(--text-muted);
 }
 
-.section-subtext {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.4;
-  margin: 0 0 8px 0;
-}
-
 /* Palette Harmonies Quick-Bar */
 .palette-chips-grid {
   display: grid;
@@ -780,6 +789,23 @@ canvas:active {
   display: block;
 }
 
+/* Empty states. These were emitted with no rule at all, so the text that tells
+   a first-time user what to do rendered at browser defaults. */
+.empty-notice {
+  padding: 14px 12px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.empty-notice b {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
 /* Controls */
 .controls-list {
   display: flex;
@@ -805,15 +831,6 @@ canvas:active {
   font-weight: 600;
 }
 
-.ctrl-value {
-  font-size: 11px;
-  font-family: monospace;
-  color: var(--primary);
-  background: rgba(0, 0, 0, 0.4);
-  padding: 2px 7px;
-  border-radius: 4px;
-}
-
 /* Range Sliders */
 .studio-slider {
   -webkit-appearance: none;
@@ -823,6 +840,7 @@ canvas:active {
   background: rgba(255, 255, 255, 0.12);
   outline: none;
   cursor: pointer;
+  font-family: var(--font);
 }
 
 .studio-slider::-webkit-slider-thumb {
@@ -864,6 +882,7 @@ canvas:active {
   cursor: pointer;
   background: transparent;
   padding: 0;
+  font-family: var(--font);
 }
 
 .color-picker-input::-webkit-color-swatch-wrapper {
@@ -980,6 +999,35 @@ canvas:active {
 .save-preset-row {
   display: flex;
   gap: 8px;
+}
+
+/* Saved presets. These were emitted with no rule at all, so the name rendered
+   as plain default text even though clicking it loads the preset. */
+.custom-presets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-preset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cp-name:hover {
+  color: var(--primary);
 }
 
 .studio-input {
@@ -1223,13 +1271,6 @@ kbd {
   overflow-y: auto;
 }
 
-.modal-desc {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 0;
-  margin-bottom: 12px;
-}
-
 .code-preview {
   background: #050507;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1267,6 +1308,12 @@ kbd {
   gap: 8px;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* A bare checkbox still gets the UA's small Arial; inherit the panel font so
+   no control in the suite reports browser defaults. */
+.snapshot-opt input {
+  font-family: inherit;
 }
 
 .snapshot-multiplier-row {
@@ -1386,20 +1433,23 @@ kbd {
   align-items: center;
 }
 
-.mod-route-row .studio-select {
-  min-width: 0;
+/* The columns previously relied on source order inside the grid; the named
+   classes make the layout explicit and stop a long destination label from
+   squeezing the amount field to nothing. */
+.mod-route-source,
+.mod-route-dest {
+  min-width: 0;      /* lets a long <option> label ellipsize instead of pushing */
   font-size: 11px;
   padding: 4px 6px;
 }
 
-.mod-route-row .studio-slider {
+.mod-route-amount {
   width: 100%;
+  min-width: 0;
 }
 
-.ctrl-value {
-  float: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
+.mod-route-remove {
+  justify-self: end;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1953,10 +2003,6 @@ kbd {
 }
 
 @media (max-width: 900px) {
-  .pill-name {
-    display: none;
-  }
-
   /* Preserve every top-bar action as an icon at the phone breakpoint. Without
      this compaction the newly discoverable keyboard button lands off-screen. */
   .topbar-brand .brand-text,
@@ -2332,4 +2378,84 @@ kbd {
   .shortcuts-columns {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Parameter row. A slider alone cannot reproduce a value read from a finding,
+   so the readout is an exact-value field and the range stays visible.
+   --------------------------------------------------------------------------- */
+.ctrl-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ctrl-number {
+  width: 58px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: text;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ctrl-number:hover {
+  border-color: var(--input-border);
+}
+
+.ctrl-number:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ctrl-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease,
+    color 0.15s ease, border-color 0.15s ease;
+}
+
+.ctrl-reset:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: rgba(255, 237, 0, 0.08);
+  color: var(--primary);
+}
+
+/* Keep the button in layout so the row does not reflow when it leaves default.
+   The scoped selector also outranks generic disabled button variants. */
+.param-row .ctrl-reset:disabled,
+.param-row .ctrl-reset.is-default {
+  opacity: 0.18;
+  border-color: var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.ctrl-range {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
 }

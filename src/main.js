@@ -14,6 +14,12 @@ import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
 import { listSweepableParams } from './core/sweep.js';
 import { createAbCompare, normalizeSnapshot } from './core/ab-compare.js';
 import { EASING_NAMES } from './core/easing.js';
+import {
+  ALL_SECTIONS,
+  BREADTH_OPTIONS,
+  DEFAULT_BREADTH,
+  NO_PARAM_SECTION,
+} from './ui/grid-hud-state.js';
 
 import { PRESET_LIBRARY } from './presets/preset-library.js';
 
@@ -251,10 +257,14 @@ function toggleSweep() {
 window.__orb.toggleSweep = toggleSweep;
 
 // Variation grid: G toggles, click promotes a cell, shift-click marks for export,
-// M cycles the mutation radius, T fires every cell's envelope, E downloads the
-// marked configs.
+// M cycles the mutation radius, B cycles mutation breadth, T fires every cell's
+// envelope, and E downloads the marked configs.
 const GRID_RADII = [0.12, 0.25, 0.45];
 let gridRadiusIndex = 1;
+const GRID_BREADTHS = BREADTH_OPTIONS;
+let gridBreadth = DEFAULT_BREADTH;
+let gridSections = null;
+let gridBreedPatch = true;
 
 function downloadGridSelection() {
   const configs = studio.grid?.exportSelected();
@@ -308,7 +318,12 @@ function toggleGrid() {
     exitGridView();
   } else {
     studio.onGridPromote = onGridPromote;
-    studio.enterGridMode(state, { radius: GRID_RADII[gridRadiusIndex] });
+    studio.enterGridMode(state, {
+      radius: GRID_RADII[gridRadiusIndex],
+      sections: gridSections,
+      breadth: gridBreadth,
+      breedPatch: gridBreedPatch,
+    });
     // Hide the inspector and dock — the sidebar covers the right-hand column and
     // a grid you can only see two thirds of is useless for comparison. The top
     // bar stays so the Grid button remains reachable to exit.
@@ -317,9 +332,17 @@ function toggleGrid() {
 
     gridHud = createGridHud({
       initialRadius: GRID_RADII[gridRadiusIndex],
-      onChange: ({ sections, radius }) => {
+      initialSections: gridSections === null
+        ? [...ALL_SECTIONS]
+        : gridSections.includes(NO_PARAM_SECTION) ? [] : [...gridSections],
+      initialBreadth: gridBreadth,
+      initialBreedPatch: gridBreedPatch,
+      onChange: ({ sections, radius, breadth, breedPatch }) => {
         gridRadiusIndex = Math.max(0, GRID_RADII.indexOf(radius));
-        studio.reseedGrid({ radius, sections });
+        gridSections = sections;
+        gridBreadth = breadth;
+        gridBreedPatch = breedPatch;
+        studio.reseedGrid({ radius, sections, breadth, breedPatch });
       },
       onReseed: () => studio.reseedGrid({}),
       onExport: () => downloadGridSelection(),
@@ -462,6 +485,12 @@ window.addEventListener('keydown', (e) => {
     gridRadiusIndex = (gridRadiusIndex + 1) % GRID_RADII.length;
     studio.reseedGrid({ radius: GRID_RADII[gridRadiusIndex] });
     gridHud?.setRadius(GRID_RADII[gridRadiusIndex]);
+  } else if (studio.isGridMode && e.code === 'KeyB') {
+    e.preventDefault();
+    const index = GRID_BREADTHS.indexOf(gridBreadth);
+    gridBreadth = GRID_BREADTHS[(index + 1) % GRID_BREADTHS.length];
+    studio.reseedGrid({ breadth: gridBreadth });
+    gridHud?.setBreadth(gridBreadth);
   } else if (studio.isGridMode && e.code === 'KeyT') {
     e.preventDefault();
     studio.grid.triggerEnvelopes();

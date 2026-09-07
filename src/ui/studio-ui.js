@@ -2,6 +2,7 @@ import {
   ENGINE_TYPES,
   ENGINE_INFO,
   ENGINE_PARAM_DEFINITIONS,
+  DEFAULT_GLOBAL_SETTINGS,
   randomizeState,
   loadSavedPresets,
   saveCustomPreset,
@@ -11,6 +12,7 @@ import { PRESET_LIBRARY } from '../presets/preset-library.js';
 import { parseConfigFile, applyConfig } from '../core/config-io.js';
 import { createFindingsStore, makeFinding } from '../core/findings.js';
 import { makeStep, totalDuration } from '../core/sequence.js';
+import { formatParamValue, parseParamValue, isAtDefault } from '../core/param-format.js';
 import { EASING_NAMES } from '../core/easing.js';
 import { SHORTCUT_GROUPS, formatKey, shortcutsInGroup } from '../core/shortcuts.js';
 import { highlightJs, ensureHighlighter } from './highlight.js';
@@ -35,6 +37,53 @@ function safeThumbnail(value) {
   const src = String(value ?? '');
   return /^data:image\/(?:jpeg|png);base64,/i.test(src) ? escapeHtml(src) : '';
 }
+
+// Globals do not have an engine schema, so their row metadata lives here once
+// and is shared by rendering and listeners. Defaults still come from state.js.
+const GLOBAL_NUMBER_DEFINITIONS = {
+  bloomStrength: {
+    label: 'Bloom Strength',
+    min: 0,
+    max: 2.5,
+    step: 0.05,
+    default: DEFAULT_GLOBAL_SETTINGS.bloomStrength,
+  },
+  bloomRadius: {
+    label: 'Bloom Radius',
+    min: 0,
+    max: 1,
+    step: 0.02,
+    default: DEFAULT_GLOBAL_SETTINGS.bloomRadius,
+  },
+  bloomThreshold: {
+    label: 'Bloom Threshold',
+    min: 0,
+    max: 0.5,
+    step: 0.01,
+    default: DEFAULT_GLOBAL_SETTINGS.bloomThreshold,
+  },
+  exposure: {
+    label: 'ACES Exposure',
+    min: 0.4,
+    max: 2.2,
+    step: 0.05,
+    default: DEFAULT_GLOBAL_SETTINGS.exposure,
+  },
+  autoRotateSpeed: {
+    label: 'Camera Auto-Orbit',
+    min: -5,
+    max: 5,
+    step: 0.1,
+    default: DEFAULT_GLOBAL_SETTINGS.autoRotateSpeed,
+  },
+  timeScale: {
+    label: 'Simulation Time Scale',
+    min: 0.1,
+    max: 3,
+    step: 0.1,
+    default: DEFAULT_GLOBAL_SETTINGS.timeScale,
+  },
+};
 
 const ICONS = {
   dice: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="8.5" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="8.5" cy="15.5" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="15.5" r="1.5" fill="currentColor"></circle></svg>`,
@@ -496,10 +545,16 @@ export class StudioUI {
     if (slider) slider.value = magnitude;
     const badge = this.root.querySelector('#dock-speed-badge');
     if (badge) badge.textContent = `${signed < 0 ? '-' : ''}${magnitude.toFixed(1)}x`;
-    const valMotion = this.root.querySelector('#val-timeScale');
-    if (valMotion) valMotion.textContent = magnitude.toFixed(1);
     const motionSlider = this.root.querySelector('input[data-global="timeScale"]');
-    if (motionSlider) motionSlider.value = magnitude;
+    if (motionSlider) {
+      motionSlider.value = magnitude;
+      this.syncNumberRow(
+        motionSlider.closest('.param-row'),
+        magnitude,
+        GLOBAL_NUMBER_DEFINITIONS.timeScale,
+        signed
+      );
+    }
 
     this.root.querySelectorAll('.dock-speed-pill').forEach((pill) => {
       const pSpeed = parseFloat(pill.getAttribute('data-speed'));
@@ -634,22 +689,105 @@ export class StudioUI {
     `;
   }
 
+  modDot(key) {
+    const mod = this.state.modulation;
+    const driven = mod?.enabled
+      && (mod.routes || []).some((route) => route.enabled !== false && route.dest === key);
+    return driven ? '<span class="mod-dot" title="Driven by modulation"></span>' : '';
+  }
+
+  // Engine and global numeric controls use the same markup. Scope is carried on
+  // the row so equal key names never make one control synchronize another.
+  renderNumberRow({ key, def, value, attr, scope, defaultComparisonValue = value }) {
+    const shown = formatParamValue(value, def);
+    const atDefault = isAtDefault(defaultComparisonValue, def);
+    const label = escapeHtml(def.label ?? key);
+    const safeKey = escapeHtml(key);
+    const safeScope = escapeHtml(scope);
+    const min = formatParamValue(def.min, def);
+    const max = formatParamValue(def.max, def);
+    const minAttr = Number.isFinite(def.min) ? `min="${escapeHtml(def.min)}"` : '';
+    const maxAttr = Number.isFinite(def.max) ? `max="${escapeHtml(def.max)}"` : '';
+    const step = Number.isFinite(def.step) && def.step > 0 ? def.step : 'any';
+
+    return `
+      <div class="control-row param-row"
+           data-number-scope="${safeScope}" data-number-key="${safeKey}">
+        <div class="ctrl-label-row">
+          <label class="ctrl-label">${label}${scope === 'engine' ? this.modDot(key) : ''}</label>
+          <span class="ctrl-entry">
+            <input class="ctrl-number" type="text" inputmode="decimal"
+                   data-param-number="${safeKey}" value="${escapeHtml(shown)}"
+                   aria-label="${label} value" />
+            ${Number.isFinite(def.default) ? `
+              <button class="ctrl-reset ${atDefault ? 'is-default' : ''}"
+                      data-param-reset="${safeKey}"
+                      title="Reset to ${escapeHtml(formatParamValue(def.default, def))}"
+                      ${atDefault ? 'disabled' : ''}>↺</button>` : ''}
+          </span>
+        </div>
+        <input type="range" class="studio-slider" ${attr}
+               ${minAttr} ${maxAttr} step="${escapeHtml(step)}" value="${escapeHtml(value)}" />
+        <div class="ctrl-range">
+          <span>${escapeHtml(min)}</span>
+          <span>${escapeHtml(max)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  numberDefinition(scope, key) {
+    if (scope === 'global') return GLOBAL_NUMBER_DEFINITIONS[key] || {};
+    return (ENGINE_PARAM_DEFINITIONS[this.state.engine] || {})[key] || {};
+  }
+
+  numberValue(scope, key) {
+    if (scope === 'global') {
+      // Direction has its own dock control; the inspector row edits magnitude.
+      return key === 'timeScale'
+        ? Math.abs(this.state.global[key])
+        : this.state.global[key];
+    }
+    return this.state.engines[this.state.engine][key];
+  }
+
+  numberDefaultComparisonValue(scope, key) {
+    if (scope === 'global') return this.state.global[key];
+    return this.state.engines[this.state.engine][key];
+  }
+
+  writeNumberValue(scope, key, value, { reset = false } = {}) {
+    if (scope === 'global') {
+      if (key === 'timeScale') {
+        this.setPlaybackSpeed(value, { preserveDirection: !reset });
+      } else {
+        this.state.global[key] = value;
+      }
+      return;
+    }
+    this.state.engines[this.state.engine][key] = value;
+  }
+
+  syncNumberRow(row, value, def, defaultComparisonValue = value) {
+    if (!row) return;
+    const field = row.querySelector('.ctrl-number');
+    if (field && document.activeElement !== field) {
+      field.value = formatParamValue(value, def);
+    }
+    const reset = row.querySelector('.ctrl-reset');
+    if (reset) {
+      const atDefault = isAtDefault(defaultComparisonValue, def);
+      reset.classList.toggle('is-default', atDefault);
+      reset.disabled = atDefault;
+    }
+  }
+
   renderParamsSection(sectionName) {
     const engine = this.state.engine;
     const defs = ENGINE_PARAM_DEFINITIONS[engine] || {};
     const engineParams = this.state.engines[engine] || {};
 
     const filteredKeys = Object.keys(defs).filter((key) => defs[key].section === sectionName);
-
-    // A modulated slider shows the *base* value while the engine renders the
-    // modulated one. Without a marker that divergence just looks like a broken
-    // control, so flag every param a route is currently driving.
-    const mod = this.state.modulation;
-    const modulated = new Set(
-      mod?.enabled ? (mod.routes || []).filter((r) => r.enabled !== false).map((r) => r.dest) : []
-    );
-    const modDot = (key) =>
-      modulated.has(key) ? '<span class="mod-dot" title="Driven by modulation"></span>' : '';
 
     if (filteredKeys.length === 0) {
       const info = ENGINE_INFO[engine] || { name: engine };
@@ -711,7 +849,7 @@ export class StudioUI {
               if (def.type === 'color') {
                 return `
                   <div class="control-row color-control">
-                    <label class="ctrl-label">${def.label}${modDot(key)}</label>
+                    <label class="ctrl-label">${def.label}${this.modDot(key)}</label>
                     <div class="color-input-wrapper">
                       <input type="color" class="color-picker-input" data-param="${key}" value="${value}" />
                       <input type="text" class="color-hex-input" data-param-hex="${key}" value="${value}" maxlength="7" />
@@ -720,8 +858,8 @@ export class StudioUI {
                 `;
               } else if (def.type === 'select') {
                 return `
-                  <div class="control-row select-control">
-                    <label class="ctrl-label">${def.label}${modDot(key)}</label>
+                  <div class="control-row">
+                    <label class="ctrl-label">${def.label}${this.modDot(key)}</label>
                     <select class="studio-select" data-param="${key}">
                       ${def.options
                         .map(
@@ -733,23 +871,13 @@ export class StudioUI {
                   </div>
                 `;
               } else {
-                return `
-                  <div class="control-row slider-control">
-                    <div class="ctrl-label-row">
-                      <label class="ctrl-label">${def.label}${modDot(key)}</label>
-                      <span class="ctrl-value" id="val-${key}">${value}</span>
-                    </div>
-                    <input
-                      type="range"
-                      class="studio-slider"
-                      data-param="${key}"
-                      min="${def.min}"
-                      max="${def.max}"
-                      step="${def.step}"
-                      value="${value}"
-                    />
-                  </div>
-                `;
+                return this.renderNumberRow({
+                  key,
+                  def,
+                  value,
+                  attr: `data-param="${escapeHtml(key)}"`,
+                  scope: 'engine',
+                });
               }
             })
             .join('')}
@@ -767,29 +895,15 @@ export class StudioUI {
         </div>
 
         <div class="controls-list">
-          <div class="control-row slider-control">
-            <div class="ctrl-label-row">
-              <label class="ctrl-label">Bloom Strength</label>
-              <span class="ctrl-value" id="val-bloomStrength">${g.bloomStrength}</span>
-            </div>
-            <input type="range" class="studio-slider" data-global="bloomStrength" min="0" max="2.5" step="0.05" value="${g.bloomStrength}" />
-          </div>
-
-          <div class="control-row slider-control">
-            <div class="ctrl-label-row">
-              <label class="ctrl-label">Bloom Radius</label>
-              <span class="ctrl-value" id="val-bloomRadius">${g.bloomRadius}</span>
-            </div>
-            <input type="range" class="studio-slider" data-global="bloomRadius" min="0.0" max="1.0" step="0.02" value="${g.bloomRadius}" />
-          </div>
-
-          <div class="control-row slider-control">
-            <div class="ctrl-label-row">
-              <label class="ctrl-label">Bloom Threshold</label>
-              <span class="ctrl-value" id="val-bloomThreshold">${g.bloomThreshold}</span>
-            </div>
-            <input type="range" class="studio-slider" data-global="bloomThreshold" min="0.0" max="0.5" step="0.01" value="${g.bloomThreshold}" />
-          </div>
+          ${['bloomStrength', 'bloomRadius', 'bloomThreshold'].map((key) =>
+            this.renderNumberRow({
+              key,
+              def: GLOBAL_NUMBER_DEFINITIONS[key],
+              value: g[key],
+              attr: `data-global="${key}"`,
+              scope: 'global',
+            })
+          ).join('')}
         </div>
       </div>
 
@@ -799,29 +913,16 @@ export class StudioUI {
         </div>
 
         <div class="controls-list">
-          <div class="control-row slider-control">
-            <div class="ctrl-label-row">
-              <label class="ctrl-label">ACES Exposure</label>
-              <span class="ctrl-value" id="val-exposure">${g.exposure}</span>
-            </div>
-            <input type="range" class="studio-slider" data-global="exposure" min="0.4" max="2.2" step="0.05" value="${g.exposure}" />
-          </div>
-
-          <div class="control-row slider-control">
-            <div class="ctrl-label-row">
-              <label class="ctrl-label">Camera Auto-Orbit</label>
-              <span class="ctrl-value" id="val-autoRotateSpeed">${g.autoRotateSpeed}</span>
-            </div>
-            <input type="range" class="studio-slider" data-global="autoRotateSpeed" min="-5.0" max="5.0" step="0.1" value="${g.autoRotateSpeed}" />
-          </div>
-
-          <div class="control-row slider-control">
-            <div class="ctrl-label-row">
-              <label class="ctrl-label">Simulation Time Scale</label>
-              <span class="ctrl-value" id="val-timeScale">${g.timeScale}</span>
-            </div>
-            <input type="range" class="studio-slider" data-global="timeScale" min="0.1" max="3.0" step="0.1" value="${g.timeScale}" />
-          </div>
+          ${['exposure', 'autoRotateSpeed', 'timeScale'].map((key) =>
+            this.renderNumberRow({
+              key,
+              def: GLOBAL_NUMBER_DEFINITIONS[key],
+              value: key === 'timeScale' ? Math.abs(g[key]) : g[key],
+              attr: `data-global="${key}"`,
+              scope: 'global',
+              defaultComparisonValue: g[key],
+            })
+          ).join('')}
         </div>
       </div>
     `;
@@ -909,11 +1010,20 @@ export class StudioUI {
     const env = src.env1 || {};
     const audio = src.audio1 || {};
 
-    const slider = (attr, label, value, min, max, step) => `
-      <div class="control-row slider-control">
-        <label class="ctrl-label">${label}<span class="ctrl-value">${Number(value).toFixed(2)}</span></label>
-        <input type="range" class="studio-slider" ${attr} min="${min}" max="${max}" step="${step}" value="${value}" />
-      </div>`;
+    // Was a private helper hardcoding toFixed(2), which is how the same control
+    // came to format differently depending on which tab it was in. Scope 'mod'
+    // keeps these rows out of the engine/global listener path, so an LFO "rate"
+    // never cross-syncs with an engine parameter of the same name. No `default`
+    // in the definition means no reset button — modulation sources have no
+    // schema defaults to reset to.
+    const slider = (attr, label, value, min, max, step) =>
+      this.renderNumberRow({
+        key: `${attr.match(/data-mod-src="([^"]+)"/)[1]}.${attr.match(/data-mod-field="([^"]+)"/)[1]}`,
+        def: { label, min, max, step },
+        value,
+        attr,
+        scope: 'mod',
+      });
 
     const routeRows = (mod.routes || []).map((r, i) => `
       <div class="control-row mod-route-row" data-route="${i}">
@@ -1068,19 +1178,76 @@ export class StudioUI {
       commit(true);
     });
 
+    // Definitions for the shared row's formatter live on the range input's
+    // attributes — modulation sources have no schema to look them up in.
+    const modRowDef = (rangeEl) => ({
+      min: Number(rangeEl.min),
+      max: Number(rangeEl.max),
+      step: Number(rangeEl.step),
+    });
+
+    const writeModField = (id, field, raw) => {
+      mod.sources[id][field] = field === 'shape' ? raw : Number(raw);
+      if (id === 'audio1' && (field === 'attack' || field === 'release')) {
+        this.studio.audioInput?.setOptions({ [field]: Number(raw) });
+      }
+    };
+
     this.root.querySelectorAll('[data-mod-src]').forEach((el) => {
       const id = el.getAttribute('data-mod-src');
       const field = el.getAttribute('data-mod-field');
       const evt = el.tagName === 'SELECT' ? 'change' : 'input';
       el.addEventListener(evt, (e) => {
         const raw = e.target.value;
-        mod.sources[id][field] = field === 'shape' ? raw : Number(raw);
-        if (id === 'audio1' && (field === 'attack' || field === 'release')) {
-          this.studio.audioInput?.setOptions({ [field]: Number(raw) });
-        }
-        const label = el.parentElement?.querySelector('.ctrl-value');
-        if (label) label.textContent = Number(raw).toFixed(2);
+        writeModField(id, field, raw);
+        const row = el.closest('.param-row');
+        if (row) this.syncNumberRow(row, Number(raw), modRowDef(el));
         commit(false);
+      });
+    });
+
+    // The typed half of each shared row. Engine and global rows get this wiring
+    // from attachControlListeners(), which skips mod scope so equal key names
+    // never cross-synchronize; these commit straight into the modulation rack.
+    this.root.querySelectorAll('.param-row[data-number-scope="mod"]').forEach((row) => {
+      const rangeEl = row.querySelector('input[type="range"]');
+      const field = row.querySelector('.ctrl-number');
+      if (!rangeEl || !field) return;
+      const id = rangeEl.getAttribute('data-mod-src');
+      const fieldName = rangeEl.getAttribute('data-mod-field');
+      const def = modRowDef(rangeEl);
+      let suppressChange = false;
+      const commitField = () => {
+        const parsed = parseParamValue(field.value, def);
+        if (parsed === null) {
+          field.value = formatParamValue(Number(mod.sources[id][fieldName]), def);
+          return;
+        }
+        writeModField(id, fieldName, parsed);
+        field.value = formatParamValue(parsed, def);
+        rangeEl.value = parsed;
+        commit(false);
+      };
+      field.addEventListener('change', () => {
+        if (!suppressChange) commitField();
+      });
+      field.addEventListener('keydown', (event) => {
+        // Same contract as the parameter rows: Enter commits and Escape
+        // reverts, and neither bubbles into the bare-key shortcut handling.
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          suppressChange = true;
+          commitField();
+          field.blur();
+          queueMicrotask(() => { suppressChange = false; });
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          suppressChange = true;
+          field.value = formatParamValue(Number(mod.sources[id][fieldName]), def);
+          field.blur();
+          queueMicrotask(() => { suppressChange = false; });
+        }
+        event.stopPropagation();
       });
     });
 
@@ -1601,7 +1768,7 @@ export class StudioUI {
         </div>
 
         <div class="controls-list">
-          <div class="control-row select-control">
+          <div class="control-row">
             <label class="ctrl-label">Pixel Ratio (DPR)</label>
             <select class="studio-select" data-global="dpr">
               <option value="0.75" ${g.dpr === 0.75 ? 'selected' : ''}>0.75x (High Performance)</option>
@@ -1690,15 +1857,83 @@ export class StudioUI {
       });
     });
 
-    // Sliders
-    this.root.querySelectorAll('input[type="range"][data-param]').forEach((slider) => {
-      const key = slider.getAttribute('data-param');
-      slider.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        this.state.engines[this.state.engine][key] = val;
-        const valLabel = this.root.querySelector(`#val-${key}`);
-        if (valLabel) valLabel.textContent = val;
+    // Rows own their synchronization so an engine key can safely match a
+    // global (or a future Motion Lab) key without cross-updating its controls.
+    this.root.querySelectorAll('.param-row').forEach((row) => {
+      const scope = row.getAttribute('data-number-scope');
+      // Motion Lab rows share the markup but not the value model; they are
+      // wired in attachMotionLabListeners().
+      if (scope === 'mod') return;
+      const key = row.getAttribute('data-number-key');
+      const def = this.numberDefinition(scope, key);
+      const slider = row.querySelector('input[type="range"]');
+      const field = row.querySelector('.ctrl-number');
+      const reset = row.querySelector('.ctrl-reset');
+
+      slider?.addEventListener('input', (event) => {
+        const value = Number(event.target.value);
+        if (!Number.isFinite(value)) return;
+        this.writeNumberValue(scope, key, value);
+        this.syncNumberRow(
+          row,
+          value,
+          def,
+          this.numberDefaultComparisonValue(scope, key)
+        );
+        // Studio.updateParameters() tears down an active rehearsal before the
+        // next frame can overwrite this direct edit.
         this.onStateChange(this.state);
+      });
+
+      if (field) {
+        let suppressChange = false;
+        const commit = () => {
+          const parsed = parseParamValue(field.value, def);
+          if (parsed === null) {
+            field.value = formatParamValue(this.numberValue(scope, key), def);
+            return;
+          }
+
+          this.writeNumberValue(scope, key, parsed);
+          field.value = formatParamValue(parsed, def);
+          if (slider) slider.value = parsed;
+          this.syncNumberRow(
+            row,
+            parsed,
+            def,
+            this.numberDefaultComparisonValue(scope, key)
+          );
+          this.onStateChange(this.state);
+        };
+
+        field.addEventListener('change', () => {
+          if (!suppressChange) commit();
+        });
+        field.addEventListener('keydown', (event) => {
+          // These keys are complete field interactions; neither is allowed to
+          // bubble into the panel's bare-key shortcut handling.
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            suppressChange = true;
+            commit();
+            field.blur();
+            queueMicrotask(() => { suppressChange = false; });
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            suppressChange = true;
+            field.value = formatParamValue(this.numberValue(scope, key), def);
+            field.blur();
+            queueMicrotask(() => { suppressChange = false; });
+          }
+          event.stopPropagation();
+        });
+      }
+
+      reset?.addEventListener('click', () => {
+        if (!Number.isFinite(def.default)) return;
+        this.writeNumberValue(scope, key, def.default, { reset: true });
+        this.onStateChange(this.state);
+        this.render();
       });
     });
 
@@ -1763,25 +1998,6 @@ export class StudioUI {
           if (colorInput) colorInput.value = val;
           this.onStateChange(this.state);
         }
-      });
-    });
-
-    // Global sliders
-    this.root.querySelectorAll('input[type="range"][data-global]').forEach((slider) => {
-      const key = slider.getAttribute('data-global');
-      slider.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        // timeScale carries direction in its sign, so it has to go through the
-        // playback path rather than being written raw.
-        if (key === 'timeScale') {
-          this.setPlaybackSpeed(val);
-          this.onStateChange(this.state);
-          return;
-        }
-        this.state.global[key] = val;
-        const valLabel = this.root.querySelector(`#val-${key}`);
-        if (valLabel) valLabel.textContent = val;
-        this.onStateChange(this.state);
       });
     });
 
@@ -1895,7 +2111,7 @@ export class StudioUI {
 
         <div class="modal-content">
           <!-- TAB 1: CODE -->
-          <div class="modal-tab-pane" id="pane-code">
+          <div id="pane-code">
             <div class="code-preview custom-scroll">${highlightJs(embedCode)}</div>
             <div class="modal-footer-row">
               <button class="btn-primary" id="btn-copy-code">Copy Three.js Code</button>
@@ -1903,7 +2119,7 @@ export class StudioUI {
           </div>
 
           <!-- TAB 2: JSON -->
-          <div class="modal-tab-pane hidden" id="pane-json">
+          <div class="hidden" id="pane-json">
             <textarea class="json-textarea custom-scroll" id="export-json-area">${jsonStr}</textarea>
             <div class="modal-footer-row">
               <button class="btn-primary" id="btn-copy-json">Copy JSON</button>
@@ -1915,7 +2131,7 @@ export class StudioUI {
           </div>
 
           <!-- TAB 3: SNAPSHOT -->
-          <div class="modal-tab-pane hidden" id="pane-snapshot">
+          <div class="hidden" id="pane-snapshot">
             <div class="snapshot-options-grid">
               <label class="snapshot-opt">
                 <input type="checkbox" id="snap-trans" ${this.state.global.transparentBg ? 'checked' : ''} />

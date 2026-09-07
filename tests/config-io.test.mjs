@@ -19,6 +19,15 @@ const DEFS = {
 const single = JSON.stringify({ engine: 'quantum', global: {}, params: { edgeGlow: 1 } });
 let r = parseConfigFile(single, ENGINES);
 ok('accepts a single config', r.ok === true && r.configs.length === 1);
+const attributed = JSON.stringify({
+  engine: 'quantum',
+  global: {},
+  params: { edgeGlow: 1 },
+  mutatedKeys: ['edgeGlow'],
+});
+r = parseConfigFile(attributed, ENGINES);
+ok('accepts additive mutation attribution metadata',
+  r.ok === true && eq(r.configs[0].mutatedKeys, ['edgeGlow']));
 
 const many = JSON.stringify([
   { engine: 'quantum', global: {}, params: { edgeGlow: 1 } },
@@ -109,6 +118,11 @@ const st2 = makeState();
 st2.modulation = { enabled: true, sources: {}, routes: [{ source: 'lfo1', dest: 'edgeGlow', amount: 1 }] };
 applyConfig(st2, { engine: 'quantum', global: {}, params: { edgeGlow: 1 } }, DEFS);
 ok('legacy config leaves modulation untouched', st2.modulation.routes.length === 1);
+
+const stMetadata = makeState();
+applyConfig(stMetadata, JSON.parse(attributed), DEFS);
+ok('apply ignores additive mutation attribution metadata',
+  stMetadata.engines.quantum.edgeGlow === 1 && stMetadata.mutatedKeys === undefined);
 
 // applied modulation must be detached from the source object
 const st3 = makeState();

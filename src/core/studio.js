@@ -8,7 +8,7 @@ import { createPointerTracker, createClickPulse } from '../shared/pointer.js';
 import { createFpsTracker } from '../shared/fps.js';
 import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
-import { createVariationGrid } from './variation-grid.js';
+import { createVariationGrid, DEFAULT_BREADTH } from './variation-grid.js';
 import { isSweepable, sweepValues } from './sweep.js';
 import { createParamTween } from './param-tween.js';
 import { createAudioInput } from './audio-input.js';
@@ -72,6 +72,8 @@ export class OrbStudio {
     this.grid = null;
     this.gridRadius = 0.25;
     this.gridSections = null;
+    this.gridBreadth = DEFAULT_BREADTH;
+    this.gridBreedPatch = true;
     this.onGridPromote = null;
     this.sweepInfo = null;
     // Created lazily: constructing an AudioContext before a user gesture is
@@ -105,7 +107,10 @@ export class OrbStudio {
         return;
       }
       const promoted = this.grid.promote(index);
-      this.grid.populate(this.gridRadius, this.gridSections);
+      this.grid.populate(this.gridRadius, this.gridSections, {
+        breadth: this.gridBreadth,
+        breedPatch: this.gridBreedPatch,
+      });
       if (promoted) this.onGridPromote?.(promoted);
     };
     this.renderer.domElement.addEventListener('pointerdown', this.handleGridPointer);
@@ -614,8 +619,16 @@ export class OrbStudio {
     return this.clipRecorder ? this.clipRecorder.stop() : Promise.resolve(null);
   }
 
-  enterGridMode(state, { cols = 3, rows = 3, radius = 0.25, sections = null } = {}) {
+  enterGridMode(state, options = {}) {
     if (this.currentSequence) this.stopSequence();
+    const {
+      cols = 3,
+      rows = 3,
+      radius = this.gridRadius,
+      sections = this.gridSections,
+      breadth = this.gridBreadth,
+      breedPatch = this.gridBreedPatch,
+    } = options;
     const type = state.engine;
     const factory = this.engineConstructors.get(type);
     if (!factory) {
@@ -639,7 +652,9 @@ export class OrbStudio {
     });
     this.gridRadius = radius;
     this.gridSections = sections;
-    this.grid.populate(radius, sections);
+    this.gridBreadth = breadth;
+    this.gridBreedPatch = breedPatch;
+    this.grid.populate(radius, sections, { breadth, breedPatch });
     return this.grid;
   }
 
@@ -686,11 +701,16 @@ export class OrbStudio {
     return this.sweepInfo;
   }
 
-  reseedGrid({ radius, sections } = {}) {
+  reseedGrid({ radius, sections, breadth, breedPatch } = {}) {
     if (!this.grid) return;
     if (radius !== undefined) this.gridRadius = radius;
     if (sections !== undefined) this.gridSections = sections;
-    this.grid.populate(this.gridRadius, this.gridSections);
+    if (breadth !== undefined) this.gridBreadth = breadth;
+    if (breedPatch !== undefined) this.gridBreedPatch = breedPatch;
+    this.grid.populate(this.gridRadius, this.gridSections, {
+      breadth: this.gridBreadth,
+      breedPatch: this.gridBreedPatch,
+    });
   }
 
   exitGridMode() {

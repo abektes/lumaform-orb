@@ -26,6 +26,7 @@ export const SHORTCUTS = [
   { code: 'KeyV', label: 'Start / stop recording a clip', context: 'any', group: 'Capture' },
 
   { code: 'KeyM', label: 'Cycle the mutation radius', context: 'grid', group: 'Grid' },
+  { code: 'KeyB', label: 'Cycle how many parameters vary', context: 'grid', group: 'Grid' },
   { code: 'KeyT', label: 'Re-trigger every cell’s envelopes', context: 'grid', group: 'Grid' },
   { code: 'KeyE', label: 'Export the marked cells', context: 'grid', group: 'Grid' },
 ];

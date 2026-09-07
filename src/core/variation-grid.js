@@ -57,22 +57,68 @@ function hslToHex(h, s, l) {
 
 // --- mutation --------------------------------------------------------------
 
+// Three changes per cell keeps a difference attributable while still letting
+// the grid surprise you. Null restores the old change-everything behaviour.
+export const DEFAULT_BREADTH = 3;
+
+// The keys a mutation may touch, in definition order. An empty section list is
+// intentionally the same as no lock for backwards compatibility; the HUD uses
+// an unknown sentinel section when the user explicitly turns every section off.
+export function eligibleKeys(defs, sections) {
+  const allowed = sections && sections.length ? new Set(sections) : null;
+  return Object.entries(defs || {})
+    .filter(([, def]) => !allowed || allowed.has(def.section))
+    .map(([key]) => key);
+}
+
+// Breadth controls how many parameters are considered; radius still controls
+// how far each chosen parameter moves.
+export function chooseMutationKeys(
+  defs,
+  { sections = null, breadth = null, rng = Math.random } = {}
+) {
+  const pool = eligibleKeys(defs, sections);
+  if (breadth === null || breadth === undefined) return pool;
+
+  // Invalid values must not accidentally restore change-everything behaviour.
+  const finiteBreadth = Number.isFinite(breadth) ? Math.floor(breadth) : 0;
+  const take = Math.max(0, Math.min(finiteBreadth, pool.length));
+  if (take === pool.length) return pool;
+
+  // Partial Fisher-Yates produces a uniform subset without consuming random
+  // values for the tail that will never be used.
+  const shuffled = [...pool];
+  for (let i = 0; i < take; i++) {
+    const j = i + Math.floor(rng() * (shuffled.length - i));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, take);
+}
+
 // Mutate around `base` rather than jumping fully random — exploration wants a
 // controllable radius so you can zoom in on a promising region.
 //
 // Only ever writes keys that exist in `defs`. randomizeState() in state.js writes
 // `rotSpeedZW`, which no engine reads and no schema declares; a mutator that
 // invented keys would multiply that class of bug by the number of cells.
-export function mutateParams(base, defs, radius = 0.25, sections = null) {
+export function mutateParams(
+  base,
+  defs,
+  radius = 0.25,
+  sections = null,
+  { keys = null, rng = Math.random } = {}
+) {
   const out = { ...base };
   const allowed = sections && sections.length ? new Set(sections) : null;
+  const selected = keys === null ? null : new Set(keys);
 
   for (const [key, def] of Object.entries(defs || {})) {
     if (allowed && !allowed.has(def.section)) continue;
+    if (selected && !selected.has(key)) continue;
 
     if (def.type === 'number') {
       const span = def.max - def.min;
-      const jitter = (Math.random() * 2 - 1) * radius * span;
+      const jitter = (rng() * 2 - 1) * radius * span;
       const next = (typeof base[key] === 'number' ? base[key] : def.default) + jitter;
       const stepped = def.step ? Math.round(next / def.step) * def.step : next;
       out[key] = +Math.min(def.max, Math.max(def.min, stepped)).toFixed(4);
@@ -80,15 +126,15 @@ export function mutateParams(base, defs, radius = 0.25, sections = null) {
       const hsl = hexToHsl(base[key] ?? def.default);
       if (!hsl) continue;
       out[key] = hslToHex(
-        (hsl.h + (Math.random() * 2 - 1) * radius * 180 + 360) % 360,
-        Math.min(100, Math.max(0, hsl.s + (Math.random() * 2 - 1) * radius * 60)),
-        Math.min(95, Math.max(8, hsl.l + (Math.random() * 2 - 1) * radius * 40))
+        (hsl.h + (rng() * 2 - 1) * radius * 180 + 360) % 360,
+        Math.min(100, Math.max(0, hsl.s + (rng() * 2 - 1) * radius * 60)),
+        Math.min(95, Math.max(8, hsl.l + (rng() * 2 - 1) * radius * 40))
       );
     } else if (def.type === 'select' && Array.isArray(def.options)) {
       // Discrete jumps are what produce genuinely different characters, but they
       // shouldn't fire on every cell or the grid loses its family resemblance.
-      if (Math.random() < radius) {
-        out[key] = def.options[Math.floor(Math.random() * def.options.length)];
+      if (rng() < radius) {
+        out[key] = def.options[Math.floor(rng() * def.options.length)];
       }
     }
   }
@@ -99,8 +145,8 @@ export function mutateParams(base, defs, radius = 0.25, sections = null) {
 // --- patch mutation --------------------------------------------------------
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-const jitter = (amount) => (Math.random() * 2 - 1) * amount;
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const jitter = (amount, rng) => (rng() * 2 - 1) * amount;
+const pick = (arr, rng) => arr[Math.floor(rng() * arr.length)];
 
 const MAX_ROUTES = 4;
 
@@ -109,7 +155,7 @@ const MAX_ROUTES = 4;
 // motion character, because the character now lives in the routing: which source
 // drives what, and how hard. Swapping an LFO for noise, or moving a route from
 // glow to tempo, changes what the orb *does* rather than how it looks.
-export function mutatePatch(patch, destKeys, radius = 0.25) {
+export function mutatePatch(patch, destKeys, radius = 0.25, { rng = Math.random } = {}) {
   const next = structuredClone(patch || createDefaultModulation());
   next.enabled = true;
   const sourceIds = Object.keys(next.sources || {});
@@ -117,34 +163,38 @@ export function mutatePatch(patch, destKeys, radius = 0.25) {
 
   for (const src of Object.values(next.sources)) {
     if (src.type === 'lfo') {
-      src.rate = clamp((src.rate ?? 0.5) + jitter(radius * 2), 0.02, 4);
-      src.phase = ((src.phase ?? 0) + jitter(radius) + 1) % 1;
-      if (Math.random() < radius) src.shape = pick(LFO_SHAPES);
+      src.rate = clamp((src.rate ?? 0.5) + jitter(radius * 2, rng), 0.02, 4);
+      src.phase = ((src.phase ?? 0) + jitter(radius, rng) + 1) % 1;
+      if (rng() < radius) src.shape = pick(LFO_SHAPES, rng);
     } else if (src.type === 'noise') {
-      src.rate = clamp((src.rate ?? 0.35) + jitter(radius), 0.02, 2);
-      if (Math.random() < radius * 0.5) src.octaves = 1 + Math.floor(Math.random() * 5);
+      src.rate = clamp((src.rate ?? 0.35) + jitter(radius, rng), 0.02, 2);
+      if (rng() < radius * 0.5) src.octaves = 1 + Math.floor(rng() * 5);
     } else if (src.type === 'env') {
-      src.attack = clamp((src.attack ?? 0.08) + jitter(radius * 0.5), 0, 1.5);
-      src.decay = clamp((src.decay ?? 0.9) + jitter(radius), 0.05, 3);
+      src.attack = clamp((src.attack ?? 0.08) + jitter(radius * 0.5, rng), 0, 1.5);
+      src.decay = clamp((src.decay ?? 0.9) + jitter(radius, rng), 0.05, 3);
     }
   }
 
   const routes = (next.routes || []).map((r) => ({ ...r }));
   for (const r of routes) {
-    r.amount = clamp((r.amount ?? 0) + jitter(radius * 1.5), -1, 1);
-    if (Math.random() < radius * 0.6) r.source = pick(sourceIds);
-    if (Math.random() < radius * 0.6) r.dest = pick(destKeys);
+    r.amount = clamp((r.amount ?? 0) + jitter(radius * 1.5, rng), -1, 1);
+    if (rng() < radius * 0.6) r.source = pick(sourceIds, rng);
+    if (rng() < radius * 0.6) r.dest = pick(destKeys, rng);
   }
 
-  if (routes.length < MAX_ROUTES && Math.random() < radius) {
-    routes.push({ source: pick(sourceIds), dest: pick(destKeys), amount: jitter(1) });
-  } else if (routes.length > 1 && Math.random() < radius * 0.5) {
-    routes.splice(Math.floor(Math.random() * routes.length), 1);
+  if (routes.length < MAX_ROUTES && rng() < radius) {
+    routes.push({
+      source: pick(sourceIds, rng),
+      dest: pick(destKeys, rng),
+      amount: jitter(1, rng),
+    });
+  } else if (routes.length > 1 && rng() < radius * 0.5) {
+    routes.splice(Math.floor(rng() * routes.length), 1);
   }
 
   // A cell with no routes has no character to judge, so always keep one.
   if (!routes.length) {
-    routes.push({ source: pick(sourceIds), dest: pick(destKeys), amount: 0.5 });
+    routes.push({ source: pick(sourceIds, rng), dest: pick(destKeys, rng), amount: 0.5 });
   }
 
   next.routes = routes;
@@ -163,6 +213,7 @@ export function createVariationGrid({
   defs,
   cols = 3,
   rows = 3,
+  rng = Math.random,
   // Optional. When supplied, populate() asks this for each cell's config instead
   // of breeding one. The sweep strip uses it to lay out a deterministic ramp;
   // omit it and the grid mutates exactly as before.
@@ -189,7 +240,7 @@ export function createVariationGrid({
   cellComposer.addPass(cellRenderPass);
   cellComposer.addPass(new OutputPass());
 
-  function buildCell(params, patch) {
+  function buildCell(params, patch, { mutatedKeys = [], mutationBase = params } = {}) {
     const scene = new THREE.Scene();
     const engine = engineFactory({
       studio: null,
@@ -215,6 +266,8 @@ export function createVariationGrid({
       time: 0,
       lastMod: {},
       selected: false,
+      mutatedKeys: [...mutatedKeys],
+      mutationBase: { ...mutationBase },
     };
   }
 
@@ -246,7 +299,11 @@ export function createVariationGrid({
     cell.scene?.clear?.();
   }
 
-  function populate(radius, sections) {
+  function populate(
+    radius,
+    sections,
+    { breadth = DEFAULT_BREADTH, breedPatch = null, rng: populateRng = rng } = {}
+  ) {
     for (const cell of cells) disposeCell(cell);
     cells.length = 0;
     const count = cols * rows;
@@ -259,17 +316,39 @@ export function createVariationGrid({
       return;
     }
 
-    // When the mutation is locked to a section, only breed the patch if motion is
-    // in scope — otherwise "colours only" would still change how the orb moves.
-    const breedPatch = !sections || sections.includes('motion');
+    // Null preserves the pre-toggle rule for API callers. The app passes a
+    // boolean so patch breeding and parameter section locks are independent.
+    const shouldBreedPatch = breedPatch === null
+      ? (!sections || sections.includes('motion'))
+      : breedPatch;
     for (let i = 0; i < count; i++) {
       // Cell 0 is the unmutated parent, so you always have the reference in frame.
-      const params = i === 0 ? { ...parent } : mutateParams(parent, defs, radius, sections);
-      const patch =
-        i === 0 || !breedPatch
-          ? structuredClone(parentPatch)
-          : mutatePatch(parentPatch, destKeys, radius);
-      cells.push(buildCell(params, patch));
+      if (i === 0) {
+        cells.push(buildCell(
+          { ...parent },
+          structuredClone(parentPatch),
+          { mutationBase: parent }
+        ));
+        continue;
+      }
+
+      // One RNG stream flows through choosing, parameter mutation and patch
+      // mutation. A seeded grid therefore reproduces complete cells, not just
+      // their selected key names.
+      const keys = chooseMutationKeys(defs, {
+        sections,
+        breadth,
+        rng: populateRng,
+      });
+      const params = mutateParams(parent, defs, radius, sections, {
+        keys,
+        rng: populateRng,
+      });
+      const patch = shouldBreedPatch
+        ? mutatePatch(parentPatch, destKeys, radius, { rng: populateRng })
+        : structuredClone(parentPatch);
+      const mutatedKeys = keys.filter((key) => params[key] !== parent[key]);
+      cells.push(buildCell(params, patch, { mutatedKeys, mutationBase: parent }));
     }
   }
 
@@ -312,6 +391,22 @@ export function createVariationGrid({
       return parent;
     },
     populate,
+
+    describeCell(index) {
+      const cell = cells[index];
+      if (!cell) return null;
+      const mutatedKeys = [...(cell.mutatedKeys || [])];
+      return {
+        index,
+        mutatedKeys,
+        changes: mutatedKeys.map((key) => ({
+          key,
+          label: defs[key]?.label ?? key,
+          from: cell.mutationBase[key],
+          to: cell.params[key],
+        })),
+      };
+    },
 
     render(time, delta, width, height) {
       cellComposer.setSize(width, height);
@@ -361,9 +456,14 @@ export function createVariationGrid({
 
     promote(index) {
       if (!cells[index]) return null;
+      const description = this.describeCell(index);
       parent = { ...cells[index].params };
       parentPatch = structuredClone(cells[index].modulation);
-      return { params: { ...parent }, modulation: structuredClone(parentPatch) };
+      return {
+        params: { ...parent },
+        modulation: structuredClone(parentPatch),
+        mutatedKeys: description.mutatedKeys,
+      };
     },
 
     // Fire every cell's envelope at once so attack shapes can be compared.
@@ -384,7 +484,11 @@ export function createVariationGrid({
     getSelected() {
       return cells
         .filter((c) => c.selected)
-        .map((c) => ({ params: { ...c.params }, modulation: structuredClone(c.modulation) }));
+        .map((c) => ({
+          params: { ...c.params },
+          modulation: structuredClone(c.modulation),
+          mutatedKeys: [...(c.mutatedKeys || [])],
+        }));
     },
 
     exportSelected() {
@@ -395,6 +499,7 @@ export function createVariationGrid({
         global: { ...globalSettings },
         params: { ...c.params },
         modulation: structuredClone(c.modulation),
+        mutatedKeys: [...(c.mutatedKeys || [])],
       }));
     },
 

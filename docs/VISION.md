@@ -41,7 +41,7 @@ So the ordering is:
 
 Four capabilities, in rough priority order:
 
-**Variation throughput.** Tuning one orb one slider at a time is a terrible discovery rate. The tool should generate many candidates at once and let you steer toward the interesting ones. *(Built: the 3×3 variation grid — click to promote, shift-click to mark.)*
+**Variation throughput.** Tuning one orb one slider at a time is a terrible discovery rate. The tool should generate many candidates at once and let you steer toward the interesting ones. *(Built: the 3×3 variation grid — click to promote, shift-click to mark; mutation breadth and radius independently control how many parameters move and how far.)*
 
 **Motion shape, not just motion speed.** Every engine natively drives motion as `rate × linearTime`, which means the only native axis is faster/slower. Character lives in *shape* — acceleration, hesitation, settle, irregularity. *(Built: the modulation rack — LFO / noise / envelope / live audio routed onto parameters and tempo.)*
 
@@ -128,6 +128,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 - **Comments explain why.** The codebase is full of non-obvious constraints; a comment that restates the code is worse than none.
 - **Placement comments move with the thing they describe.** Re-rooting or repositioning chrome means rewriting its placement comment in the same change; stale placement guidance can recreate the bug the move fixed.
 - **Keyboard bindings and the map move together.** Every `e.code` shortcut in `main.js` or `studio-ui.js` needs a matching entry in `src/core/shortcuts.js`; `tests/shortcuts.test.mjs` scans both directions so hidden or stale bindings fail validation.
+- **CSS guards check existence, not appearance.** `tests/css-hygiene.test.mjs` proves every emitted class has a rule and no rule is unreachable; `tests/layering.test.mjs` proves z-index values come from the `--z-*` scale. Neither proves a rule is *right* — a rule can be present, reachable and wrong. Screenshot comparison against the previous look is still the reviewer's job for any stylesheet change.
 
 ---
 
@@ -137,6 +138,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 | --- | --- |
 | Engines | 8, all registered and disposing correctly |
 | Parameter schema | `ENGINE_PARAM_DEFINITIONS` in `src/core/state.js` — drives the entire UI |
+| Parameter controls | Shared numeric rows with formatted and typed exact values, visible ranges, and one-click reset |
 | Modulation | LFO / fbm noise / envelope / live mic or test tone → parameters and tempo; Motion Lab tab |
 | Variation grid | 3×3, per-cell patch + clock, promote, mark, export |
 | Capture | JSON export (config + marked cells), PNG snapshot, 30s live WebM/MP4 clip recording, localStorage presets, thumbnail findings gallery |
@@ -145,6 +147,8 @@ These are genuinely unresolved. If your work bears on one, say so.
 | Rehearsal room | Built — findings can be arranged, retimed and looped with per-step transitions to judge movement between configs |
 | Parameter sweep | Built — `K` ladders one parameter across 5 cells |
 | Section-locked mutation | Built — chips in the grid HUD |
+| Mutation breadth | Built — attributable 1 / 3 / 6 / everything parameter breeding, independent patch breeding, and changed-key export metadata |
 | Chrome layering | Two layers inside the root, named `--z-*` scale, guarded by `tests/layering.test.mjs` |
 | Responsive | Breakpoints at 1280px (laptop) and 900px (phone) |
 | Keyboard map | Built — `?` or the top-bar button opens the complete, source-scan-guarded shortcut inventory |
+| Markup/CSS hygiene | Guarded — every emitted class carries a rule, no rule is unreachable (`tests/css-hygiene.test.mjs`); existence, not appearance, so visual review stays manual |
