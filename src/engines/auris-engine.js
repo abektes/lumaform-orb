@@ -302,10 +302,12 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
       facetGeo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
 
     } else if (arch === 'nested_square' || arch === 'nested_hex' || arch === 'nested_pentagon' || arch === 'nested_triangle') {
-      // ── Clean Nested Rotated Polygons (ruled-surface string art) ──
-      // Produces the mathematically precise, museum-quality geometric patterns
-      // from the reference images: concentric polygons each rotated by a fixed
-      // angular increment, with optional string art lines between layers.
+      // ── Nested Rotated Polygons, wrapped onto a sphere ──
+      // The rings used to shrink across a flat disc — z varied by only
+      // S * 0.4 * stella, so 36 layers of string art piled into a plane and read
+      // as a smeared spiral rather than an object. Each ring now sits at its own
+      // latitude, which keeps the chiral twist that gave the archetype its
+      // character while giving it an orb silhouette and real depth.
       const sidesMap = {
         nested_square: 4,
         nested_hex: 6,
@@ -314,40 +316,63 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
       };
       const sides = sidesMap[arch];
 
-      const layers = 36;            // Number of concentric polygon rings
-      const maxRadius = S * 1.5;
-      const minRadius = S * 0.05;   // Tiny center aperture
+      // 36 flat layers were illegible once bloom touched them; at 20 the
+      // individual polygons stay distinguishable on a sphere.
+      const layers = 20;
+      // Matched to the geodesic archetype's extent so switching archetype does
+      // not visibly change the orb's size — the camera frames the engine once,
+      // from a single radius, and cannot follow a per-archetype scale.
+      const R = S * 1.65;
+      // Stops the rings collapsing to a point at each pole, the same reason the
+      // moire shells inset their meridians.
+      const POLE_INSET = 0.08;
 
-      const twistPerLayer = currentParams.twistAngle; // Rotation increment per ring
-
-      // Store all layer vertex arrays for string art connections
+      // Twist is measured in fractions of the polygon's own edge spacing rather
+      // than in absolute radians. A fixed radian step spirals a triangle (120°
+      // period) more than twice as far per layer as a hexagon, which is why the
+      // low-sided archetypes came out as lopsided shells instead of orbs.
+      const twistPerLayer = currentParams.twistAngle * ((Math.PI * 2) / sides) * 0.5;
       const allLayerVerts = [];
 
       for (let i = 0; i < layers; i++) {
-        const t = i / (layers - 1);             // 0 → 1 from outermost to innermost
-        const radius = maxRadius * (1.0 - t) + minRadius * t;
-        const angle = twistPerLayer * i;         // Cumulative rotation
-        const z = (t - 0.5) * S * 0.4 * stella; // Subtle 3D depth
+        const t = i / (layers - 1);
+        const theta = (POLE_INSET + t * (1 - 2 * POLE_INSET)) * Math.PI;
+        // stella now bulges or flattens the sphere rather than nudging a flat
+        // stack, so the parameter still does something visible.
+        const ringRadius = R * Math.sin(theta) * (1 + (stella - 0.5) * 0.25);
+        const y = R * Math.cos(theta);
+        const angle = twistPerLayer * i;
 
+        const onRing = (a) => new THREE.Vector3(
+          Math.cos(a) * ringRadius,
+          y,
+          Math.sin(a) * ringRadius
+        );
+
+        // The polygon corners, which the string art connects between layers.
         const verts = [];
         for (let s = 0; s < sides; s++) {
-          const a = angle + (s / sides) * Math.PI * 2;
-          verts.push(new THREE.Vector3(
-            Math.cos(a) * radius,
-            Math.sin(a) * radius,
-            z
-          ));
+          verts.push(onRing(angle + (s / sides) * Math.PI * 2));
         }
         allLayerVerts.push(verts);
 
-        // Draw polygon ring edges
-        for (let s = 0; s < sides; s++) {
-          edgeSegments.push([verts[s], verts[(s + 1) % sides]]);
+        // The ring itself is drawn as a circle rather than as `sides` straight
+        // chords. A triangle or square inscribed at the equator cuts so far
+        // inside the latitude circle that the silhouette stops being spherical —
+        // which is why the low-sided archetypes read as conch shells. The
+        // polygon still shows, in the symmetry of the string art spiralling
+        // between corners.
+        const RING_SUB = 8;
+        const steps = sides * RING_SUB;
+        for (let k = 0; k < steps; k++) {
+          const a0 = angle + (k / steps) * Math.PI * 2;
+          const a1 = angle + ((k + 1) / steps) * Math.PI * 2;
+          edgeSegments.push([onRing(a0), onRing(a1)]);
         }
       }
 
-      // String art: connect vertices across layers (ruled surfaces)
-      // Connect each vertex on layer i to the corresponding vertex on layer i+1
+      // The cross-layer string art becomes the sphere's ruled surface: because
+      // each ring is rotated a little further, the connecting lines spiral.
       for (let i = 0; i < layers - 1; i++) {
         for (let s = 0; s < sides; s++) {
           edgeSegments.push([allLayerVerts[i][s], allLayerVerts[i + 1][s]]);
@@ -423,7 +448,7 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
     // World radius this engine occupies, so OrbStudio can frame every engine at
     // the same fraction of the viewport instead of a shared fixed distance.
     // Stellated geodesic including spike apexes.
-    frame: { radius: 3.58 },
+    frame: { radius: 2.35 },
     update({ time, delta, pointer }) {
       clickPulse *= 0.92;
 
