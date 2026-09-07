@@ -1,8 +1,10 @@
 # Lumaform Orb
 
-A WebGL exploration tool for designing animated AI-assistant orbs. Eight shader engines, one parameter schema, one render loop.
+A WebGL exploration tool for designing animated AI-assistant orbs. Seventeen engines, one parameter schema, one render loop.
 
 **Read [docs/VISION.md](docs/VISION.md) before non-trivial work** — it explains what this is for and why several decisions that look arbitrary are not. Implementation plans live in `docs/superpowers/plans/`.
+
+**Adding an engine?** [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) is the full contract — factory shape, the four registration touch points, schema rules, and the verification checklist. Proposed engines live in [docs/engine-briefs/](docs/engine-briefs/).
 
 ## Stack
 

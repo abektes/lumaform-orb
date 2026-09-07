@@ -9,7 +9,7 @@ Read this before writing code. The implementation plans in `docs/superpowers/pla
 
 ## 1. What this is
 
-Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs eight independent shader "engines" (Tesseract, Moiré, Auris, Hopf, Polytope, Nebula, Quantum, Singularity), each a different geometric vocabulary, all driven through one parameter schema and one render loop.
+Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs seventeen independent engines spanning wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations, all driven through one parameter schema and one render loop.
 
 It is **not** a component library, not a runtime you embed, and not (yet) a design system. It is an instrument for finding out what's possible.
 
@@ -61,11 +61,11 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 **Geometry-section parameters must never be modulated.** Several engines dispose and rebuild geometry on parameter change (`auris` `buildGeometry`, `polytope` `buildMeshes`, `tesseract` `LineGeometry`). Doing that at 60fps thrashes the GPU. Every such parameter lives in the `geometry` section, so excluding that section covers the class.
 
-**Engines are interchangeable and self-disposing.** An engine is a factory returning `{ update, setParams | onParamsChange, dispose, onPulse?, onResize? }`. It owns its geometries and materials and must dispose all of them. Adding a ninth engine should be one file plus one `registerEngine` line — if it isn't, the abstraction has leaked.
+**Engines are interchangeable and self-disposing.** An engine is a factory returning `{ update, setParams | onParamsChange, dispose, onPulse?, onResize? }`. It owns its geometries and materials and must dispose all of them. Adding another engine should be one engine file plus small catalog, schema, registration, and optional preset edits — if it needs studio or UI changes, the abstraction has leaked.
 
-**The studio is the single choke point.** `OrbStudio.renderFrame()` is the one place time advances and parameters reach the active engine. Anything that should affect all eight engines belongs there, not in eight engines.
+**The studio is the single choke point.** `OrbStudio.renderFrame()` is the one place time advances and parameters reach the active engine. Anything that should affect every engine belongs there, not in each engine.
 
-**Only the active engine's parameter bag is meaningful.** State holds a bag per engine. Snapshot, export and import must touch only `state.engines[state.engine]` — writing all eight would silently rewrite engines the user never opened.
+**Only the active engine's parameter bag is meaningful.** State holds a bag per engine. Snapshot, export and import must touch only `state.engines[state.engine]` — writing every bag would silently rewrite engines the user never opened.
 
 **Chrome is layered, and the layer decides before the z-index does.** `.studio-ui-root` is positioned with a z-index and so forms a stacking context — a `z-index: 1000` inside it cannot outrank a `200` outside it. Inside the root are two layers: `overlayLayer` (never rewritten by `render()`, holds long-lived chrome, paints *below* the panel) and `panelLayer` (replaced wholesale on every `render()`). Mounting an overlay on `document.body` to survive `render()` puts it above the entire panel — that is what made the grid HUD cover the engine dropdown. Pick the layer first, then take a value from the scale declared in `:root` in `src/style.css`; only a full-screen dialog belongs at body level. `tests/layering.test.mjs` fails on any raw `z-index` literal.
 
@@ -136,7 +136,8 @@ These are genuinely unresolved. If your work bears on one, say so.
 
 | Area | State |
 | --- | --- |
-| Engines | 8, all registered and disposing correctly |
+| Engines | 17 registered vocabularies: analytic wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations |
+| Stateful motion | Murmuration, Curl Drift, Filament Lattice, Echo Rings, and Mycelium carry bounded history so settle and propagation emerge from motion |
 | Parameter schema | `ENGINE_PARAM_DEFINITIONS` in `src/core/state.js` — drives the entire UI |
 | Parameter controls | Shared numeric rows with formatted and typed exact values, visible ranges, and one-click reset |
 | Modulation | LFO / fbm noise / envelope / live mic or test tone → parameters and tempo; Motion Lab tab |

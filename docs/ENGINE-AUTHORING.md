@@ -1,0 +1,283 @@
+# Authoring a New Engine
+
+**Audience:** an agent or engineer adding another engine to Lumaform Orb.
+
+Read [VISION.md](VISION.md) first — it explains what the tool is for. This document is the contract: what an engine must implement, what it must never do, and how to prove it works. Engine-specific briefs live in [engine-briefs/](engine-briefs/).
+
+The claim in VISION.md §5 is that adding an engine should be **one new file plus four small edits**. If your change is bigger than that, the abstraction has leaked and you should say so rather than route around it.
+
+---
+
+## 1. What an engine is
+
+A factory function that builds Three.js objects into a scene it is handed, animates them from a clock it is handed, and disposes everything it created. It owns no camera, no renderer settings, no post-processing, and no time.
+
+```js
+export function createFooEngine({ studio, scene, camera, renderer, composer, pointerTracker, params, global }) {
+  // ...build geometry and materials, add them to `scene`
+  return {
+    frame: { radius: 2.3 },
+    update({ time, delta, pointer, marchQuality, fps }) { /* per frame */ },
+    setParams(patch) { /* apply a partial parameter update */ },
+    onPulse() { /* optional: a click happened */ },
+    onResize(width, height) { /* optional: drawing buffer changed */ },
+    dispose() { /* release every geometry, material and texture you made */ },
+  };
+}
+```
+
+### The construction arguments
+
+| Argument | Notes |
+|---|---|
+| `scene` | Yours to add to. In the variation grid **each of the nine cells gets its own scene** — never assume there is one. |
+| `camera` | Read-only. Do not move it; the studio derives its distance from your `frame.radius`. You may read `camera.position` in a shader uniform. |
+| `renderer` | Shared with eight other cell instances in grid mode. Do not change global renderer state (`setClearColor`, tone mapping, pixel ratio) — the studio owns those. |
+| `composer` | **`null` in grid mode.** Never assume it exists. |
+| `pointerTracker` | `{ pointer: Vector2 }`. In grid mode it is a fixed `(0,0)` stub. Parallax must degrade gracefully, not throw. |
+| `params` | The initial parameter bag from `state.engines[<id>]`. May be partial — merge over your own defaults. |
+| `global` | `DEFAULT_GLOBAL_SETTINGS` shape. Mostly the studio's business; read it only if you genuinely need it. |
+| `studio` | **`null` in grid mode.** Practically: never use it. No current engine does. |
+
+### The returned object
+
+**`update({ time, delta, pointer, marchQuality, fps })`** — called once per frame, and once per cell per frame in grid mode.
+
+- `time` is `virtualTime`, not wall clock. It already has `timeScale`, pause, and the modulation rack's `_timeScale` folded in. **Never call `clock.getElapsedTime()` or `performance.now()` yourself** — doing so makes the engine ignore pause, scrubbing, and every tempo route in the modulation rack.
+- `delta` is `0` when paused. If you integrate state (a simulation), integrate `delta`, not a constant.
+- `marchQuality` is a 0–1 hint from the FPS tracker; raymarchers should scale their step count by it. Grid cells are pinned to `0.7`.
+- Everything in the argument object is optional to consume. Destructure only what you use.
+
+**`setParams(patch)`** — a *partial* update. It arrives from the UI, from presets, from an import, from the A/B swap, from a running param tween, and from the modulation rack **every frame**. `onParamsChange` is accepted as a synonym; pick one (`setParams` is the norm).
+
+- Merge with `Object.assign(currentParams, patch)`, then act only on the keys present.
+- It must be cheap. The modulation rack calls it at 60fps with only the keys it changed.
+- **Guard every side effect with `if (patch.key !== undefined)`.** Rebuilding geometry because a color arrived is the most common way to make an engine stutter.
+
+**`frame: { radius: N }`** — the world-space radius your engine occupies. The studio derives camera distance from it so every engine fills the same fraction of the frame ([framing.js](../src/core/framing.js)). Omit it and you get `DEFAULT_FRAME_RADIUS = 2.5`, which is almost certainly wrong for you. Measure it: bounding sphere of everything you render at default parameters.
+
+**`onPulse()`** — a click. `onPointerClick()` is an alias and **both are called on the same click** ([studio.js:59](../src/core/studio.js:59)), so implement one, or keep the handler idempotent (`pulse = 1`, not `pulse += 1`). Decay the value in `update`; do not restore it on a timer from captured initial params — that silently discards edits the user made in between.
+
+**`onResize(width, height)`** — the drawing buffer changed. Line2 `LineMaterial.resolution` must be updated here or line widths go wrong. **Not called for grid cells**, which is a known and accepted quirk: cells render at the resolution set during construction.
+
+**`dispose()`** — remove your group from the scene and `.dispose()` every geometry, material, texture and render target you created. This runs on every engine switch and on all nine cells whenever the grid is reseeded, so a leak here compounds fast.
+
+---
+
+## 2. The four registration touch points
+
+### 2a. `src/engines/<name>-engine.js`
+
+The engine itself. One file. Named export `create<Name>Engine`.
+
+### 2b. `src/core/state.js`
+
+Three additions and one optional one:
+
+```js
+export const ENGINE_TYPES = {
+  // ...
+  FOO: 'foo',
+};
+
+export const ENGINE_INFO = {
+  [ENGINE_TYPES.FOO]: {
+    id: ENGINE_TYPES.FOO,
+    name: 'Foo Engine',        // dropdown label
+    badge: 'Short Technique',  // shown in the stats strip
+    description: 'One sentence a designer would understand.',
+  },
+};
+
+export const ENGINE_PARAM_DEFINITIONS = {
+  [ENGINE_TYPES.FOO]: { /* see §3 */ },
+};
+```
+
+Then register the default bag in `createInitialState()`:
+
+```js
+engines: {
+  // ...
+  [ENGINE_TYPES.FOO]: getDefaultEngineParams(ENGINE_TYPES.FOO),
+},
+```
+
+Optionally add a branch to `randomizeState()` (colors from the harmonious palette plus 3–5 parameters worth randomizing). Skip it and randomize simply does nothing for your engine, which is a soft failure, not a crash.
+
+> `createInitialState()` also carries a nested-ternary chain picking a default preset name per engine. If you ship presets, add a branch. If not, leave it — the fallback is harmless.
+
+### 2c. `src/main.js`
+
+```js
+import { createFooEngine } from './engines/foo-engine.js';
+// ...
+studio.registerEngine(ENGINE_TYPES.FOO, createFooEngine);
+```
+
+The dropdown, tab UI, grid, sweep, export, import and A/B all read from `ENGINE_TYPES` and `ENGINE_PARAM_DEFINITIONS`. **There is nothing else to wire.** If you find yourself editing `studio-ui.js` to make your engine appear, stop — you have missed a schema field.
+
+### 2d. `src/presets/preset-library.js` *(optional)*
+
+Two or three presets. Each is `{ name, engine, badge, description, global, params }`. Not required, but an engine with no presets gives a reviewer nothing to compare against.
+
+---
+
+## 3. The parameter schema
+
+Every parameter the UI shows, the grid mutates, the sweep ladders, and the exporter writes comes from `ENGINE_PARAM_DEFINITIONS`. The schema *is* the UI — there is no separate control code to write.
+
+```js
+color1:  { type: 'color',  label: 'Core Tint',   default: '#ffed00',                                   section: 'colors' },
+count:   { type: 'select', label: 'Agent Count', options: [128, 256, 512], default: 256,               section: 'geometry' },
+cohesion:{ type: 'number', label: 'Cohesion',    min: 0, max: 1, step: 0.01, default: 0.4,             section: 'motion' },
+```
+
+### `section` is a behavioural declaration, not a tab name
+
+Choosing the wrong section is the single most consequential schema mistake.
+
+| `section` | What it means operationally |
+|---|---|
+| `geometry` | **Changing this may dispose and rebuild geometry.** Excluded from modulation entirely ([modulation.js:30](../src/core/modulation.js:30)) because rebuilding at 60fps thrashes the GPU. |
+| `motion` | Safe to modulate. Anything that is a cheap transform or uniform write belongs here — **even if it is conceptually "shape".** |
+| `colors` | Safe to modulate. Colors themselves aren't (only `type: 'number'` is modulatable), but numeric glow/opacity parameters here are. |
+
+Two consequences worth internalising:
+
+1. **A cheap parameter must not live in `geometry`**, or you lock it out of the modulation rack for no reason. See `shellGap` in the Moiré schema ([state.js:236](../src/core/state.js:236)) — it is conceptually geometry, but it is applied as a scale on an existing object, so it lives in `motion` and stays modulatable. Prefer designing parameters to be transforms/uniforms precisely so they can escape `geometry`.
+2. **An expensive parameter must live in `geometry`**, or the rack will rebuild your buffers sixty times a second.
+
+### Rate parameters
+
+Any key matching `/speed|rate|spin|flow|rot[A-Z]|^rot/i` is excluded from modulation automatically, because engines compute `angle = time × rate` and changing a rate mid-flight retroactively rewrites the whole accumulated angle — the object visibly jumps. Tempo is shaped through the `_timeScale` destination instead.
+
+**This means naming matters.** If you have a numeric parameter that is *not* a rate but happens to be called `flowDensity`, the pattern will match and silently exclude it. Either rename it or add it to `RATE_EXCEPTIONS` — with a comment saying why, as `twistHarmonics` and `hatchDensity` do.
+
+Conversely: if you invent a rate-like parameter named `tempo` or `velocity`, the pattern will **not** match, and the rack will happily modulate it into a visible jump. Name rates so the pattern catches them.
+
+### Ranges
+
+`min`/`max` are not decoration. They set slider bounds, they normalise modulation depth (an `amount` of 0.5 means half the declared span, so a 0..0.03 param and a 0..360 one behave identically), they define the ladder for the parameter sweep, and they clamp on import. **A range wider than what actually looks good produces mostly-garbage variation grids** — the grid mutates within these bounds. Set them to the usable range, not the mathematically valid one.
+
+---
+
+## 4. Hard invariants
+
+Each of these has already gone wrong at least once in this repo.
+
+1. **Never reassign `state`, `state.global`, or `state.engines[<id>]`.** They are held by reference in `main.js`, `StudioUI` and `OrbStudio`. Always `Object.assign` into the existing object. Engines never touch app state at all — this constrains any studio-side edit your engine tempts you into.
+2. **Only the active engine's bag is meaningful.** `state.engines[state.engine]` — never write all nine.
+3. **Never modulate a rate.** Enforced by `isModulatable`. Do not build your own destination list; use `listModulationTargets()`.
+4. **Never modulate a `geometry` parameter.** Same enforcement, same reason.
+5. **Take no time from the wall clock.** `update({ time })` is the only clock.
+6. **Dispose everything.** Including render targets, if you use them.
+7. **No global renderer mutation.** Nine cells share one renderer.
+8. **No bloom assumptions.** Grid cells render through RenderPass + OutputPass with no bloom, deliberately ([VISION.md §5](VISION.md)). If your engine is only legible *because* of bloom, it will look broken in the grid — build the glow into your own material instead of leaning on the post pass.
+9. **`composer`, `studio`, and a real `pointerTracker` are all absent in grid mode.** Optional-chain or guard.
+
+---
+
+## 5. Contexts your engine must survive
+
+An engine that only works in the main view is half-finished. All six of these exercise it differently:
+
+| Context | What it stresses |
+|---|---|
+| Main view | The normal path. Bloom on, real pointer, `onResize` fires. |
+| Variation grid (`G`) | Nine simultaneous instances, nine scenes, one renderer, no composer, no bloom, no `onResize`, stub pointer, `marchQuality: 0.7`. **The hardest context — check it explicitly.** |
+| Parameter sweep (`K`) | Same as the grid, plus your parameter walked min→max. Reveals ranges that break at their own endpoints. |
+| Modulation rack | `setParams` at 60fps with partial patches; `_timeScale` making `delta` non-uniform. |
+| A/B compare (`` ` ``) | A full parameter set swapped in **without rebuilding the engine**. A `setParams` that only handles some keys shows up here as a half-applied config. |
+| Param tween / rehearsal | `setParams` called continuously with interpolated values. Anything that rebuilds on change will stutter through the whole transition. |
+
+---
+
+## 6. Performance budget
+
+Nine instances at once is the real constraint, not one.
+
+- **60fps with nine cells** on integrated graphics is the target. If your engine can only manage that at reduced quality, scale on `marchQuality`.
+- Allocate in the factory, mutate in `update`. Building a `new THREE.Color()` per frame per fiber is tolerable (Hopf does it); allocating geometry is not.
+- Prefer updating existing buffer attributes and setting `needsUpdate = true` over creating new geometry. `Line2.setPositions()` per frame is a proven-acceptable pattern here ([hopf-engine.js:234](../src/engines/hopf-engine.js:234)).
+- If you use `InstancedMesh`, size it for the maximum of your count parameter at construction and vary the visible count, rather than rebuilding on change.
+
+---
+
+## 7. Verification — required before you report done
+
+Claims need evidence. Run the commands, paste the output.
+
+```bash
+npx vite build
+```
+
+```bash
+for t in tests/*.test.mjs; do node "$t" || echo "FAILED: $t"; done
+```
+
+Then in the browser (`npm run dev`), with `window.__orb = { studio, state, ui, ab }`:
+
+1. Select your engine from the dropdown. Confirm every parameter renders a control and moving each one visibly does something.
+2. Press `G` for the variation grid. Confirm nine cells render, none are black, and the frame rate holds.
+3. Press `K` for a sweep on one numeric parameter. Confirm the endpoints are usable rather than degenerate.
+4. Switch to another engine and back **ten times**, then check for leaks:
+   ```js
+   __orb.studio.renderer.info.memory
+   ```
+   Geometry and texture counts must return to a stable number, not climb.
+5. Export the config, re-import it, and confirm the orb is unchanged.
+6. Enable a modulation route onto one of your `motion` parameters and confirm it moves smoothly with no jump.
+
+### The hidden-pane traps
+
+If the browser pane is not displayed, `requestAnimationFrame` never fires and the render loop is frozen. The app looks broken but isn't. `studio.fpsTracker.fps` still reports its default `60`, so it is **not** a liveness signal.
+
+- Step frames manually: `studio.renderFrame()`.
+- `setTimeout` is clamped to ~1000 ms in a hidden pane, so sleeping between frames advances a full second of `clock.getDelta()` each step. Inject the delta instead: `studio.clock.getDelta = () => 0.025`, step, restore.
+- CSS transitions are frozen too; `getComputedStyle()` returns the starting value forever.
+
+### Before reporting a bug
+
+Check your fixture. Writing a parameter straight to state can put it outside its schema range, and import will legitimately clamp it — that reads as a round-trip bug and isn't one.
+
+---
+
+## 8. Definition of done
+
+- [ ] `src/engines/<name>-engine.js` exists, exports `create<Name>Engine`, disposes everything it creates
+- [ ] `frame.radius` declared and measured, not guessed
+- [ ] `ENGINE_TYPES`, `ENGINE_INFO`, `ENGINE_PARAM_DEFINITIONS` and `createInitialState()` updated in `state.js`
+- [ ] Imported and registered in `main.js`
+- [ ] Every parameter has a correct `section`, a `label` a designer would understand, and a usable range
+- [ ] At least one numeric `motion` parameter is modulatable (verify with `listModulationTargets()`)
+- [ ] `npx vite build` passes — output pasted
+- [ ] All `tests/*.test.mjs` pass — output pasted
+- [ ] Verified in main view, grid, and sweep — screenshot of the grid attached
+- [ ] Ten engine switches leave `renderer.info.memory` stable — numbers pasted
+- [ ] Optional: 2–3 presets in `preset-library.js`
+- [ ] Commit message explains *why* the engine exists, not just that it was added
+
+---
+
+## 9. Reference engines
+
+Copy the closest one rather than starting blank.
+
+| If you are building… | Read |
+|---|---|
+| Lines / wireframes / analytic curves | [hopf-engine.js](../src/engines/hopf-engine.js) — cleanest example: Line2 rebuilt per frame, particles, correct `onResize` and `dispose` |
+| A full-screen raymarched SDF | [nebula-engine.js](../src/engines/nebula-engine.js) — fullscreen quad, `marchQuality` scaling, uniform-driven `setParams` |
+| Lit meshes with real geometry rebuilds | [auris-engine.js](../src/engines/auris-engine.js) — `buildGeometry` gated on `geometry`-section keys only |
+| Two counter-rotating structures | [moire-engine.js](../src/engines/moire-engine.js) — plus a good example of a `motion`-section parameter that could have been `geometry` and deliberately isn't |
+
+---
+
+## 10. Scope discipline
+
+VISION.md §3 is load-bearing: **exploration comes before specification.** You are adding a vocabulary to play with, not a feature to configure.
+
+- Do not add a config format, a versioning scheme, or a state machine.
+- Do not refactor the studio, the UI, or another engine to accommodate yours. If your engine genuinely cannot be expressed within the contract, **stop and report that** — it is more valuable information than a working engine plus an invasive change.
+- Do not add runtime dependencies. `three` and `shiki` are the whole list.
+- Ten well-chosen parameters beat thirty. Every parameter you add is one the variation grid can waste a mutation on.

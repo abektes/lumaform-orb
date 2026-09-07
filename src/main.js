@@ -9,6 +9,14 @@ import { createNebulaEngine } from './engines/nebula-engine.js';
 import { createQuantumEngine } from './engines/quantum-engine.js';
 import { createSingularityEngine } from './engines/singularity-engine.js';
 import { createFluxEngine } from './engines/flux-engine.js';
+import { createAqueousEngine } from './engines/aqueous-engine.js';
+import { createCurlDriftEngine } from './engines/curl-drift-engine.js';
+import { createMurmurationEngine } from './engines/murmuration-engine.js';
+import { createFilamentEngine } from './engines/filament-engine.js';
+import { createPrismBloomEngine } from './engines/prism-bloom-engine.js';
+import { createCoronaVeilEngine } from './engines/corona-veil-engine.js';
+import { createEchoRingsEngine } from './engines/echo-rings-engine.js';
+import { createMyceliumEngine } from './engines/mycelium-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
 import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
@@ -55,6 +63,14 @@ studio.registerEngine(ENGINE_TYPES.NEBULA, createNebulaEngine);
 studio.registerEngine(ENGINE_TYPES.QUANTUM, createQuantumEngine);
 studio.registerEngine(ENGINE_TYPES.SINGULARITY, createSingularityEngine);
 studio.registerEngine(ENGINE_TYPES.FLUX, createFluxEngine);
+studio.registerEngine(ENGINE_TYPES.AQUEOUS, createAqueousEngine);
+studio.registerEngine(ENGINE_TYPES.CURL_DRIFT, createCurlDriftEngine);
+studio.registerEngine(ENGINE_TYPES.MURMURATION, createMurmurationEngine);
+studio.registerEngine(ENGINE_TYPES.FILAMENT, createFilamentEngine);
+studio.registerEngine(ENGINE_TYPES.PRISM_BLOOM, createPrismBloomEngine);
+studio.registerEngine(ENGINE_TYPES.CORONA_VEIL, createCoronaVeilEngine);
+studio.registerEngine(ENGINE_TYPES.ECHO_RINGS, createEchoRingsEngine);
+studio.registerEngine(ENGINE_TYPES.MYCELIUM, createMyceliumEngine);
 
 // Initialize Studio UI
 const ui = new StudioUI(document.body, studio, state, (updatedState) => {

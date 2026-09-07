@@ -12,6 +12,14 @@ export const ENGINE_TYPES = {
   QUANTUM: 'quantum',
   SINGULARITY: 'singularity',
   FLUX: 'flux',
+  AQUEOUS: 'aqueous',
+  CURL_DRIFT: 'curldrift',
+  MURMURATION: 'murmuration',
+  FILAMENT: 'filament',
+  PRISM_BLOOM: 'prismbloom',
+  CORONA_VEIL: 'coronaveil',
+  ECHO_RINGS: 'echorings',
+  MYCELIUM: 'mycelium',
 };
 
 export const ENGINE_INFO = {
@@ -68,6 +76,54 @@ export const ENGINE_INFO = {
     name: 'Flux Ribbon',
     badge: 'Travelling Wave',
     description: 'A bundle of glowing strands streaming in a travelling wave, fanning apart and converging into bright knots. Renders as a wide ribbon or wrapped onto an orb.',
+  },
+  [ENGINE_TYPES.AQUEOUS]: {
+    id: ENGINE_TYPES.AQUEOUS,
+    name: 'Aqueous',
+    badge: 'Refractive Body',
+    description: 'A soft, luminous body with migrating liquid contours, glassy depth, and a calm physical presence.',
+  },
+  [ENGINE_TYPES.CURL_DRIFT]: {
+    id: ENGINE_TYPES.CURL_DRIFT,
+    name: 'Curl Drift',
+    badge: 'Advected Flow',
+    description: 'Directional light ribbons braid around a spherical shell inside a deterministic curl field.',
+  },
+  [ENGINE_TYPES.MURMURATION]: {
+    id: ENGINE_TYPES.MURMURATION,
+    name: 'Murmuration',
+    badge: 'Emergent Swarm',
+    description: 'A living cloud of agents gathers, separates, and regroups as if weighing several possibilities.',
+  },
+  [ENGINE_TYPES.FILAMENT]: {
+    id: ENGINE_TYPES.FILAMENT,
+    name: 'Filament Lattice',
+    badge: 'Spring Network',
+    description: 'Signals travel through an elastic geodesic network, reflect, interfere, and ring down.',
+  },
+  [ENGINE_TYPES.PRISM_BLOOM]: {
+    id: ENGINE_TYPES.PRISM_BLOOM,
+    name: 'Prism Bloom',
+    badge: 'Crystalline Flora',
+    description: 'Iridescent crystalline petals open in waves around a warm faceted core.',
+  },
+  [ENGINE_TYPES.CORONA_VEIL]: {
+    id: ENGINE_TYPES.CORONA_VEIL,
+    name: 'Corona Veil',
+    badge: 'Aurora Membrane',
+    description: 'Layered aurora membranes roll quietly around a dark solar core.',
+  },
+  [ENGINE_TYPES.ECHO_RINGS]: {
+    id: ENGINE_TYPES.ECHO_RINGS,
+    name: 'Echo Rings',
+    badge: 'Signal Memory',
+    description: 'Luminous wavefronts remember each pulse as they propagate and settle around a dark orb.',
+  },
+  [ENGINE_TYPES.MYCELIUM]: {
+    id: ENGINE_TYPES.MYCELIUM,
+    name: 'Mycelium',
+    badge: 'Living Network',
+    description: 'A branching bioluminescent network carries visible signals from root to tip.',
   },
 };
 
@@ -304,6 +360,148 @@ export const ENGINE_PARAM_DEFINITIONS = {
     sparkleSize: { type: 'number', label: 'Sparkle Size', min: 0.5, max: 8.0, step: 0.1, default: 2.2, section: 'colors' },
     sparkleBrightness: { type: 'number', label: 'Sparkle Brightness', min: 0.0, max: 5.0, step: 0.1, default: 2.4, section: 'colors' },
   },
+
+  [ENGINE_TYPES.AQUEOUS]: {
+    detail: { type: 'select', label: 'Surface Detail', options: [3, 4, 5, 6], default: 5, section: 'geometry' },
+    radius: { type: 'number', label: 'Body Radius', min: 0.8, max: 2.2, step: 0.05, default: 1.5, section: 'geometry' },
+    displaceOctaves: { type: 'select', label: 'Surface Layers', options: [1, 2, 3, 4], default: 3, section: 'geometry' },
+    displaceAmount: { type: 'number', label: 'Liquid Displacement', min: 0, max: 0.5, step: 0.01, default: 0.18, section: 'motion' },
+    displaceScale: { type: 'number', label: 'Surface Character', min: 0.3, max: 4, step: 0.05, default: 1.4, section: 'motion' },
+    breatheSpeed: { type: 'number', label: 'Breathing Rate', min: 0, max: 2, step: 0.05, default: 0.35, section: 'motion' },
+    breatheAmp: { type: 'number', label: 'Breathing Depth', min: 0, max: 0.15, step: 0.005, default: 0.04, section: 'motion' },
+    driftSpeed: { type: 'number', label: 'Surface Drift Speed', min: 0, max: 1.5, step: 0.05, default: 0.25, section: 'motion' },
+    pulseDeform: { type: 'number', label: 'Pulse Deformation', min: 0, max: 0.6, step: 0.02, default: 0.25, section: 'motion' },
+    bodyColor: { type: 'color', label: 'Body Tint', default: '#2dd4bf', section: 'colors' },
+    coreColor: { type: 'color', label: 'Inner Light', default: '#ffed00', section: 'colors' },
+    transmission: { type: 'number', label: 'Glassy Transmission', min: 0, max: 1, step: 0.01, default: 0.85, section: 'colors' },
+    thickness: { type: 'number', label: 'Optical Thickness', min: 0, max: 3, step: 0.05, default: 1.2, section: 'colors' },
+    ior: { type: 'number', label: 'Refraction Index', min: 1, max: 2.4, step: 0.01, default: 1.42, section: 'colors' },
+    roughness: { type: 'number', label: 'Surface Roughness', min: 0, max: 1, step: 0.01, default: 0.15, section: 'colors' },
+    coreIntensity: { type: 'number', label: 'Inner Light Strength', min: 0, max: 4, step: 0.1, default: 1.6, section: 'colors' },
+    fresnelPower: { type: 'number', label: 'Rim Falloff', min: 0.5, max: 6, step: 0.1, default: 2.5, section: 'colors' },
+  },
+
+  [ENGINE_TYPES.CURL_DRIFT]: {
+    streamCount: { type: 'select', label: 'Stream Count', options: [32, 48, 64, 96, 128], default: 64, section: 'geometry' },
+    trailLength: { type: 'select', label: 'Trail Length', options: [16, 32, 48, 64, 96], default: 48, section: 'geometry' },
+    shellRadius: { type: 'number', label: 'Flow Shell Radius', min: 0.8, max: 2.4, step: 0.05, default: 1.6, section: 'geometry' },
+    lineWidth: { type: 'number', label: 'Stream Width', min: 0.5, max: 5, step: 0.1, default: 1.6, section: 'motion' },
+    fieldScale: { type: 'number', label: 'Curl Field Scale', min: 0.2, max: 3, step: 0.05, default: 0.9, section: 'motion' },
+    fieldEvolveSpeed: { type: 'number', label: 'Field Evolution Speed', min: 0, max: 1, step: 0.01, default: 0.12, section: 'motion' },
+    flowSpeed: { type: 'number', label: 'Stream Flow Speed', min: 0.1, max: 3, step: 0.05, default: 0.8, section: 'motion' },
+    shellBinding: { type: 'number', label: 'Shell Binding', min: 0, max: 2, step: 0.05, default: 0.7, section: 'motion' },
+    swirl: { type: 'number', label: 'Directional Swirl', min: 0, max: 1.5, step: 0.05, default: 0.3, section: 'motion' },
+    lifetimeJitter: { type: 'number', label: 'Lifetime Variation', min: 0, max: 1, step: 0.05, default: 0.5, section: 'motion' },
+    headColor: { type: 'color', label: 'Leading Light', default: '#00f2fe', section: 'colors' },
+    tailColor: { type: 'color', label: 'Trailing Light', default: '#a855f7', section: 'colors' },
+    glowIntensity: { type: 'number', label: 'Flow Radiance', min: 0.4, max: 3, step: 0.1, default: 1.3, section: 'colors' },
+    tailFade: { type: 'number', label: 'Trail Fade', min: 0, max: 1, step: 0.05, default: 0.7, section: 'colors' },
+  },
+
+  [ENGINE_TYPES.MURMURATION]: {
+    agentCount: { type: 'select', label: 'Agent Count', options: [128, 256, 384, 512], default: 256, section: 'geometry' },
+    shellRadius: { type: 'number', label: 'Swarm Shell Radius', min: 0.8, max: 2.6, step: 0.05, default: 1.7, section: 'geometry' },
+    trailLength: { type: 'select', label: 'Ghost Trail Length', options: [0, 4, 8, 16], default: 8, section: 'geometry' },
+    pointSize: { type: 'number', label: 'Agent Size', min: 0.5, max: 6, step: 0.1, default: 2, section: 'motion' },
+    cohesion: { type: 'number', label: 'Cohesion', min: 0, max: 1, step: 0.01, default: 0.4, section: 'motion' },
+    separation: { type: 'number', label: 'Separation', min: 0, max: 1, step: 0.01, default: 0.55, section: 'motion' },
+    alignment: { type: 'number', label: 'Alignment', min: 0, max: 1, step: 0.01, default: 0.35, section: 'motion' },
+    neighbourRadius: { type: 'number', label: 'Neighbour Radius', min: 0.1, max: 1.5, step: 0.05, default: 0.55, section: 'motion' },
+    attractorPull: { type: 'number', label: 'Attractor Pull', min: 0, max: 2, step: 0.05, default: 0.5, section: 'motion' },
+    shellBinding: { type: 'number', label: 'Shell Binding', min: 0, max: 2, step: 0.05, default: 0.8, section: 'motion' },
+    agentSpeed: { type: 'number', label: 'Agent Speed', min: 0.1, max: 3, step: 0.05, default: 1, section: 'motion' },
+    damping: { type: 'number', label: 'Collective Damping', min: 0.8, max: 0.995, step: 0.005, default: 0.96, section: 'motion' },
+    coreColor: { type: 'color', label: 'Core Agent Colour', default: '#ffed00', section: 'colors' },
+    edgeColor: { type: 'color', label: 'Shell Agent Colour', default: '#00f2fe', section: 'colors' },
+    glowIntensity: { type: 'number', label: 'Swarm Radiance', min: 0.4, max: 3, step: 0.1, default: 1.4, section: 'colors' },
+    trailFade: { type: 'number', label: 'Ghost Trail Fade', min: 0, max: 1, step: 0.05, default: 0.6, section: 'colors' },
+  },
+
+  [ENGINE_TYPES.FILAMENT]: {
+    subdivision: { type: 'select', label: 'Lattice Subdivision', options: [1, 2, 3], default: 2, section: 'geometry' },
+    radius: { type: 'number', label: 'Rest Sphere Radius', min: 0.8, max: 2.4, step: 0.05, default: 1.6, section: 'geometry' },
+    nodeSize: { type: 'number', label: 'Node Size', min: 0, max: 0.1, step: 0.005, default: 0.03, section: 'motion' },
+    lineWidth: { type: 'number', label: 'Filament Width', min: 0.5, max: 5, step: 0.1, default: 1.8, section: 'motion' },
+    stiffness: { type: 'number', label: 'Spring Stiffness', min: 0.05, max: 1, step: 0.01, default: 0.35, section: 'motion' },
+    damping: { type: 'number', label: 'Ring-down Damping', min: 0.8, max: 0.995, step: 0.005, default: 0.94, section: 'motion' },
+    tether: { type: 'number', label: 'Rest Tether', min: 0, max: 0.5, step: 0.01, default: 0.06, section: 'motion' },
+    pulseStrength: { type: 'number', label: 'Pulse Impulse', min: 0, max: 1.5, step: 0.05, default: 0.5, section: 'motion' },
+    idleExcitation: { type: 'number', label: 'Idle Excitation', min: 0, max: 0.3, step: 0.01, default: 0.05, section: 'motion' },
+    waveSpeed: { type: 'number', label: 'Wave Speed', min: 0, max: 2, step: 0.05, default: 0.4, section: 'motion' },
+    displacementGlow: { type: 'number', label: 'Displacement Radiance', min: 0, max: 3, step: 0.1, default: 1.5, section: 'colors' },
+    restColor: { type: 'color', label: 'Resting Filaments', default: '#1e293b', section: 'colors' },
+    activeColor: { type: 'color', label: 'Active Signal', default: '#ffed00', section: 'colors' },
+    nodeColor: { type: 'color', label: 'Node Light', default: '#ffffff', section: 'colors' },
+  },
+
+  [ENGINE_TYPES.PRISM_BLOOM]: {
+    petalCount: { type: 'select', label: 'Petal Count', options: [24, 36, 48, 60, 72], default: 48, section: 'geometry' },
+    petalLength: { type: 'number', label: 'Petal Length', min: 1.05, max: 1.42, step: 0.01, default: 1.32, section: 'geometry' },
+    petalWidth: { type: 'number', label: 'Petal Width', min: 0.38, max: 0.64, step: 0.01, default: 0.52, section: 'geometry' },
+    coreRadius: { type: 'number', label: 'Faceted Core Radius', min: 0.68, max: 0.9, step: 0.01, default: 0.83, section: 'geometry' },
+    bloom: { type: 'number', label: 'Bloom Openness', min: 0.12, max: 1, step: 0.01, default: 0.58, section: 'motion' },
+    fold: { type: 'number', label: 'Petal Fold', min: 0.35, max: 1, step: 0.01, default: 0.78, section: 'motion' },
+    waveStrength: { type: 'number', label: 'Opening Wave', min: 0, max: 0.7, step: 0.01, default: 0.42, section: 'motion' },
+    breatheAmp: { type: 'number', label: 'Breathing Depth', min: 0, max: 0.25, step: 0.01, default: 0.14, section: 'motion' },
+    breatheSpeed: { type: 'number', label: 'Breathing Rate', min: 0.2, max: 1.4, step: 0.02, default: 0.72, section: 'motion' },
+    innerColor: { type: 'color', label: 'Inner Petal Colour', default: '#f8c8ff', section: 'colors' },
+    outerColor: { type: 'color', label: 'Outer Petal Colour', default: '#58c9ff', section: 'colors' },
+    edgeColor: { type: 'color', label: 'Prismatic Edge', default: '#fff4cb', section: 'colors' },
+    iridescence: { type: 'number', label: 'Iridescence', min: 0, max: 1, step: 0.01, default: 0.72, section: 'colors' },
+    glow: { type: 'number', label: 'Crystal Radiance', min: 0.8, max: 1.8, step: 0.02, default: 1.28, section: 'colors' },
+  },
+
+  [ENGINE_TYPES.CORONA_VEIL]: {
+    veilCount: { type: 'select', label: 'Veil Count', options: [5, 6, 8, 10, 12], default: 8, section: 'geometry' },
+    detail: { type: 'select', label: 'Membrane Detail', options: [48, 64, 80, 96], default: 80, section: 'geometry' },
+    coreRadius: { type: 'number', label: 'Dark Core Radius', min: 1.5, max: 1.75, step: 0.01, default: 1.62, section: 'geometry' },
+    veilSpread: { type: 'number', label: 'Veil Separation', min: 0.14, max: 0.3, step: 0.01, default: 0.24, section: 'motion' },
+    twist: { type: 'number', label: 'Membrane Twist', min: 0.25, max: 1.1, step: 0.01, default: 0.68, section: 'motion' },
+    waveAmp: { type: 'number', label: 'Membrane Wave', min: 0.02, max: 0.09, step: 0.005, default: 0.055, section: 'motion' },
+    breatheAmp: { type: 'number', label: 'Corona Breath', min: 0, max: 0.055, step: 0.005, default: 0.025, section: 'motion' },
+    driftSpeed: { type: 'number', label: 'Veil Drift Speed', min: 0.06, max: 0.28, step: 0.01, default: 0.16, section: 'motion' },
+    waveSpeed: { type: 'number', label: 'Membrane Wave Speed', min: 0.24, max: 0.72, step: 0.02, default: 0.48, section: 'motion' },
+    coreColor: { type: 'color', label: 'Solar Core', default: '#02040a', section: 'colors' },
+    veilColor: { type: 'color', label: 'Aurora Veil', default: '#62d8d2', section: 'colors' },
+    accentColor: { type: 'color', label: 'Corona Accent', default: '#b9a7ff', section: 'colors' },
+    opacity: { type: 'number', label: 'Veil Opacity', min: 0.16, max: 0.34, step: 0.01, default: 0.25, section: 'colors' },
+    edgeGlow: { type: 'number', label: 'Membrane Edge Glow', min: 0.75, max: 1.7, step: 0.05, default: 1.25, section: 'colors' },
+  },
+
+  [ENGINE_TYPES.ECHO_RINGS]: {
+    ringCount: { type: 'select', label: 'Idle Ring Count', options: [3, 5, 7, 9, 11], default: 7, section: 'geometry' },
+    segments: { type: 'select', label: 'Ring Resolution', options: [64, 96, 128, 160, 192], default: 128, section: 'geometry' },
+    radius: { type: 'number', label: 'Signal Sphere Radius', min: 1.4, max: 1.9, step: 0.02, default: 1.72, section: 'geometry' },
+    lineWidth: { type: 'number', label: 'Signal Width', min: 0.8, max: 5, step: 0.1, default: 2.4, section: 'motion' },
+    tiltSpread: { type: 'number', label: 'Ring Plane Spread', min: 0.15, max: 1.45, step: 0.02, default: 0.92, section: 'motion' },
+    ringSpacing: { type: 'number', label: 'Wavefront Spacing', min: 0.35, max: 1.3, step: 0.01, default: 0.82, section: 'motion' },
+    idleWave: { type: 'number', label: 'Idle Signal', min: 0, max: 1.2, step: 0.02, default: 0.42, section: 'motion' },
+    pulseStrength: { type: 'number', label: 'Echo Strength', min: 0.4, max: 2.2, step: 0.05, default: 1.35, section: 'motion' },
+    driftSpeed: { type: 'number', label: 'Ring Drift Speed', min: -0.4, max: 0.4, step: 0.01, default: 0.14, section: 'motion' },
+    propagationSpeed: { type: 'number', label: 'Propagation Speed', min: 0.55, max: 1.45, step: 0.02, default: 1, section: 'motion' },
+    baseColor: { type: 'color', label: 'Resting Rings', default: '#123039', section: 'colors' },
+    echoColor: { type: 'color', label: 'Active Echo', default: '#42d9ff', section: 'colors' },
+    coreColor: { type: 'color', label: 'Signal Core', default: '#e8fdff', section: 'colors' },
+    glow: { type: 'number', label: 'Echo Radiance', min: 0.5, max: 2.8, step: 0.05, default: 1.65, section: 'colors' },
+  },
+
+  [ENGINE_TYPES.MYCELIUM]: {
+    branchDepth: { type: 'select', label: 'Branch Depth', options: [3, 4, 5, 6], default: 5, section: 'geometry' },
+    branching: { type: 'select', label: 'Branching', options: [2, 3], default: 2, section: 'geometry' },
+    radius: { type: 'number', label: 'Growth Shell Radius', min: 1.85, max: 2.35, step: 0.05, default: 2.1, section: 'geometry' },
+    lineWidth: { type: 'number', label: 'Network Width', min: 0.6, max: 3, step: 0.05, default: 1.35, section: 'motion' },
+    curl: { type: 'number', label: 'Branch Curl', min: 0, max: 1.2, step: 0.01, default: 0.42, section: 'motion' },
+    growth: { type: 'number', label: 'Visible Growth', min: 0.05, max: 1, step: 0.01, default: 1, section: 'motion' },
+    reach: { type: 'number', label: 'Tip Reach', min: 0, max: 1, step: 0.01, default: 0.45, section: 'motion' },
+    pulseStrength: { type: 'number', label: 'Signal Strength', min: 0.2, max: 1.4, step: 0.05, default: 0.8, section: 'motion' },
+    crawlSpeed: { type: 'number', label: 'Growth Crawl Speed', min: 0.05, max: 1.2, step: 0.05, default: 0.32, section: 'motion' },
+    pulseSpeed: { type: 'number', label: 'Signal Pulse Speed', min: 0.4, max: 3, step: 0.05, default: 1.35, section: 'motion' },
+    rootColor: { type: 'color', label: 'Root Light', default: '#b7ffe1', section: 'colors' },
+    tipColor: { type: 'color', label: 'Tip Light', default: '#287d78', section: 'colors' },
+    signalColor: { type: 'color', label: 'Traveling Signal', default: '#f4ffd2', section: 'colors' },
+    glow: { type: 'number', label: 'Network Radiance', min: 0.6, max: 2.6, step: 0.05, default: 1.55, section: 'colors' },
+    packetSize: { type: 'number', label: 'Signal Packet Size', min: 1, max: 5, step: 0.1, default: 2.4, section: 'colors' },
+  },
 };
 
 export function getDefaultEngineParams(engineType) {
@@ -337,6 +535,22 @@ export function createInitialState() {
         ? 'Cyber Matrix'
         : engine === ENGINE_TYPES.SINGULARITY
         ? 'Gargantua Singularity'
+        : engine === ENGINE_TYPES.AQUEOUS
+        ? 'Stillwater Listener'
+        : engine === ENGINE_TYPES.CURL_DRIFT
+        ? 'Blue Current'
+        : engine === ENGINE_TYPES.MURMURATION
+        ? 'Deliberation Cloud'
+        : engine === ENGINE_TYPES.FILAMENT
+        ? 'Signal Lattice'
+        : engine === ENGINE_TYPES.PRISM_BLOOM
+        ? 'Opaline Bloom'
+        : engine === ENGINE_TYPES.CORONA_VEIL
+        ? 'Polar Veil'
+        : engine === ENGINE_TYPES.ECHO_RINGS
+        ? 'First Contact'
+        : engine === ENGINE_TYPES.MYCELIUM
+        ? 'Luminous Root'
         : 'Aurora Core',
     global: { ...DEFAULT_GLOBAL_SETTINGS },
     modulation: createDefaultModulation(),
@@ -350,6 +564,14 @@ export function createInitialState() {
       [ENGINE_TYPES.QUANTUM]: getDefaultEngineParams(ENGINE_TYPES.QUANTUM),
       [ENGINE_TYPES.SINGULARITY]: getDefaultEngineParams(ENGINE_TYPES.SINGULARITY),
       [ENGINE_TYPES.FLUX]: getDefaultEngineParams(ENGINE_TYPES.FLUX),
+      [ENGINE_TYPES.AQUEOUS]: getDefaultEngineParams(ENGINE_TYPES.AQUEOUS),
+      [ENGINE_TYPES.CURL_DRIFT]: getDefaultEngineParams(ENGINE_TYPES.CURL_DRIFT),
+      [ENGINE_TYPES.MURMURATION]: getDefaultEngineParams(ENGINE_TYPES.MURMURATION),
+      [ENGINE_TYPES.FILAMENT]: getDefaultEngineParams(ENGINE_TYPES.FILAMENT),
+      [ENGINE_TYPES.PRISM_BLOOM]: getDefaultEngineParams(ENGINE_TYPES.PRISM_BLOOM),
+      [ENGINE_TYPES.CORONA_VEIL]: getDefaultEngineParams(ENGINE_TYPES.CORONA_VEIL),
+      [ENGINE_TYPES.ECHO_RINGS]: getDefaultEngineParams(ENGINE_TYPES.ECHO_RINGS),
+      [ENGINE_TYPES.MYCELIUM]: getDefaultEngineParams(ENGINE_TYPES.MYCELIUM),
     },
   };
 }
@@ -465,6 +687,54 @@ export function randomizeState(currentState) {
     newEngineParams.color3 = palette.accent;
     newEngineParams.warpStrength = +(1.0 + Math.random() * 0.9).toFixed(2);
     newEngineParams.diskSpeed = +(0.5 + Math.random() * 1.0).toFixed(2);
+  } else if (engine === ENGINE_TYPES.AQUEOUS) {
+    newEngineParams.bodyColor = palette.primary;
+    newEngineParams.coreColor = palette.accent;
+    newEngineParams.displaceAmount = +(0.1 + Math.random() * 0.22).toFixed(2);
+    newEngineParams.displaceScale = +(0.7 + Math.random() * 1.7).toFixed(2);
+    newEngineParams.thickness = +(0.6 + Math.random() * 1.4).toFixed(2);
+  } else if (engine === ENGINE_TYPES.CURL_DRIFT) {
+    newEngineParams.headColor = palette.primary;
+    newEngineParams.tailColor = palette.secondary;
+    newEngineParams.fieldScale = +(0.45 + Math.random() * 1.5).toFixed(2);
+    newEngineParams.swirl = +(0.1 + Math.random() * 0.8).toFixed(2);
+    newEngineParams.lineWidth = +(1 + Math.random() * 1.8).toFixed(1);
+  } else if (engine === ENGINE_TYPES.MURMURATION) {
+    newEngineParams.coreColor = palette.primary;
+    newEngineParams.edgeColor = palette.accent;
+    newEngineParams.attractorPull = +(0.2 + Math.random() * 1.2).toFixed(2);
+    newEngineParams.cohesion = +(0.2 + Math.random() * 0.55).toFixed(2);
+    newEngineParams.separation = +(0.3 + Math.random() * 0.55).toFixed(2);
+  } else if (engine === ENGINE_TYPES.FILAMENT) {
+    newEngineParams.activeColor = palette.primary;
+    newEngineParams.nodeColor = palette.accent;
+    newEngineParams.stiffness = +(0.18 + Math.random() * 0.58).toFixed(2);
+    newEngineParams.damping = +(0.88 + Math.random() * 0.1).toFixed(3);
+    newEngineParams.idleExcitation = +(0.02 + Math.random() * 0.12).toFixed(2);
+  } else if (engine === ENGINE_TYPES.PRISM_BLOOM) {
+    newEngineParams.innerColor = palette.primary;
+    newEngineParams.outerColor = palette.secondary;
+    newEngineParams.edgeColor = palette.accent;
+    newEngineParams.bloom = +(0.3 + Math.random() * 0.55).toFixed(2);
+    newEngineParams.fold = +(0.45 + Math.random() * 0.45).toFixed(2);
+  } else if (engine === ENGINE_TYPES.CORONA_VEIL) {
+    newEngineParams.veilColor = palette.primary;
+    newEngineParams.accentColor = palette.secondary;
+    newEngineParams.twist = +(0.35 + Math.random() * 0.55).toFixed(2);
+    newEngineParams.veilSpread = +(0.16 + Math.random() * 0.12).toFixed(2);
+    newEngineParams.edgeGlow = +(0.9 + Math.random() * 0.55).toFixed(2);
+  } else if (engine === ENGINE_TYPES.ECHO_RINGS) {
+    newEngineParams.baseColor = palette.secondary;
+    newEngineParams.echoColor = palette.primary;
+    newEngineParams.coreColor = palette.accent;
+    newEngineParams.tiltSpread = +(0.45 + Math.random() * 0.8).toFixed(2);
+    newEngineParams.idleWave = +(0.2 + Math.random() * 0.75).toFixed(2);
+  } else if (engine === ENGINE_TYPES.MYCELIUM) {
+    newEngineParams.rootColor = palette.primary;
+    newEngineParams.tipColor = palette.secondary;
+    newEngineParams.signalColor = palette.accent;
+    newEngineParams.curl = +(0.15 + Math.random() * 0.75).toFixed(2);
+    newEngineParams.reach = +(0.2 + Math.random() * 0.65).toFixed(2);
   }
 
   const newGlobal = {
