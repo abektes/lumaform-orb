@@ -651,8 +651,11 @@ export class OrbStudio {
         release: audio.release ?? 0.12,
       });
     }
+    // Both branches are awaited: startTestTone now resolves the context before
+    // reporting success, and an un-awaited promise is truthy, which would report
+    // every failure as a success.
     const started = mode === 'tone'
-      ? this.audioInput.startTestTone()
+      ? await this.audioInput.startTestTone()
       : await this.audioInput.startMic();
     if (!started) {
       this.modulation.setAudioLevel(0);

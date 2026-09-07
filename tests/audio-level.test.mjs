@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import {
   rmsFromTimeDomain,
   normalizeLevel,
@@ -15,6 +16,19 @@ function ok(name, condition, extra = '') {
 const silence = new Uint8Array(256).fill(128);
 ok('silence is zero', rmsFromTimeDomain(silence) === 0);
 ok('empty buffer is zero', rmsFromTimeDomain(new Uint8Array(0)) === 0);
+
+// A zero-filled buffer is NOT silence in this encoding — it is full negative
+// deflection, and rms 1.0 is the mathematically correct answer. The bug was in
+// audio-input.js, which handed the analyser a `new Uint8Array(fftSize)` and read
+// it before the analyser had written to it, so enabling audio reported maximum
+// level for the first frames. This asserts the arithmetic that makes an
+// unwritten buffer dangerous, so the allocation stays a deliberate decision.
+ok('a zero-filled buffer reads as full deflection, not silence',
+  rmsFromTimeDomain(new Uint8Array(256)) === 1);
+ok('the input buffer is allocated at the silence midpoint', (() => {
+  const source = readFileSync(new URL('../src/core/audio-input.js', import.meta.url), 'utf8');
+  return /new Uint8Array\(analyser\.fftSize\)\.fill\(128\)/.test(source);
+})());
 
 const fullScale = new Uint8Array(256);
 for (let i = 0; i < 256; i++) fullScale[i] = i % 2 ? 255 : 0;

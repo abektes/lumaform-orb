@@ -18,6 +18,7 @@ visual territory, while nothing in the library was solid, opaque or reflective.
 | [Aetheria](aetheria.md) | Chromatic fluid pearl & silk caustics | Displaced fluid sphere + silk caustics | Reads as **listening / receptive presence** |
 | [Superposition](superposition.md) | Coherent quantum orbital wavepacket | Structured shells + phase lobes | Reads as **hypothesizing / uncertainty** |
 | [Synthesis](synthesis.md) | 4-body fluid orbital fusion & stardust | Potential metaballs + filaments + stardust | Reads as **deliberation / harmonious thought** |
+| [Ferro Trails](ferro-trails.md) | Magnetic fluid core & sweeping arc trails | Deformed ellipsoid + Line2 arc trails | Reads as **dynamic focus / magnetic intelligence** |
 
 | Brief | Concept | Substrate | Bet | Difficulty |
 |---|---|---|---|---|
@@ -29,6 +30,7 @@ visual territory, while nothing in the library was solid, opaque or reflective.
 | [aetheria.md](aetheria.md) | Iridescent chromatic fluid pearl | Fluid mesh + caustics | Reads as **listening / gentle presence** | Medium |
 | [superposition.md](superposition.md) | Quantum orbital wavepacket | Structured phase lobes | Reads as **hypothesizing / uncertainty** | Medium |
 | [synthesis.md](synthesis.md) | 4-body fluid orbital fusion | Metaball bodies + filaments | Reads as **deliberation / thought** | Medium |
+| [ferro-trails.md](ferro-trails.md) | Magnetic fluid core & sweeping arc trails | Deformed ellipsoid + Line2 arc trails | Reads as **dynamic focus / magnetic intelligence** | Medium |
 
 ---
 

@@ -18,7 +18,12 @@
 export const PALETTES = {
   cosmic: { label: 'Cosmic', title: 'Cosmic Aurora', colors: ['#057eff', '#a855f7', '#00f2fe'] },
   solar: { label: 'Solar', title: 'Solar Flare', colors: ['#ff5500', '#ff0055', '#ffc400'] },
-  cyber: { label: 'Cyber', title: 'Cyber Emerald', colors: ['#059669', '#06b6d4', '#10b981'] },
+  // Was ['#059669', '#06b6d4', '#10b981'] — hues 161/189/160, which is teal, not
+  // emerald. The cyan in the middle dragged the whole chip into the same 180-210
+  // band as cosmic and cryo, so three of the six harmonies produced nearly the
+  // same result on any engine whose default is already blue (most of them).
+  // Genuine greens give the set an actual sixth direction to travel in.
+  cyber: { label: 'Cyber', title: 'Cyber Emerald', colors: ['#22c55e', '#a3e635', '#059669'] },
   rose: { label: 'Rose', title: 'Rose Gold', colors: ['#f43f5e', '#fb923c', '#fda4af'] },
   cryo: { label: 'Cryo', title: 'Sub-Zero Cryo', colors: ['#00f0ff', '#38bdf8', '#e0f2fe'] },
   molten: { label: 'Molten', title: 'Obsidian Molten', colors: ['#ffed00', '#ef4444', '#38bdf8'] },

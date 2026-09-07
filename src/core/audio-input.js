@@ -29,7 +29,13 @@ export function createAudioInput(options = {}) {
     if (!analyser) {
       analyser = context.createAnalyser();
       analyser.fftSize = FFT_SIZE;
-      buffer = new Uint8Array(analyser.fftSize);
+      // Byte time-domain silence centres on 128, but a fresh Uint8Array is all
+      // zeros — which this encoding reads as full negative deflection, i.e. rms
+      // 1.0. Every read before the analyser has written once therefore reported
+      // *maximum* level rather than silence, and with attack 0.5 the follower
+      // reached ~1.0 within two frames. Enabling audio slammed every routed
+      // parameter to its extreme and then decayed back over ~20 frames.
+      buffer = new Uint8Array(analyser.fftSize).fill(128);
 
       // Keep the graph pullable while making the test oscillator inaudible.
       silentOutput = context.createGain();
@@ -81,13 +87,33 @@ export function createAudioInput(options = {}) {
     }
   }
 
-  function startTestTone(frequency = 220) {
+  async function startTestTone(frequency = 220) {
     stop();
+    const generation = requestGeneration;
     if (!ensureContext()) {
       console.warn('Web Audio is not available in this browser.');
       return false;
     }
-    context.resume().catch(() => {});
+
+    // Was fire-and-forget with the rejection swallowed, and `true` was returned
+    // regardless. Under an autoplay policy the context stays suspended, the
+    // oscillator never advances, the analyser reports silence forever — and the
+    // UI still lit the button as though the tone were running. startMic already
+    // awaited its resume; this path did not.
+    try {
+      if (context.state === 'suspended') await context.resume();
+    } catch (error) {
+      console.warn('Could not start the audio context for the test tone.', error);
+      stop();
+      return false;
+    }
+    if (generation !== requestGeneration || !context || context.state === 'closed') return false;
+    if (context.state !== 'running') {
+      console.warn('Audio context did not start; a user gesture may be required.');
+      stop();
+      return false;
+    }
+
     oscillator = context.createOscillator();
     oscillator.frequency.value = frequency;
     oscillator.connect(analyser);

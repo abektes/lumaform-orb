@@ -205,3 +205,48 @@ export function writeOrderedTrail(history, target) {
   }
   return target;
 }
+
+// --- latitude coverage ------------------------------------------------------
+//
+// The flow used to occupy the whole sphere and there was no way to say otherwise,
+// so every configuration was a full shell. Constraining latitude turns the same
+// field into a belt, a cap, or anything between — the difference between an orb
+// that is uniformly busy and one with a clear axis.
+//
+// Expressed in normalized height (y / radius, i.e. sin of latitude) rather than
+// in an angle, because equal steps in that measure are equal steps in surface
+// area: a band of a given width covers the same amount of shell wherever it sits.
+
+// `coverage` is the half-width of the band, so 1 spans the whole sphere and 0.15
+// is a narrow belt. `center` places it: 0 is the equator, ±1 the poles.
+export function bandLimits(coverage = 1, center = 0) {
+  const half = Math.min(1, Math.max(0.02, Number.isFinite(coverage) ? coverage : 1));
+  const mid = Math.min(1, Math.max(-1, Number.isFinite(center) ? center : 0));
+  return { lo: Math.max(-1, mid - half), hi: Math.min(1, mid + half) };
+}
+
+// Pulls a point back toward the band rather than clamping it there. A hard clamp
+// makes streams pile up on the boundary in a visible line; easing them back lets
+// the curl field keep carrying them along it. `strength` is the fraction of the
+// remaining error to remove this step — pass dt * stiffness, already clamped.
+export function constrainToBand(x, y, z, radius, lo, hi, strength, target = new Float64Array(3)) {
+  const r = Number.isFinite(radius) && radius > 0 ? radius : (Math.hypot(x, y, z) || 1);
+  const ny = Math.min(1, Math.max(-1, y / r));
+  const bounded = Math.min(hi, Math.max(lo, ny));
+
+  const k = Math.min(1, Math.max(0, Number.isFinite(strength) ? strength : 0));
+  const nextNy = ny + (bounded - ny) * k;
+
+  // Rescale the horizontal component so the point stays on the shell instead of
+  // cutting a chord through it as its height changes.
+  const ringNow = Math.sqrt(Math.max(0, 1 - ny * ny));
+  const ringNext = Math.sqrt(Math.max(0, 1 - nextNy * nextNy));
+  // At the pole the horizontal component is zero and its direction is undefined;
+  // nudging off-axis gives the rescale something to preserve.
+  const scale = ringNow > 1e-6 ? ringNext / ringNow : 0;
+
+  target[0] = ringNow > 1e-6 ? x * scale : ringNext * r;
+  target[1] = nextNy * r;
+  target[2] = ringNow > 1e-6 ? z * scale : 0;
+  return target;
+}

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {
   advectShellPoint,
+  bandLimits,
+  constrainToBand,
   createTrailHistory,
   pushTrailPoint,
   pushTrailTowards,
@@ -114,3 +116,48 @@ assert.deepEqual(
 );
 
 console.log('curl drift field tests passed');
+
+// --- latitude coverage ------------------------------------------------------
+
+assert.deepEqual(bandLimits(1, 0), { lo: -1, hi: 1 }, 'full coverage spans the whole shell');
+assert.ok(bandLimits(0.15, 0).hi - bandLimits(0.15, 0).lo < 0.35, 'a narrow band is narrow');
+{
+  const shifted = bandLimits(0.3, 0.8);
+  assert.ok(shifted.hi === 1 && shifted.lo > 0.4, 'a band near the pole is clipped, not wrapped');
+}
+assert.deepEqual(bandLimits(NaN, NaN), { lo: -1, hi: 1 }, 'bad input falls back to full coverage');
+
+{
+  // A point at the pole, pulled fully into an equatorial band.
+  const R = 1.6;
+  const out = constrainToBand(0, R, 0, R, -0.2, 0.2, 1);
+  assert.ok(Math.abs(Math.hypot(...out) - R) < 1e-9, 'constraining keeps the point on the shell');
+  assert.ok(out[1] / R <= 0.2 + 1e-9, 'the point ends inside the band');
+}
+{
+  // Partial strength eases toward the band rather than snapping to it.
+  const R = 1;
+  const out = constrainToBand(0.6, 0.8, 0, R, -0.2, 0.2, 0.5);
+  const ny = out[1] / R;
+  assert.ok(ny < 0.8 && ny > 0.2, `partial pull lands between, got ${ny}`);
+  assert.ok(Math.abs(Math.hypot(...out) - R) < 1e-9, 'still on the shell mid-pull');
+}
+{
+  // Already inside the band: must be left alone, or streams would drift to centre.
+  const R = 1.6;
+  const y = 0.1 * R;
+  const ring = Math.sqrt(1 - 0.1 * 0.1) * R;
+  const out = constrainToBand(ring, y, 0, R, -0.5, 0.5, 1);
+  assert.ok(Math.abs(out[1] - y) < 1e-9, 'a point inside the band is not moved');
+}
+{
+  // Full coverage must be a no-op everywhere, so the default look is unchanged.
+  const R = 1.4;
+  for (const ny of [-0.99, -0.5, 0, 0.5, 0.99]) {
+    const y = ny * R;
+    const ring = Math.sqrt(Math.max(0, 1 - ny * ny)) * R;
+    const out = constrainToBand(ring, y, 0, R, -1, 1, 1);
+    assert.ok(Math.abs(out[1] - y) < 1e-9, `full coverage leaves ny=${ny} alone`);
+  }
+}
+console.log('PASS  latitude coverage');

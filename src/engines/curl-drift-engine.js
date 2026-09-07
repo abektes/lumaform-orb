@@ -4,6 +4,8 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import {
   advectShellPoint,
+  bandLimits,
+  constrainToBand,
   createTrailHistory,
   pushTrailTowards,
   resetTrailHistory,
@@ -85,7 +87,10 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
     shellBinding: 1.15,
     swirl: 0.55,
     lifetimeJitter: 0.3,
+    coverage: 1,
+    coverageCenter: 0,
     headColor: '#00f2fe',
+    midColor: '#4f8cff',
     tailColor: '#a855f7',
     glowIntensity: 1.2,
     tailFade: 0.78,
@@ -116,6 +121,7 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
   const nextPosition = new Float64Array(3);
   const flowScratch = new Float64Array(6);
   const tailColor = new THREE.Color();
+  const midColor = new THREE.Color();
   const headColor = new THREE.Color();
   const mixedColor = new THREE.Color();
 
@@ -126,7 +132,10 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
   function spawnPosition(stream, generation) {
     const count = Math.max(1, streams.length || Number(currentParams.streamCount));
     const u = (stream.index + 0.5) / count;
-    const y = 1 - 2 * u;
+    // Spawning across the whole sphere and then dragging the strays into the band
+    // would leave the first seconds after a change looking like a collapse.
+    const { lo, hi } = bandLimits(currentParams.coverage, currentParams.coverageCenter);
+    const y = hi - (hi - lo) * u;
     const ring = Math.sqrt(Math.max(0, 1 - y * y));
     const angle = stream.index * GOLDEN_ANGLE
       + generation * 1.937
@@ -152,6 +161,7 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
 
   function updateTrailColors() {
     tailColor.set(currentParams.tailColor);
+    midColor.set(currentParams.midColor ?? currentParams.headColor);
     headColor.set(currentParams.headColor);
     const fade = THREE.MathUtils.clamp(currentParams.tailFade, 0, 1);
 
@@ -159,7 +169,17 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
       for (let i = 0; i < stream.history.length; i++) {
         const t = stream.history.length === 1 ? 1 : i / (stream.history.length - 1);
         const brightness = 1 - fade * (1 - Math.pow(t, 1.7));
-        mixedColor.copy(tailColor).lerp(headColor, Math.pow(t, 1.15));
+        // Two segments rather than one. A single tail->head lerp could only ever
+        // show two of a palette's three colours, so half the harmonies collapsed
+        // to a near-copy of whatever the engine already looked like. It also just
+        // reads better: a trail is a gradient, and a third stop lets it turn
+        // through a hue on the way instead of sliding straight between two.
+        const eased = Math.pow(t, 1.15);
+        if (eased < 0.5) {
+          mixedColor.copy(tailColor).lerp(midColor, eased * 2);
+        } else {
+          mixedColor.copy(midColor).lerp(headColor, (eased - 0.5) * 2);
+        }
         const j = i * 3;
         stream.colors[j] = mixedColor.r * brightness;
         stream.colors[j + 1] = mixedColor.g * brightness;
@@ -325,7 +345,7 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
     headMaterial.uniforms.uGlow.value = currentParams.glowIntensity;
     tailColor.set(currentParams.tailColor);
     headColor.set(currentParams.headColor);
-    glowMaterial?.uniforms.uColor.value.copy(tailColor).lerp(headColor, 0.45);
+    glowMaterial?.uniforms.uColor.value.copy(midColor);
     glowMaterial.uniforms.uGlow.value = currentParams.glowIntensity;
   }
 
@@ -344,6 +364,14 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
       const step = dt * currentParams.flowSpeed * surge;
       const shellRadius = currentParams.shellRadius;
       const headPositions = headGeometry.attributes.position.array;
+      // Recomputed every frame so the band can be modulated — the pull is applied
+      // continuously rather than at spawn, so widening or narrowing it migrates the
+      // existing streams instead of resetting their trails.
+      const { lo: bandLo, hi: bandHi } = bandLimits(
+        currentParams.coverage,
+        currentParams.coverageCenter
+      );
+      const bandPull = Math.min(1, dt * 3.2);
 
       for (const stream of streams) {
         const speedVariation = 1 + (stream.lifeUnit - 0.5)
@@ -359,6 +387,16 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
           currentParams.swirl,
           nextPosition,
           flowScratch
+        );
+        constrainToBand(
+          nextPosition[0],
+          nextPosition[1],
+          nextPosition[2],
+          stream.radius,
+          bandLo,
+          bandHi,
+          bandPull,
+          nextPosition
         );
         stream.x = nextPosition[0];
         stream.y = nextPosition[1];
@@ -414,6 +452,7 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
       }
       if (
         patch.headColor !== undefined
+        || patch.midColor !== undefined
         || patch.tailColor !== undefined
         || patch.glowIntensity !== undefined
         || patch.tailFade !== undefined

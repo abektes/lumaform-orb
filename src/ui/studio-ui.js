@@ -1119,15 +1119,43 @@ export class StudioUI {
       this.studio.modulation.trigger(this.studio.virtualTime);
     });
 
+    // Turning an input on is not the same as hearing it. The rack only reacts
+    // through routes, "+ Route" defaults to the first source (lfo1), and nothing
+    // ever pointed a route at audio1 — so enabling the mic moved the level meter
+    // and changed nothing on screen, which reads as "the microphone is broken".
+    // Seed one audible route on first enable. Tempo is the destination because it
+    // exists for every engine, whereas a parameter destination depends on which
+    // engine happens to be open. It appears in the rack like any other route, so
+    // it can be retargeted or deleted.
+    const ensureAudibleRoute = () => {
+      mod.routes = mod.routes || [];
+      const alreadyRouted = mod.routes.some((r) => r.source === 'audio1' && r.enabled !== false);
+      if (alreadyRouted) return;
+      mod.routes.push({ source: 'audio1', dest: TIME_SCALE_DEST, amount: 0.5 });
+    };
+
     this.root.querySelector('#btn-audio-mic')?.addEventListener('click', async () => {
       const started = await this.studio.enableAudio('mic');
-      if (!started) alert('Could not access the microphone. Check the browser permission prompt.');
+      if (!started) {
+        alert('Could not access the microphone. Check the browser permission prompt.');
+        this.render();
+        return;
+      }
+      ensureAudibleRoute();
       mod.enabled = true;
       commit(true);
     });
 
     this.root.querySelector('#btn-audio-tone')?.addEventListener('click', async () => {
-      await this.studio.enableAudio('tone');
+      // Was unchecked, so a context the browser refused to start still lit the
+      // button as though the tone were playing.
+      const started = await this.studio.enableAudio('tone');
+      if (!started) {
+        alert('Could not start the test tone. The browser blocked audio playback.');
+        this.render();
+        return;
+      }
+      ensureAudibleRoute();
       mod.enabled = true;
       commit(true);
     });

@@ -1,4 +1,10 @@
 import * as THREE from 'three';
+import {
+  PROJECTION_AXES,
+  orientationBasis,
+  projectVertex,
+  tesseractVertices,
+} from './tesseract-projection.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -12,6 +18,7 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
     cellColor: '#ffed00', // Glass Facet Tint
     edgeGlow: 1.2,
 
+    projection: 'cell_first',
     edgeMode: 'sketch', // 'sketch' (32 edges) | 'cubes' (24) | 'outer_struts' (20) | 'inner_struts' (20) | 'struts' (8)
     innerScale: 0.48, // Exactly matches the hand-drawn sketch ratio
     cubeSize: 1.35,
@@ -101,6 +108,15 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
   }
 
   let activeEdges = getActiveEdges(currentParams.edgeMode);
+
+  // The sixteen (x, y, z, ±1) vertices, and the frame we view them through. Both
+  // are fixed until the projection changes, so neither is rebuilt per frame.
+  const vertices4D = tesseractVertices(baseOuterCoords);
+  let projectionBasis = orientationBasis(
+    PROJECTION_AXES[currentParams.projection] ?? PROJECTION_AXES.cell_first
+  );
+  const projected = [0, 0, 0];
+  const rotated4D = [0, 0, 0, 0];
 
   // 1. High-Precision Glowing Edges (Line2)
   let linePositions = new Float32Array(activeEdges.length * 6);
@@ -254,12 +270,29 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
 
       // Compute 3D Positions for non-true4d modes
       if (currentParams.motionMode !== 'true4d') {
-        for (let i = 0; i < 8; i++) {
-          const b = baseOuterCoords[i];
-          // Outer cube vertex
-          vertices3D[i].set(b[0] * outerScale, b[1] * outerScale, b[2] * outerScale);
-          // Inner cube vertex
-          vertices3D[i + 8].set(b[0] * innerScale, b[1] * innerScale, b[2] * innerScale);
+        const isCellFirst = (currentParams.projection ?? 'cell_first') === 'cell_first';
+
+        if (isCellFirst) {
+          // Viewed down w, the projection collapses to two concentric cubes, so the
+          // scales can be applied directly. Kept as its own path because it is what
+          // innerScale has always meant and what every preset was authored against.
+          for (let i = 0; i < 8; i++) {
+            const b = baseOuterCoords[i];
+            vertices3D[i].set(b[0] * outerScale, b[1] * outerScale, b[2] * outerScale);
+            vertices3D[i + 8].set(b[0] * innerScale, b[1] * innerScale, b[2] * innerScale);
+          }
+        } else {
+          // Off-axis there is no "inner cube" to scale — the two cells interpenetrate.
+          // innerScale keeps its meaning by driving 4D viewing distance instead: a low
+          // ratio is a near viewpoint that separates the cells strongly, a high one is
+          // nearly orthographic. Breathing modes ride on the same control, so hyperfold
+          // and pulse still read as breathing rather than going inert.
+          const ratio = outerScale > 0 ? innerScale / outerScale : 0.5;
+          const distance = 1.9 + ratio * 2.4;
+          for (let i = 0; i < 16; i++) {
+            projectVertex(vertices4D[i], projectionBasis, distance, outerScale, projected);
+            vertices3D[i].set(projected[0], projected[1], projected[2]);
+          }
         }
       }
 
@@ -370,6 +403,11 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
     setParams(newParams) {
       Object.assign(currentParams, newParams);
 
+      if (newParams.projection !== undefined) {
+        projectionBasis = orientationBasis(
+          PROJECTION_AXES[newParams.projection] ?? PROJECTION_AXES.cell_first
+        );
+      }
       if (newParams.edgeMode !== undefined) {
         activeEdges = getActiveEdges(newParams.edgeMode);
         linePositions = new Float32Array(activeEdges.length * 6);
