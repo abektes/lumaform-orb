@@ -10,7 +10,7 @@ import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { createVariationGrid, DEFAULT_BREADTH } from './variation-grid.js';
 import { cameraDistanceForRadius, engineFrameRadius } from './framing.js';
-import { isSweepable, sweepValues } from './sweep.js';
+import { isSweepable, sweepValues, listSweepableParams } from './sweep.js';
 import { createParamTween } from './param-tween.js';
 import { createAudioInput } from './audio-input.js';
 import { createClipRecorder } from './clip-recorder.js';
@@ -177,6 +177,10 @@ export class OrbStudio {
       return;
     }
 
+    // Captured before anything is torn down: exitGridMode clears both.
+    const wasGridMode = !!this.grid;
+    const wasSweep = this.sweepInfo ? { ...this.sweepInfo } : null;
+
     // Cleanup existing engine
     if (this.activeEngine) {
       this.activeEngine.dispose();
@@ -227,6 +231,35 @@ export class OrbStudio {
       }
     }
     this.onWindowResize();
+
+    // The grid owns its own engine instances, built from the factory that was
+    // active when it was created, and renderFrame returns early whenever a grid
+    // exists. Switching engine without rebuilding it therefore left nine stale
+    // cells of the previous engine on screen while the new one rendered
+    // nowhere — the change looked like it had simply not happened.
+    if (wasGridMode) this.rebuildGridForEngine(state, wasSweep);
+  }
+
+  // Re-creates the grid or sweep for whatever engine is now active. Split out of
+  // setEngine so the recursion is obvious: neither enterGridMode nor
+  // enterSweepMode calls setEngine, so this cannot loop.
+  rebuildGridForEngine(state, previousSweep) {
+    const cols = this.gridCols ?? 3;
+    const rows = this.gridRows ?? 3;
+
+    if (previousSweep) {
+      const defs = ENGINE_PARAM_DEFINITIONS[state.engine] || {};
+      // The parameter being swept usually does not exist on the new engine, so
+      // fall back to its first sweepable one rather than dropping out of sweep.
+      const key = isSweepable(defs[previousSweep.key])
+        ? previousSweep.key
+        : listSweepableParams(defs)[0]?.key;
+      if (key && this.enterSweepMode(state, { paramKey: key, steps: previousSweep.values.length })) {
+        return;
+      }
+    }
+
+    this.enterGridMode(state, { cols, rows });
   }
 
   updateParameters(state) {
@@ -652,6 +685,9 @@ export class OrbStudio {
 
     this.exitGridMode();
     this.controls.enabled = false;
+    // Remembered so a later engine switch can rebuild the grid at the same shape.
+    this.gridCols = cols;
+    this.gridRows = rows;
 
     this.grid = createVariationGrid({
       renderer: this.renderer,
