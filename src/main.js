@@ -264,7 +264,7 @@ let gridRadiusIndex = 1;
 const GRID_BREADTHS = BREADTH_OPTIONS;
 let gridBreadth = DEFAULT_BREADTH;
 let gridSections = null;
-let gridBreedPatch = true;
+let gridBreedPatch = null;   // null = follow the section lock; see OrbStudio.gridBreedPatch
 
 function downloadGridSelection() {
   const configs = studio.grid?.exportSelected();

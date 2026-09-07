@@ -26,7 +26,7 @@ export function createGridHud({
   initialSections = [...ALL_SECTIONS],
   initialRadius = RADIUS_STEPS[1],
   initialBreadth = DEFAULT_BREADTH,
-  initialBreedPatch = true,
+  initialBreedPatch = null,
   onChange = () => {},
   onReseed = () => {},
   onExport = () => {},
@@ -35,8 +35,20 @@ export function createGridHud({
   let sections = [...initialSections];
   let radius = initialRadius;
   let breadth = BREADTH_OPTIONS.includes(initialBreadth) ? initialBreadth : DEFAULT_BREADTH;
-  let breedPatch = initialBreedPatch !== false;
+  // Tri-state. null means "follow the section lock" — the rule that held before
+  // patch breeding became its own control, where locking mutation to colours
+  // also held the motion character still. Clicking the chip makes the choice
+  // explicit and it stays explicit for the rest of the session.
+  let breedPatch = initialBreedPatch === undefined ? null : initialBreedPatch;
   let marked = 0;
+
+  // What will actually happen, for a given section list. The chip has to render
+  // this rather than the raw tri-state, or "follow the lock" would draw itself
+  // as off while the patch was in fact breeding.
+  function patchWouldBreed(forSections = sections) {
+    if (breedPatch !== null) return breedPatch;
+    return forSections.includes('motion');
+  }
 
   const element = document.createElement('div');
   element.className = 'grid-hud';
@@ -56,8 +68,11 @@ export function createGridHud({
           <button class="grid-hud-chip ${sections.includes(name) ? 'active' : ''}"
                   data-section="${name}">${SECTION_LABELS[name]}</button>`
         ).join('')}
-        <button class="grid-hud-chip ${breedPatch ? 'active' : ''}"
-                id="grid-hud-patch">Patch</button>
+        <button class="grid-hud-chip ${patchWouldBreed() ? 'active' : ''}"
+                id="grid-hud-patch"
+                title="${breedPatch === null
+                  ? 'Breeding the modulation patch follows the Motion lock — click to set it explicitly'
+                  : 'Breed the modulation patch'}">Patch</button>
       </div>
 
       <div class="grid-hud-sep"></div>
@@ -95,8 +110,10 @@ export function createGridHud({
     element.querySelectorAll('[data-section]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const next = toggleSection(sections, btn.getAttribute('data-section'));
-        // At least one of parameter or patch mutation must remain enabled.
-        if (!next.length && !breedPatch) return;
+        // At least one of parameter or patch mutation must remain enabled, or
+        // every cell would be an identical copy of the parent. Asked against the
+        // effective value, since "follow the lock" with no sections breeds nothing.
+        if (!next.length && !patchWouldBreed(next)) return;
         sections = next;
         render();
         emit();
@@ -104,8 +121,10 @@ export function createGridHud({
     });
 
     element.querySelector('#grid-hud-patch')?.addEventListener('click', () => {
-      if (breedPatch && !sections.length) return;
-      breedPatch = !breedPatch;
+      if (patchWouldBreed() && !sections.length) return;
+      // Toggling away from "follow the lock" lands on the opposite of whatever
+      // it was currently doing, so the click always visibly changes something.
+      breedPatch = !patchWouldBreed();
       render();
       emit();
     });

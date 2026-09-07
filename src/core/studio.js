@@ -73,7 +73,10 @@ export class OrbStudio {
     this.gridRadius = 0.25;
     this.gridSections = null;
     this.gridBreadth = DEFAULT_BREADTH;
-    this.gridBreedPatch = true;
+    // null = follow the section lock: locking mutation to colours also holds the
+    // motion character still, which is what made a colour comparison readable.
+    // The HUD sends an explicit boolean once the user touches the Patch chip.
+    this.gridBreedPatch = null;
     this.onGridPromote = null;
     this.sweepInfo = null;
     // Created lazily: constructing an AudioContext before a user gesture is
