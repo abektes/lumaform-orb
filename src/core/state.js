@@ -219,27 +219,22 @@ export const ENGINE_PARAM_DEFINITIONS = {
   [ENGINE_TYPES.MOIRE]: {
     archetype: {
       type: 'select',
-      label: 'Sacred Archetype',
-      options: [
-        'square_vortex',
-        'hex_vortex',
-        'pentagon_envelope',
-        'stellated_rosette',
-        'astroid_quad',
-        'guilloche_rosette',
-        'triangle_vortex',
-        'triangle_tunnel',
-        'winged_moire',
-      ],
-      default: 'square_vortex',
+      label: 'Grid Archetype',
+      options: ['meridian_beat', 'lattice_beat', 'helix_beat'],
+      default: 'meridian_beat',
       section: 'geometry',
     },
-    scale: { type: 'number', label: 'Pattern Scale', min: 0.8, max: 3.0, step: 0.05, default: 2.1, section: 'geometry' },
-    zDepth: { type: 'number', label: '3D Volumetric Depth', min: 0.0, max: 3.0, step: 0.05, default: 1.35, section: 'geometry' },
-    lineDensity: { type: 'number', label: 'String Art Resolution', min: 10, max: 60, step: 2, default: 28, section: 'geometry' },
-    innerScale: { type: 'number', label: 'Central Aperture Ratio', min: 0.08, max: 0.70, step: 0.02, default: 0.28, section: 'geometry' },
+    scale: { type: 'number', label: 'Orb Scale', min: 0.8, max: 3.0, step: 0.05, default: 2.2, section: 'geometry' },
+    lineDensity: { type: 'number', label: 'Meridians', min: 8, max: 60, step: 1, default: 28, section: 'geometry' },
+    // The beat: the inner shell carries this many more meridians than the outer,
+    // and the difference is what sets the number of interference fringes.
+    beatOffset: { type: 'number', label: 'Beat Offset', min: -8, max: 8, step: 1, default: 2, section: 'geometry' },
+    latBands: { type: 'number', label: 'Latitude Rings', min: 0, max: 24, step: 1, default: 8, section: 'geometry' },
     twistAngle: { type: 'number', label: 'Chiral Twist Angle', min: -1.5, max: 1.5, step: 0.02, default: 0.72, section: 'geometry' },
-    lineWidth: { type: 'number', label: 'Line Stroke Thickness', min: 1.0, max: 6.0, step: 0.2, default: 2.0, section: 'geometry' },
+    // Applied as a scale on the inner shell rather than baked into vertices, so
+    // it is a transform: cheap to animate and safe to modulate.
+    shellGap: { type: 'number', label: 'Shell Gap', min: 0.55, max: 0.99, step: 0.01, default: 0.90, section: 'motion' },
+    lineWidth: { type: 'number', label: 'Line Stroke Thickness', min: 0.5, max: 6.0, step: 0.1, default: 1.6, section: 'geometry' },
 
     // Was '#0a0a0d' labelled "Ink / Stroke Color" — a near-black chosen for a
     // white-paper aesthetic, drawn on a #000000 canvas, so the engine rendered an
@@ -251,18 +246,19 @@ export const ENGINE_PARAM_DEFINITIONS = {
     motionMode: {
       type: 'select',
       label: 'Motion Dynamic',
-      options: ['orbit_3d', 'wave_pulse', 'hyper_twist', 'interactive_tilt'],
-      default: 'orbit_3d',
+      options: ['counter_spin', 'orbit_3d', 'wave_pulse', 'interactive_tilt'],
+      default: 'counter_spin',
       section: 'motion',
     },
-    rotSpeedX: { type: 'number', label: '3D Pitch Rotation', min: -2.0, max: 2.0, step: 0.05, default: 0.18, section: 'motion' },
-    rotSpeedY: { type: 'number', label: '3D Yaw Rotation', min: -2.0, max: 2.0, step: 0.05, default: 0.38, section: 'motion' },
-    rotSpeedZ: { type: 'number', label: '3D Roll Rotation', min: -2.0, max: 2.0, step: 0.05, default: 0.10, section: 'motion' },
-    breatheSpeed: { type: 'number', label: 'Aperture Harmonic Breath', min: 0.0, max: 2.5, step: 0.05, default: 0.60, section: 'motion' },
-    breatheAmp: { type: 'number', label: 'Breathing Amplitude', min: 0.0, max: 0.25, step: 0.01, default: 0.08, section: 'motion' },
-    waveSpeed: { type: 'number', label: '3D Axial Wave Velocity', min: 0.0, max: 3.0, step: 0.05, default: 1.20, section: 'motion' },
-    waveAmp: { type: 'number', label: '3D Wave Ripple Amplitude', min: 0.0, max: 0.50, step: 0.01, default: 0.22, section: 'motion' },
-    twistSpeed: { type: 'number', label: 'Chiral Winding Speed', min: 0.0, max: 2.0, step: 0.05, default: 0.40, section: 'motion' },
+    // The rate the two shells rotate against each other. This is what makes the
+    // interference fringes travel, and it is the engine's real signature motion.
+    counterSpin: { type: 'number', label: 'Counter-Spin Rate', min: -2.0, max: 2.0, step: 0.05, default: 0.55, section: 'motion' },
+    rotSpeedX: { type: 'number', label: '3D Pitch Rotation', min: -2.0, max: 2.0, step: 0.02, default: 0.06, section: 'motion' },
+    rotSpeedY: { type: 'number', label: '3D Yaw Rotation', min: -2.0, max: 2.0, step: 0.02, default: 0.18, section: 'motion' },
+    rotSpeedZ: { type: 'number', label: '3D Roll Rotation', min: -2.0, max: 2.0, step: 0.02, default: 0.0, section: 'motion' },
+    breatheSpeed: { type: 'number', label: 'Shell Breath Rate', min: 0.0, max: 2.5, step: 0.05, default: 0.60, section: 'motion' },
+    breatheAmp: { type: 'number', label: 'Breathing Amplitude', min: 0.0, max: 0.25, step: 0.01, default: 0.05, section: 'motion' },
+    twistSpeed: { type: 'number', label: 'Chiral Winding Speed', min: 0.0, max: 2.0, step: 0.05, default: 0.15, section: 'motion' },
     tiltStrength: { type: 'number', label: 'Mouse Parallax Depth', min: 0.0, max: 1.0, step: 0.05, default: 0.35, section: 'motion' },
   },
 };

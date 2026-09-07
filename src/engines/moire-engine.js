@@ -2,517 +2,236 @@ import * as THREE from 'three';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { buildShell, resolveShells } from '../core/moire-sphere.js';
 
+// Chiral Moiré — two nested spherical line grids of slightly different pitch.
+//
+// Where the two grids overlap they interfere, and because one carries a few more
+// meridians than the other the interference forms fringes. Counter-rotating the
+// shells makes those fringes travel around the orb: the pattern animates without
+// a single vertex moving.
+//
+// That last point matters. The previous engine drew one square rim ruled to a
+// recessed aperture — flat head-on, and not really a moiré, since the pattern
+// was ruled string art rather than interference. It also rebuilt its entire
+// vertex buffer on the CPU every frame in update(). Here geometry is rebuilt
+// only when a geometry parameter changes, and motion is two group rotations.
 export function createMoireEngine({ studio, scene, camera, renderer, pointerTracker, params, global }) {
   const currentParams = {
-    archetype: 'square_vortex', // 'square_vortex' | 'hex_vortex' | 'pentagon_envelope' | 'stellated_rosette' | 'astroid_quad' | 'guilloche_rosette' | 'triangle_vortex' | 'triangle_tunnel' | 'winged_moire'
-    scale: 2.1, // Overall pattern scale
-    zDepth: 1.35, // 3D Volumetric Depth / Extrusion
-    lineDensity: 28, // String art resolution
-    innerScale: 0.28, // Central aperture ratio
-    twistAngle: 0.72, // Chiral rotation angle (radians)
-    lineWidth: 2.0, // Crisp stroke width in pixels
-    lineColor: '#0a0a0d', // Ink color
+    archetype: 'meridian_beat', // 'meridian_beat' | 'lattice_beat' | 'helix_beat'
+    scale: 2.2,
+    lineDensity: 28,   // meridians on the outer shell
+    beatOffset: 2,     // extra meridians on the inner shell — the beat frequency
+    latBands: 8,       // latitude rings, used by lattice_beat
+    shellGap: 0.9,     // inner shell radius as a fraction of the outer
+    twistAngle: 0.72,  // shear that turns meridians into helices
+    lineWidth: 1.6,
+    lineColor: '#7fe9ff',
     lineGlow: 1.0,
 
-    motionMode: 'orbit_3d', // 'orbit_3d' | 'wave_pulse' | 'hyper_twist' | 'interactive_tilt'
-    rotSpeedX: 0.18, // 3D Pitch velocity
-    rotSpeedY: 0.38, // 3D Yaw velocity
-    rotSpeedZ: 0.10, // 3D Roll velocity
-    breatheSpeed: 0.60, // Aperture breathing rate
-    breatheAmp: 0.08, // Breathing amplitude
-    waveSpeed: 1.20, // 3D axial wave oscillation frequency
-    waveAmp: 0.22, // 3D axial wave amplitude
-    twistSpeed: 0.40, // Chiral continuous winding speed
-    tiltStrength: 0.35, // Interactive mouse parallax depth
+    motionMode: 'counter_spin', // 'counter_spin' | 'orbit_3d' | 'wave_pulse' | 'interactive_tilt'
+    rotSpeedX: 0.06,
+    rotSpeedY: 0.18,
+    rotSpeedZ: 0.0,
+    counterSpin: 0.55, // relative rate between the shells — drives the fringes
+    breatheSpeed: 0.6,
+    breatheAmp: 0.05,
+    twistSpeed: 0.15,
+    tiltStrength: 0.35,
     ...params,
   };
 
   const group = new THREE.Group();
   scene.add(group);
 
-  let lineMesh = null;
-  let lineGeometry = null;
-  let lineMaterial = null;
+  // One group per shell so counter-rotation is a transform rather than a rebuild.
+  const outerGroup = new THREE.Group();
+  const innerGroup = new THREE.Group();
+  group.add(outerGroup, innerGroup);
 
-  // Smoothing targets for pointer interaction
+  let outerMesh = null;
+  let innerMesh = null;
+  let outerGeometry = null;
+  let innerGeometry = null;
+  let outerMaterial = null;
+  let innerMaterial = null;
+
   let targetRotX = 0;
   let targetRotY = 0;
+  let elapsedTotal = 0;
+  let pulse = 0;
 
-  function buildGeometryData(tAnim = 0) {
-    const arch = currentParams.archetype;
-    const S = currentParams.scale;
-    const N = Math.max(8, Math.min(64, Math.round(currentParams.lineDensity)));
-
-    // Volumetric 3D Depth with dynamic wave modulation
-    let Z = currentParams.zDepth;
-    if (currentParams.motionMode === 'wave_pulse') {
-      Z *= 1.0 + currentParams.waveAmp * Math.sin(tAnim * currentParams.waveSpeed * Math.PI);
-    }
-
-    // Aperture dynamic breathing
-    const breathe = currentParams.breatheAmp * Math.sin(tAnim * currentParams.breatheSpeed * Math.PI);
-    const innerRatio = Math.max(0.06, Math.min(0.88, currentParams.innerScale + breathe));
-
-    // Chiral twist with continuous winding support
-    let twist = currentParams.twistAngle + breathe * 0.5;
-    if (currentParams.motionMode === 'hyper_twist') {
-      twist += tAnim * currentParams.twistSpeed;
-    }
-
-    const segments = []; // Array of x1, y1, z1, x2, y2, z2
-
-    function addSegment(x1, y1, z1, x2, y2, z2) {
-      segments.push(x1, y1, z1, x2, y2, z2);
-    }
-
-    if (arch === 'square_vortex') {
-      // 1. Top-Left: 3D Chiral Hyperboloid Funnel & Ruled Trumpet
-      // Outer diamond rim at +Z, inner rotated aperture deeply recessed into -Z
-      const zOuter = Z * 0.65;
-      const zInner = -Z * (0.95 + currentParams.waveAmp * Math.sin(tAnim * currentParams.waveSpeed));
-
-      const outer = [];
-      const inner = [];
-      for (let k = 0; k < 4; k++) {
-        const aOuter = Math.PI / 2 + (k * Math.PI) / 2;
-        outer.push({
-          x: S * Math.cos(aOuter),
-          y: S * Math.sin(aOuter),
-          z: zOuter,
-        });
-        const aInner = Math.PI / 2 + twist + (k * Math.PI) / 2;
-        inner.push({
-          x: S * innerRatio * Math.cos(aInner),
-          y: S * innerRatio * Math.sin(aInner),
-          z: zInner,
-        });
-      }
-
-      for (let k = 0; k < 4; k++) {
-        const o1 = outer[k];
-        const o2 = outer[(k + 1) % 4];
-        const i1 = inner[(k + 1) % 4];
-        const i2 = inner[(k + 2) % 4];
-
-        for (let i = 0; i <= N; i++) {
-          const u = i / N;
-          const px = (1 - u) * o1.x + u * o2.x;
-          const py = (1 - u) * o1.y + u * o2.y;
-          const pz = (1 - u) * o1.z + u * o2.z;
-
-          const qx = (1 - u) * i1.x + u * i2.x;
-          const qy = (1 - u) * i1.y + u * i2.y;
-          const qz = (1 - u) * i1.z + u * i2.z;
-          addSegment(px, py, pz, qx, qy, qz);
-        }
-        // Outer rim perimeter
-        addSegment(o1.x, o1.y, o1.z, o2.x, o2.y, o2.z);
-        // Inner aperture perimeter
-        addSegment(inner[k].x, inner[k].y, inner[k].z, inner[(k + 1) % 4].x, inner[(k + 1) % 4].y, inner[(k + 1) % 4].z);
-      }
-
-    } else if (arch === 'hex_vortex') {
-      // 2. Top-Center: 3D Hexagonal Hyperbolic Vortex Tower
-      const zOuter = Z * 0.75;
-      const zInner = -Z * (1.1 + currentParams.waveAmp * Math.sin(tAnim * currentParams.waveSpeed));
-
-      const outer = [];
-      const inner = [];
-      for (let k = 0; k < 6; k++) {
-        const aOuter = Math.PI / 2 + (k * Math.PI) / 3;
-        outer.push({
-          x: S * Math.cos(aOuter),
-          y: S * Math.sin(aOuter),
-          z: zOuter,
-        });
-        const aInner = Math.PI / 2 + twist + (k * Math.PI) / 3;
-        inner.push({
-          x: S * innerRatio * Math.cos(aInner),
-          y: S * innerRatio * Math.sin(aInner),
-          z: zInner,
-        });
-      }
-
-      for (let k = 0; k < 6; k++) {
-        const o1 = outer[k];
-        const o2 = outer[(k + 1) % 6];
-        const i1 = inner[(k + 1) % 6];
-        const i2 = inner[(k + 2) % 6];
-
-        for (let i = 0; i <= N; i++) {
-          const u = i / N;
-          const px = (1 - u) * o1.x + u * o2.x;
-          const py = (1 - u) * o1.y + u * o2.y;
-          const pz = (1 - u) * o1.z + u * o2.z;
-
-          const qx = (1 - u) * i1.x + u * i2.x;
-          const qy = (1 - u) * i1.y + u * i2.y;
-          const qz = (1 - u) * i1.z + u * i2.z;
-          addSegment(px, py, pz, qx, qy, qz);
-        }
-        addSegment(o1.x, o1.y, o1.z, o2.x, o2.y, o2.z);
-        addSegment(inner[k].x, inner[k].y, inner[k].z, inner[(k + 1) % 6].x, inner[(k + 1) % 6].y, inner[(k + 1) % 6].z);
-      }
-
-    } else if (arch === 'pentagon_envelope') {
-      // 3. Top-Right: 3D Pentagonal Hypar Dome (Hyperbolic Paraboloid Vault)
-      // 5 corners non-coplanar in 3D: alternating apexes and troughs
-      const verts = [];
-      for (let k = 0; k < 5; k++) {
-        const a = Math.PI / 2 + (k * 2 * Math.PI) / 5;
-        const zk = Z * Math.cos((k * 4 * Math.PI) / 5 + tAnim * currentParams.waveSpeed * 0.8) * 0.9;
-        verts.push({
-          x: S * Math.cos(a),
-          y: S * Math.sin(a),
-          z: zk,
-        });
-      }
-
-      for (let k = 0; k < 5; k++) {
-        const v0 = verts[k];
-        const v1 = verts[(k + 1) % 5];
-        const v2 = verts[(k + 2) % 5];
-
-        for (let i = 0; i <= N; i++) {
-          const u = i / N;
-          const px = (1 - u) * v0.x + u * v1.x;
-          const py = (1 - u) * v0.y + u * v1.y;
-          const pz = (1 - u) * v0.z + u * v1.z;
-
-          const qx = (1 - u) * v1.x + u * v2.x;
-          const qy = (1 - u) * v1.y + u * v2.y;
-          const qz = (1 - u) * v1.z + u * v2.z;
-          addSegment(px, py, pz, qx, qy, qz);
-        }
-        addSegment(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z);
-      }
-
-    } else if (arch === 'stellated_rosette') {
-      // 4. Middle-Left: 3D 16-Point Toroidal Star Cage
-      // Rotating square tiers distributed along a 3D spherical shell
-      const numRotations = 8;
-      const tiers = [1.0, 0.94, 0.88];
-
-      for (let t = 0; t < tiers.length; t++) {
-        const tierScale = tiers[t];
-        const tierRadius = S * tierScale;
-        const zTier = Z * (0.8 - t * 0.7) * Math.cos(tAnim * currentParams.waveSpeed * 0.6 + t);
-
-        for (let j = 0; j < numRotations; j++) {
-          const theta = (j / numRotations) * (Math.PI / 2) + twist * 0.2;
-          const corners = [];
-          for (let c = 0; c < 4; c++) {
-            const a = theta + (c * Math.PI) / 2;
-            const zC = zTier + Z * 0.3 * Math.sin(a * 2 + tAnim);
-            corners.push({
-              x: tierRadius * Math.cos(a),
-              y: tierRadius * Math.sin(a),
-              z: zC,
-            });
-          }
-          for (let c = 0; c < 4; c++) {
-            const c1 = corners[c];
-            const c2 = corners[(c + 1) % 4];
-            addSegment(c1.x, c1.y, c1.z, c2.x, c2.y, c2.z);
-          }
-        }
-      }
-
-    } else if (arch === 'astroid_quad') {
-      // 5. Middle-Center: 3D Astroid Saddle Vault (Hypar Quadrilateral)
-      // Corners alternate in Z: 0 & 2 at +Z, 1 & 3 at -Z
-      const corners = [];
-      for (let k = 0; k < 4; k++) {
-        const a = Math.PI / 4 + (k * Math.PI) / 2;
-        const zC = (k % 2 === 0 ? 1 : -1) * Z * 0.95;
-        corners.push({
-          x: S * 1.05 * Math.cos(a),
-          y: S * 1.05 * Math.sin(a),
-          z: zC,
-        });
-      }
-
-      for (let k = 0; k < 4; k++) {
-        const cPrev = corners[(k + 3) % 4];
-        const cCurr = corners[k];
-        const cNext = corners[(k + 1) % 4];
-
-        for (let i = 0; i <= N; i++) {
-          const u = i / N;
-          const px = (1 - u) * cPrev.x + u * cCurr.x;
-          const py = (1 - u) * cPrev.y + u * cCurr.y;
-          const pz = (1 - u) * cPrev.z + u * cCurr.z;
-
-          const qx = (1 - u) * cCurr.x + u * cNext.x;
-          const qy = (1 - u) * cCurr.y + u * cNext.y;
-          const qz = (1 - u) * cCurr.z + u * cNext.z;
-          addSegment(px, py, pz, qx, qy, qz);
-        }
-      }
-
-    } else if (arch === 'guilloche_rosette') {
-      // 6. Middle-Right: 3D Toroidal Spirograph Orb
-      // The 16 lobes undulate along Z, creating a volumetric toroidal cage
-      const lobes = 16;
-      const steps = 360;
-      const rBase = S * 0.72;
-      const amp = S * 0.28;
-
-      const pts1 = [];
-      const pts2 = [];
-      const phase2 = Math.PI / lobes;
-
-      for (let i = 0; i <= steps; i++) {
-        const th = (i / steps) * Math.PI * 2;
-        const r1 = rBase + amp * Math.cos(lobes * th);
-        const r2 = rBase + amp * Math.cos(lobes * (th + phase2));
-        const z1 = Z * 0.75 * Math.sin(8 * th + tAnim * currentParams.waveSpeed);
-        const z2 = -z1;
-
-        pts1.push({ x: r1 * Math.cos(th), y: r1 * Math.sin(th), z: z1 });
-        pts2.push({ x: r2 * Math.cos(th), y: r2 * Math.sin(th), z: z2 });
-      }
-
-      for (let i = 0; i < steps; i++) {
-        addSegment(pts1[i].x, pts1[i].y, pts1[i].z, pts1[i + 1].x, pts1[i + 1].y, pts1[i + 1].z);
-        addSegment(pts2[i].x, pts2[i].y, pts2[i].z, pts2[i + 1].x, pts2[i + 1].y, pts2[i + 1].z);
-
-        if (i % 2 === 0) {
-          const target = (i + 45) % steps;
-          addSegment(pts1[i].x, pts1[i].y, pts1[i].z, pts1[target].x, pts1[target].y, pts1[target].z);
-        }
-      }
-
-    } else if (arch === 'triangle_vortex') {
-      // 7. Bottom-Left: 3D Tetrahedral Chiral Vortex
-      // Outer inverted triangle rim at +Z, central aperture deep in -Z
-      const zOuter = Z * 0.70;
-      const zInner = -Z * (1.15 + currentParams.waveAmp * Math.sin(tAnim * currentParams.waveSpeed));
-
-      const outer = [];
-      const inner = [];
-      for (let k = 0; k < 3; k++) {
-        const aOuter = -Math.PI / 2 + (k * 2 * Math.PI) / 3;
-        outer.push({
-          x: S * Math.cos(aOuter),
-          y: S * Math.sin(aOuter),
-          z: zOuter,
-        });
-        const aInner = -Math.PI / 2 + twist + (k * 2 * Math.PI) / 3;
-        inner.push({
-          x: S * innerRatio * Math.cos(aInner),
-          y: S * innerRatio * Math.sin(aInner),
-          z: zInner,
-        });
-      }
-
-      for (let k = 0; k < 3; k++) {
-        const o1 = outer[k];
-        const o2 = outer[(k + 1) % 3];
-        const i1 = inner[(k + 1) % 3];
-        const i2 = inner[(k + 2) % 3];
-
-        for (let i = 0; i <= N; i++) {
-          const u = i / N;
-          const px = (1 - u) * o1.x + u * o2.x;
-          const py = (1 - u) * o1.y + u * o2.y;
-          const pz = (1 - u) * o1.z + u * o2.z;
-
-          const qx = (1 - u) * i1.x + u * i2.x;
-          const qy = (1 - u) * i1.y + u * i2.y;
-          const qz = (1 - u) * i1.z + u * i2.z;
-          addSegment(px, py, pz, qx, qy, qz);
-        }
-        addSegment(o1.x, o1.y, o1.z, o2.x, o2.y, o2.z);
-        addSegment(inner[k].x, inner[k].y, inner[k].z, inner[(k + 1) % 3].x, inner[(k + 1) % 3].y, inner[(k + 1) % 3].z);
-      }
-
-    } else if (arch === 'triangle_tunnel') {
-      // 8. Bottom-Center: Authentic 3D Perspective Triangle Corridor (Direct fix for user's screenshot!)
-      // Tiers step back deeply along Z, creating a true 3D infinite gateway
-      const tiers = Math.max(16, N);
-      const apexY = S * 1.15;
-      const bLeftX = -S * 1.0;
-      const bLeftY = -S * 0.95;
-      const bRightX = S * 1.0;
-      const bRightY = -S * 0.95;
-
-      const zFront = Z * 0.75;
-      const zBack = -Z * 2.2;
-
-      for (let t = 0; t < tiers; t++) {
-        const u = t / (tiers - 1);
-        const zTier = (1 - u) * zFront + u * zBack;
-
-        const curApexY = apexY * (1.0 - u * 0.52);
-        const curLeftX = bLeftX * (1.0 - u * 0.88);
-        const curLeftY = bLeftY + u * S * 0.92;
-        const curRightX = bRightX * (1.0 - u * 0.88);
-        const curRightY = bRightY + u * S * 0.92;
-
-        // Base horizontal rung in 3D
-        addSegment(curLeftX, curLeftY, zTier, curRightX, curRightY, zTier);
-        // Slanted left strut
-        addSegment(curLeftX, curLeftY, zTier, 0, curApexY, zTier);
-        // Slanted right strut
-        addSegment(curRightX, curRightY, zTier, 0, curApexY, zTier);
-
-        // Longitudinal connecting depth rails linking tiers
-        if (t < tiers - 1) {
-          const uNext = (t + 1) / (tiers - 1);
-          const zNext = (1 - uNext) * zFront + uNext * zBack;
-          const nextLeftX = bLeftX * (1.0 - uNext * 0.88);
-          const nextLeftY = bLeftY + uNext * S * 0.92;
-          const nextRightX = bRightX * (1.0 - uNext * 0.88);
-          const nextRightY = bRightY + uNext * S * 0.92;
-          const nextApexY = apexY * (1.0 - uNext * 0.52);
-
-          addSegment(curLeftX, curLeftY, zTier, nextLeftX, nextLeftY, zNext);
-          addSegment(curRightX, curRightY, zTier, nextRightX, nextRightY, zNext);
-          addSegment(0, curApexY, zTier, 0, nextApexY, zNext);
-        }
-      }
-
-    } else if (arch === 'winged_moire') {
-      // 9. Bottom-Right: 3D Bilateral Winged Saddle
-      // Wingtips arch forward in +Z, spine dips back in -Z, bottom fan curls in 3D
-      const fanLines = N * 2;
-      for (let i = 0; i <= fanLines; i++) {
-        const u = i / fanLines;
-        // Left wing fan in 3D
-        const px = -S * 0.92 + u * S * 0.48;
-        const py = S * 0.12 + u * S * 0.88;
-        const pz = Z * (0.85 - u * 1.5) * Math.cos(u * Math.PI);
-
-        const qx = -S * 0.72 + u * S * 1.45;
-        const qy = -S * 0.88;
-        const qz = -Z * 0.6 + Z * 0.8 * Math.sin(u * Math.PI);
-
-        addSegment(px, py, pz, qx, qy, qz);
-        // Right wing fan (mirror X and keep 3D depth)
-        addSegment(-px, py, pz, -qx, qy, qz);
-      }
-    }
-
-    const posArray = new Float32Array(segments);
-    const colArray = new Float32Array(segments.length);
-    const baseCol = new THREE.Color(currentParams.lineColor);
-    const glow = currentParams.lineGlow;
-
-    for (let c = 0; c < segments.length; c += 3) {
-      colArray[c] = baseCol.r * glow;
-      colArray[c + 1] = baseCol.g * glow;
-      colArray[c + 2] = baseCol.b * glow;
-    }
-
-    return { posArray, colArray };
-  }
-
-  function initMesh() {
-    if (lineMesh) {
-      group.remove(lineMesh);
-      lineGeometry.dispose();
-      lineMaterial.dispose();
-    }
-
-    const { posArray, colArray } = buildGeometryData(0);
-    lineGeometry = new LineSegmentsGeometry();
-    lineGeometry.setPositions(posArray);
-    lineGeometry.setColors(colArray);
-
-    lineMaterial = new LineMaterial({
-      color: 0xffffff,
-      vertexColors: true,
+  function makeMaterial(colorHex, glow, dim) {
+    const color = new THREE.Color(colorHex);
+    // The inner shell is dimmed so the two grids stay distinguishable; at equal
+    // intensity the fringes read as noise rather than as depth.
+    color.multiplyScalar(glow * dim);
+    const material = new LineMaterial({
+      color: color.getHex(),
       linewidth: currentParams.lineWidth,
       transparent: true,
       opacity: 0.95,
+      // No depth test, so the far side of each shell shows through. Seeing both
+      // sides at once is what makes the interference visible at all.
       depthTest: false,
       depthWrite: false,
+      // Normal, not additive: nine presets switch the canvas to near-white paper
+      // and draw the shells in black ink, and additive blending is invisible on
+      // white. The interference comes from where the two grids overlap, not from
+      // the blend mode, so nothing is lost by staying compatible with both.
       blending: THREE.NormalBlending,
     });
-    lineMaterial.resolution.set(window.innerWidth || 1440, window.innerHeight || 900);
-
-    lineMesh = new LineSegments2(lineGeometry, lineMaterial);
-    lineMesh.computeLineDistances();
-    lineMesh.renderOrder = 2;
-    group.add(lineMesh);
+    material.resolution.set(window.innerWidth || 1440, window.innerHeight || 900);
+    return material;
   }
 
-  initMesh();
+  function disposeMeshes() {
+    if (outerMesh) outerGroup.remove(outerMesh);
+    if (innerMesh) innerGroup.remove(innerMesh);
+    if (outerGeometry) outerGeometry.dispose();
+    if (innerGeometry) innerGeometry.dispose();
+    if (outerMaterial) outerMaterial.dispose();
+    if (innerMaterial) innerMaterial.dispose();
+    outerGeometry = innerGeometry = null;
+    outerMaterial = innerMaterial = null;
+    outerMesh = innerMesh = null;
+  }
 
-  let elapsedTotal = 0;
+  function buildMeshes() {
+    disposeMeshes();
+
+    const { outer, inner } = resolveShells({
+      meridians: currentParams.lineDensity,
+      beatOffset: currentParams.beatOffset,
+      latitudes: currentParams.latBands,
+      archetype: currentParams.archetype,
+    });
+
+    const twist = currentParams.archetype === 'helix_beat'
+      ? currentParams.twistAngle * 2.0
+      : currentParams.twistAngle;
+
+    // Shells are built at unit radius; scale and gap are applied as transforms so
+    // both can be animated — and modulated — without regenerating vertices.
+    const outerPos = buildShell({ ...outer, radius: 1, twist });
+    // The inner shell twists the other way. Counter-chirality doubles the rate at
+    // which the fringes sweep and stops the pair reading as one solid object.
+    const innerPos = buildShell({ ...inner, radius: 1, twist: -twist });
+
+    outerGeometry = new LineSegmentsGeometry();
+    outerGeometry.setPositions(outerPos);
+    outerMaterial = makeMaterial(currentParams.lineColor, currentParams.lineGlow, 1.0);
+    outerMesh = new LineSegments2(outerGeometry, outerMaterial);
+    outerMesh.computeLineDistances();
+    outerMesh.renderOrder = 2;
+    outerGroup.add(outerMesh);
+
+    innerGeometry = new LineSegmentsGeometry();
+    innerGeometry.setPositions(innerPos);
+    innerMaterial = makeMaterial(currentParams.lineColor, currentParams.lineGlow, 0.65);
+    innerMesh = new LineSegments2(innerGeometry, innerMaterial);
+    innerMesh.computeLineDistances();
+    innerMesh.renderOrder = 2;
+    innerGroup.add(innerMesh);
+  }
+
+  // Which parameters require new vertices. Everything else is a transform or a
+  // material property, so it can change every frame for free.
+  const GEOMETRY_KEYS = ['archetype', 'lineDensity', 'beatOffset', 'latBands', 'twistAngle'];
+
+  // The flat-panel archetypes this engine used to have. Configs and presets
+  // exported before the redesign still name them, and an unrecognised select
+  // value would otherwise silently fall back to the default and lose the
+  // character the saved config was chosen for.
+  const LEGACY_ARCHETYPES = {
+    square_vortex: 'meridian_beat',
+    hex_vortex: 'meridian_beat',
+    pentagon_envelope: 'lattice_beat',
+    stellated_rosette: 'lattice_beat',
+    astroid_quad: 'helix_beat',
+    guilloche_rosette: 'lattice_beat',
+    triangle_vortex: 'meridian_beat',
+    triangle_tunnel: 'helix_beat',
+    winged_moire: 'helix_beat',
+  };
+
+  if (LEGACY_ARCHETYPES[currentParams.archetype]) {
+    currentParams.archetype = LEGACY_ARCHETYPES[currentParams.archetype];
+  }
+
+  buildMeshes();
 
   return {
-    // World radius this engine occupies, so OrbStudio can frame every engine at
-    // the same fraction of the viewport instead of a shared fixed distance.
-    // Sphere-grid outer radius at default scale.
+    // Unit shells scaled by `scale`, so this is the world radius occupied.
     frame: { radius: 2.28 },
+
     update(args = {}) {
       const dt = typeof args.delta === 'number' ? args.delta : 0.016;
       const elapsed = typeof args.time === 'number' ? args.time : elapsedTotal + dt;
       elapsedTotal = elapsed;
       const pointer = args.pointer;
 
-      // --- DYNAMIC 3D MOTION SYSTEM ---
+      pulse *= 0.92;
+
       if (currentParams.motionMode === 'interactive_tilt') {
-        // Interactive tilt with mouse parallax momentum
         if (pointer) {
           targetRotX = -pointer.y * currentParams.tiltStrength * 0.6;
           targetRotY = pointer.x * currentParams.tiltStrength * 0.6;
         }
         group.rotation.x += (targetRotX - group.rotation.x) * 0.08;
         group.rotation.y += (targetRotY - group.rotation.y) * 0.08;
-        group.rotation.z += dt * currentParams.rotSpeedZ;
       } else {
-        // Continuous 3D spatial rotation across X (Pitch), Y (Yaw), Z (Roll)
         group.rotation.x += dt * currentParams.rotSpeedX;
         group.rotation.y += dt * currentParams.rotSpeedY;
         group.rotation.z += dt * currentParams.rotSpeedZ;
-
-        // Subtle pointer bias on top of 3D tumbling
         if (pointer) {
-          group.rotation.x += pointer.y * dt * 0.08;
-          group.rotation.y += pointer.x * dt * 0.12;
+          group.rotation.x += pointer.y * dt * 0.06;
+          group.rotation.y += pointer.x * dt * 0.09;
         }
       }
 
-      // Dynamic in-place 3D deformation & harmonic wave breathing
-      const { posArray, colArray } = buildGeometryData(elapsed);
-      const startAttr = lineGeometry.attributes.instanceStart;
-      if (startAttr && posArray.length === startAttr.count * 6) {
-        startAttr.data.array.set(posArray);
-        startAttr.data.needsUpdate = true;
-        const colAttr = lineGeometry.attributes.instanceColorStart;
-        if (colAttr) {
-          colAttr.data.array.set(colArray);
-          colAttr.data.needsUpdate = true;
-        }
-        lineMesh.computeLineDistances();
-      } else {
-        lineGeometry.dispose();
-        lineGeometry = new LineSegmentsGeometry();
-        lineGeometry.setPositions(posArray);
-        lineGeometry.setColors(colArray);
-        lineMesh.geometry = lineGeometry;
-        lineMesh.computeLineDistances();
+      // The fringes. Equal and opposite, so the orb as a whole does not appear to
+      // spin while its surface pattern travels.
+      const spin = dt * currentParams.counterSpin;
+      outerGroup.rotation.y += spin;
+      innerGroup.rotation.y -= spin;
+
+      if (currentParams.motionMode === 'wave_pulse' || currentParams.archetype === 'helix_beat') {
+        const t = elapsed * currentParams.twistSpeed;
+        outerGroup.rotation.z = Math.sin(t) * 0.25;
+        innerGroup.rotation.z = -Math.sin(t) * 0.25;
       }
+
+      // Breathing the gap between the shells changes the interference itself, not
+      // just the size — the fringe spacing widens and narrows.
+      const breathe = 1 + currentParams.breatheAmp * Math.sin(elapsed * currentParams.breatheSpeed * Math.PI);
+      const s = currentParams.scale * (1 + pulse * 0.18);
+      outerGroup.scale.setScalar(s);
+      innerGroup.scale.setScalar(s * currentParams.shellGap * breathe);
     },
 
     setParams(newParams) {
+      if (newParams.archetype !== undefined && LEGACY_ARCHETYPES[newParams.archetype]) {
+        newParams = { ...newParams, archetype: LEGACY_ARCHETYPES[newParams.archetype] };
+      }
+      const needsRebuild = GEOMETRY_KEYS.some(
+        (k) => newParams[k] !== undefined && newParams[k] !== currentParams[k]
+      );
       Object.assign(currentParams, newParams);
 
-      if (newParams.lineWidth !== undefined && lineMaterial) {
-        lineMaterial.linewidth = newParams.lineWidth;
+      if (needsRebuild) {
+        buildMeshes();
+        return;
       }
-
-      const { posArray, colArray } = buildGeometryData(elapsedTotal);
-      lineGeometry.dispose();
-      lineGeometry = new LineSegmentsGeometry();
-      lineGeometry.setPositions(posArray);
-      lineGeometry.setColors(colArray);
-      lineMesh.geometry = lineGeometry;
-      lineMesh.computeLineDistances();
+      if (newParams.lineWidth !== undefined) {
+        if (outerMaterial) outerMaterial.linewidth = newParams.lineWidth;
+        if (innerMaterial) innerMaterial.linewidth = newParams.lineWidth;
+      }
+      if (newParams.lineColor !== undefined || newParams.lineGlow !== undefined) {
+        const base = new THREE.Color(currentParams.lineColor);
+        if (outerMaterial) outerMaterial.color.copy(base).multiplyScalar(currentParams.lineGlow);
+        if (innerMaterial) innerMaterial.color.copy(base).multiplyScalar(currentParams.lineGlow * 0.65);
+      }
     },
 
     onPointerMove(nx, ny) {
@@ -521,30 +240,24 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
     },
 
     onPointerClick() {
-      // Dynamic 3D depth punch on click
-      currentParams.zDepth *= 1.25;
-      setTimeout(() => {
-        currentParams.zDepth = params?.zDepth || 1.35;
-      }, 350);
+      pulse = 1;
     },
 
+    // Was mutating zDepth and restoring it from the *initial* params on a timer,
+    // which silently discarded any edit made since. A decaying value needs no
+    // restore and so cannot fight the user.
     onPulse() {
-      currentParams.zDepth *= 1.25;
-      setTimeout(() => {
-        currentParams.zDepth = params?.zDepth || 1.35;
-      }, 350);
+      pulse = 1;
     },
 
     onResize(width, height) {
-      if (lineMaterial) {
-        lineMaterial.resolution.set(width, height);
-      }
+      if (outerMaterial) outerMaterial.resolution.set(width, height);
+      if (innerMaterial) innerMaterial.resolution.set(width, height);
     },
 
     dispose() {
+      disposeMeshes();
       scene.remove(group);
-      if (lineGeometry) lineGeometry.dispose();
-      if (lineMaterial) lineMaterial.dispose();
     },
   };
 }
