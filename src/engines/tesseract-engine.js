@@ -188,6 +188,10 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
   let clickPulse = 0;
 
   return {
+    // World radius this engine occupies, so OrbStudio can frame every engine at
+    // the same fraction of the viewport instead of a shared fixed distance.
+    // Outer hypercube edge span at default scale.
+    frame: { radius: 2.34 },
     update({ time, delta }) {
       clickPulse *= 0.92;
 

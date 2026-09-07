@@ -66,10 +66,15 @@ export const ENGINE_INFO = {
 
 export const DEFAULT_GLOBAL_SETTINGS = {
   dpr: 1.2,
-  exposure: 1.05,
-  bloomStrength: 0.65,
-  bloomRadius: 0.40,
-  bloomThreshold: 0.12,
+  exposure: 1.00,
+  // A low threshold with high strength put a bloom halo over most of the frame —
+  // measured 81% of pixels lit for Hopf and 61% for Tesseract, so the orb had no
+  // dark surround and its silhouette dissolved. Nothing was clipping; the halo
+  // was simply covering everything. These values are close to what every preset
+  // in preset-library.js already used, which the defaults had drifted away from.
+  bloomStrength: 0.25,
+  bloomRadius: 0.25,
+  bloomThreshold: 0.35,
   autoRotate: true,
   autoRotateSpeed: 0.8,
   timeScale: 1.0,
@@ -236,7 +241,11 @@ export const ENGINE_PARAM_DEFINITIONS = {
     twistAngle: { type: 'number', label: 'Chiral Twist Angle', min: -1.5, max: 1.5, step: 0.02, default: 0.72, section: 'geometry' },
     lineWidth: { type: 'number', label: 'Line Stroke Thickness', min: 1.0, max: 6.0, step: 0.2, default: 2.0, section: 'geometry' },
 
-    lineColor: { type: 'color', label: 'Ink / Stroke Color', default: '#0a0a0d', section: 'colors' },
+    // Was '#0a0a0d' labelled "Ink / Stroke Color" — a near-black chosen for a
+    // white-paper aesthetic, drawn on a #000000 canvas, so the engine rendered an
+    // almost entirely black frame out of the box. The label is what let the
+    // paper-era value survive.
+    lineColor: { type: 'color', label: 'Line Color', default: '#7fe9ff', section: 'colors' },
     lineGlow: { type: 'number', label: 'Line Glow / Radiance', min: 0.5, max: 3.0, step: 0.1, default: 1.0, section: 'colors' },
 
     motionMode: {

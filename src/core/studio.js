@@ -9,6 +9,7 @@ import { createFpsTracker } from '../shared/fps.js';
 import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { createVariationGrid, DEFAULT_BREADTH } from './variation-grid.js';
+import { cameraDistanceForRadius, engineFrameRadius } from './framing.js';
 import { isSweepable, sweepValues } from './sweep.js';
 import { createParamTween } from './param-tween.js';
 import { createAudioInput } from './audio-input.js';
@@ -147,9 +148,12 @@ export class OrbStudio {
 
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.55, // strength
-      0.38, // radius
-      0.15  // threshold
+      // Overwritten by updateGlobalSettings on the first state sync; kept in step
+      // with DEFAULT_GLOBAL_SETTINGS so the very first frame is not brighter than
+      // every frame after it.
+      0.25, // strength
+      0.25, // radius
+      0.35  // threshold
     );
     this.composer.addPass(this.bloomPass);
 
@@ -187,14 +191,9 @@ export class OrbStudio {
 
     this.activeEngineType = type;
 
-    // Camera distance & angle
-    this.camera.position.set(0, 0, 7.5);
     this.camera.fov = 45.0;
     this.camera.updateProjectionMatrix();
-    this.camera.lookAt(0, 0, 0);
-    this.controls.target.set(0, 0, 0);
     this.controls.enablePan = true;
-    this.controls.update();
 
     // Instantiate new engine
     this.activeEngine = constructorFn({
@@ -207,6 +206,10 @@ export class OrbStudio {
       params: state.engines[type],
       global: state.global,
     });
+
+    // After construction, not before: the distance comes from the engine's own
+    // `frame` hint, which does not exist until the factory has returned.
+    this.frameActiveEngine();
 
     this.baseParams = { ...state.engines[type] };
     this.paramDefs = ENGINE_PARAM_DEFINITIONS[type] || {};
@@ -452,13 +455,21 @@ export class OrbStudio {
     }
   }
 
-  resetCamera() {
-    this.camera.position.set(0, 0, 7.5);
-    this.camera.fov = 45.0;
+  // Frames the active engine at a consistent fraction of the viewport. Engines
+  // declare the world radius they occupy; a fixed distance for all eight is what
+  // left Hopf cropped at 1.34 of the visible half-height and Singularity at 0.46.
+  frameActiveEngine() {
+    const radius = engineFrameRadius(this.activeEngine);
+    this.camera.position.set(0, 0, cameraDistanceForRadius(radius, this.camera.fov));
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(0, 0, 0);
     this.controls.target.set(0, 0, 0);
     this.controls.update();
+  }
+
+  resetCamera() {
+    this.camera.fov = 45.0;
+    this.frameActiveEngine();
   }
 
   togglePlayPause() {
@@ -652,6 +663,7 @@ export class OrbStudio {
       defs: ENGINE_PARAM_DEFINITIONS[type] || {},
       cols,
       rows,
+      frameRadius: engineFrameRadius(this.activeEngine),
     });
     this.gridRadius = radius;
     this.gridSections = sections;
@@ -696,6 +708,7 @@ export class OrbStudio {
       defs,
       cols: values.length,
       rows: 1,
+      frameRadius: engineFrameRadius(this.activeEngine),
       cellFactory: (index) => ({ params: { ...base, [paramKey]: values[index] } }),
     });
     this.grid.populate();

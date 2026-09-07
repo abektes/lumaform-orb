@@ -278,6 +278,10 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
   let pulseVal = 0;
 
   return {
+    // World radius this engine occupies, so OrbStudio can frame every engine at
+    // the same fraction of the viewport instead of a shared fixed distance.
+    // Stella octangula outer vertices.
+    frame: { radius: 2.24 },
     update({ time, delta }) {
       pulseVal *= 0.93;
       matA.uniforms.uTime.value = time;

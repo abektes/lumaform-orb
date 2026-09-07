@@ -420,6 +420,10 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
   let clickPulse = 0;
 
   return {
+    // World radius this engine occupies, so OrbStudio can frame every engine at
+    // the same fraction of the viewport instead of a shared fixed distance.
+    // Stellated geodesic including spike apexes.
+    frame: { radius: 3.58 },
     update({ time, delta, pointer }) {
       clickPulse *= 0.92;
 

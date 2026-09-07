@@ -163,6 +163,10 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
   }
 
   return {
+    // World radius this engine occupies, so OrbStudio can frame every engine at
+    // the same fraction of the viewport instead of a shared fixed distance.
+    // Villarceau fibre bundle at default fibre count.
+    frame: { radius: 2.3 },
     update({ time }) {
       clickBoost *= 0.94;
       coreMat.uniforms.uTime.value = time;

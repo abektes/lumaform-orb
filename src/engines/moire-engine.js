@@ -444,6 +444,10 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
   let elapsedTotal = 0;
 
   return {
+    // World radius this engine occupies, so OrbStudio can frame every engine at
+    // the same fraction of the viewport instead of a shared fixed distance.
+    // Sphere-grid outer radius at default scale.
+    frame: { radius: 2.28 },
     update(args = {}) {
       const dt = typeof args.delta === 'number' ? args.delta : 0.016;
       const elapsed = typeof args.time === 'number' ? args.time : elapsedTotal + dt;

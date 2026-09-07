@@ -21,6 +21,7 @@ import {
   createDefaultModulation,
   listModulationTargets,
 } from './modulation.js';
+import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from './framing.js';
 
 // --- colour jitter ---------------------------------------------------------
 
@@ -214,13 +215,17 @@ export function createVariationGrid({
   cols = 3,
   rows = 3,
   rng = Math.random,
+  // World radius the engine occupies, so cells frame like the main view.
+  frameRadius = DEFAULT_FRAME_RADIUS,
   // Optional. When supplied, populate() asks this for each cell's config instead
   // of breeding one. The sweep strip uses it to lay out a deterministic ramp;
   // omit it and the grid mutates exactly as before.
   cellFactory = null,
 }) {
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(0, 0, 7.5);
+  // Same derivation as the main view, or a cell would crop differently from the
+  // orb it was bred from and the comparison would be dishonest.
+  camera.position.set(0, 0, cameraDistanceForRadius(frameRadius, 45));
   camera.lookAt(0, 0, 0);
 
   const cells = [];
