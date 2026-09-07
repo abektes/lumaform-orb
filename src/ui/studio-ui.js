@@ -82,6 +82,22 @@ export class StudioUI {
     this.root.className = 'studio-ui-root';
     this.container.appendChild(this.root);
 
+    // Two layers inside the root, because .studio-ui-root is a positioned
+    // element with a z-index and therefore forms a stacking context — anything
+    // mounted outside it (as these overlays previously were, to survive
+    // render()) outranks the whole panel subtree no matter how high the panel's
+    // own z-index is. That is what put the grid HUD over the engine dropdown.
+    //
+    // overlayLayer is never rewritten, so long-lived chrome can live in it;
+    // panelLayer is what render() replaces.
+    this.overlayLayer = document.createElement('div');
+    this.overlayLayer.className = 'studio-overlay-layer';
+    this.root.appendChild(this.overlayLayer);
+
+    this.panelLayer = document.createElement('div');
+    this.panelLayer.className = 'studio-panel-layer';
+    this.root.appendChild(this.panelLayer);
+
     // Modal container
     this.modalOverlay = document.createElement('div');
     this.modalOverlay.className = 'studio-modal-overlay hidden';
@@ -142,13 +158,8 @@ export class StudioUI {
 
   toggleZenMode() {
     this.isZenMode = !this.isZenMode;
+    // Overlays now live in root's overlayLayer, so the root rule hides them too.
     this.root.classList.toggle('zen-hidden', this.isZenMode);
-    // The grid HUD, A/B readout and sweep caption are mounted on document.body
-    // rather than inside root (root.innerHTML is replaced on every render), so
-    // they sit outside the .zen-hidden subtree. Mirror the flag onto body so
-    // they can be hidden by a plain descendant rule — a sibling combinator here
-    // would depend on the order overlays happen to be appended in.
-    document.body.classList.toggle('zen-hidden', this.isZenMode);
 
     let hint = document.getElementById('zen-hint');
     if (this.isZenMode) {
@@ -183,7 +194,7 @@ export class StudioUI {
   render() {
     const currentEngine = ENGINE_INFO[this.state.engine] || { name: this.state.engine, badge: '' };
 
-    this.root.innerHTML = `
+    this.panelLayer.innerHTML = `
       <!-- TOP NAVIGATION BAR -->
       <header class="studio-topbar">
         <div class="topbar-brand" id="brand-link" title="Lumaform Orb">
@@ -194,6 +205,8 @@ export class StudioUI {
         </div>
 
         <!-- ENGINE DROPDOWN SELECTOR -->
+        <div class="topbar-engine-group">
+        <button class="engine-step" id="engine-prev" title="Previous engine">&lsaquo;</button>
         <div class="topbar-engine-dropdown">
           <button class="engine-dropdown-trigger ${this.initialOpenDropdown ? 'open' : ''}" id="engine-dropdown-btn" aria-haspopup="true" aria-expanded="${this.initialOpenDropdown ? 'true' : 'false'}" title="Switch Generative Engine">
             <span class="trigger-icon">${ICONS.cube}</span>
@@ -222,6 +235,8 @@ export class StudioUI {
               })
               .join('')}
           </div>
+        </div>
+        <button class="engine-step" id="engine-next" title="Next engine">&rsaquo;</button>
         </div>
 
         <div class="topbar-actions">
@@ -362,6 +377,20 @@ export class StudioUI {
       });
 
     }
+
+    // Stepping is the common case — cycling through eight engines by opening a
+    // menu each time is slower than it needs to be.
+    const stepEngine = (direction) => {
+      const order = Object.values(ENGINE_TYPES);
+      const index = order.indexOf(this.state.engine);
+      const next = order[(index + direction + order.length) % order.length];
+      if (next === this.state.engine) return;
+      this.state.engine = next;
+      this.onStateChange(this.state);
+      this.render();
+    };
+    this.root.querySelector('#engine-prev')?.addEventListener('click', () => stepEngine(-1));
+    this.root.querySelector('#engine-next')?.addEventListener('click', () => stepEngine(1));
 
     this.root.querySelector('#btn-randomize')?.addEventListener('click', () => this.handleRandomize());
     this.root.querySelector('#btn-playpause')?.addEventListener('click', () => this.togglePlayPause());

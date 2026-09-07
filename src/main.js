@@ -64,10 +64,12 @@ setInterval(() => {
 window.__orb = { studio, state, ui };
 
 // --- clip recording ---------------------------------------------------------
-// Mounted on body because StudioUI.render() replaces root.innerHTML.
+// Mounted in the UI's overlay layer: render() only rewrites the panel layer, so
+// these survive, and they stay inside the panel's stacking context so the engine
+// dropdown can still open over them.
 const clipIndicator = document.createElement('div');
 clipIndicator.className = 'clip-indicator hidden';
-document.body.appendChild(clipIndicator);
+ui.overlayLayer.appendChild(clipIndicator);
 
 let clipTimerId = null;
 let clipTogglePending = false;
@@ -139,7 +141,7 @@ const ab = createAbCompare(studio, state, {
 
 const abReadout = document.createElement('div');
 abReadout.className = 'ab-readout hidden';
-document.body.appendChild(abReadout);
+ui.overlayLayer.appendChild(abReadout);
 
 // Name the slot that is still empty, rather than assuming A is always filled
 // first — pressing 2 before 1 used to produce "press 2 to fill B".
@@ -189,7 +191,7 @@ document.addEventListener('input', (e) => {
 
 const sweepCaption = document.createElement('div');
 sweepCaption.className = 'sweep-caption hidden';
-document.body.appendChild(sweepCaption);
+ui.overlayLayer.appendChild(sweepCaption);
 
 function showSweepCaption(info) {
   if (!info) {
@@ -315,7 +317,7 @@ function toggleGrid() {
     // re-render — and Randomize, Export and the engine dropdown all stay
     // clickable in the top bar during grid mode. The A/B readout and sweep
     // caption are mounted the same way for the same reason.
-    document.body.appendChild(gridHud.element);
+    ui.overlayLayer.appendChild(gridHud.element);
     markedPollId = setInterval(syncMarkedCount, 200);
   }
 }

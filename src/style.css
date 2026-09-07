@@ -1576,12 +1576,21 @@ kbd {
    combinator would work only for whichever order the overlays happen to be
    appended in, which is not stable.
    --------------------------------------------------------------------------- */
-body.zen-hidden .grid-hud,
-body.zen-hidden .ab-readout,
-body.zen-hidden .sweep-caption {
-  opacity: 0;
+/* Two layers inside .studio-ui-root. The root is positioned with a z-index and
+   so forms a stacking context: anything mounted outside it outranks the entire
+   panel subtree regardless of the panel's own z-index, which is what put the
+   grid HUD over the engine dropdown. Keeping the overlays in here — below the
+   panel layer — restores the intended order, and the root's zen rule hides them
+   along with everything else. */
+.studio-overlay-layer,
+.studio-panel-layer {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
 }
+
+.studio-overlay-layer { z-index: 1; }
+.studio-panel-layer { z-index: 2; }
 
 .grid-hud,
 .ab-readout,
@@ -1625,8 +1634,10 @@ body.zen-hidden .sweep-caption {
    --------------------------------------------------------------------------- */
 .clip-indicator {
   position: fixed;
-  top: 88px;
-  right: 24px;
+  /* Bottom-left, stacked above the A/B readout. The old top-right position sits
+     under the inspector now that the panel layer paints above the overlays. */
+  bottom: 64px;
+  left: 24px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1670,9 +1681,7 @@ body.zen-hidden .sweep-caption {
   letter-spacing: 0;
 }
 
-body.zen-hidden .clip-indicator {
-  opacity: 0;
-}
+
 
 /* ---------------------------------------------------------------------------
    Findings gallery — browse kept configs by eye rather than by timestamp.
@@ -1748,4 +1757,43 @@ body.zen-hidden .clip-indicator {
 
 .findings-footer {
   margin-top: 12px;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Previous / next engine steppers. Cycling is the common case; the dropdown is
+   for jumping somewhere specific.
+   --------------------------------------------------------------------------- */
+.topbar-engine-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.engine-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.engine-step:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(255, 237, 0, 0.1);
+}
+
+.engine-step:active {
+  transform: scale(0.92);
 }
