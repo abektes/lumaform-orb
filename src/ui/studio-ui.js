@@ -1067,6 +1067,18 @@ export class StudioUI {
     return true;
   }
 
+  // Snapshots can be refused while a clip is recording. Route the explicit
+  // capture buttons through here so the reason reaches the user instead of the
+  // console — the rest of this file already surfaces failures with alert().
+  requestSnapshot(options) {
+    const blocked = this.studio.snapshotBlockedReason(options);
+    if (blocked) {
+      alert(blocked);
+      return null;
+    }
+    return this.studio.captureSnapshot(options);
+  }
+
   // A finding is the exported config plus a thumbnail, so the shelf can be
   // browsed by eye rather than by timestamp.
   saveFinding(note = '') {
@@ -1481,12 +1493,12 @@ export class StudioUI {
 
     this.root.querySelector('#btn-quick-snap-hd')?.addEventListener('click', () => {
       const trans = this.root.querySelector('#snap-trans-tab')?.checked;
-      this.studio.captureSnapshot({ transparent: trans, multiplier: 1 });
+      this.requestSnapshot({ transparent: trans, multiplier: 1 });
     });
 
     this.root.querySelector('#btn-quick-snap-4k')?.addEventListener('click', () => {
       const trans = this.root.querySelector('#snap-trans-tab')?.checked;
-      this.studio.captureSnapshot({ transparent: trans, multiplier: 2 });
+      this.requestSnapshot({ transparent: trans, multiplier: 2 });
     });
 
     this.root.querySelector('#btn-copy-embed-tab')?.addEventListener('click', (e) => {
@@ -1666,7 +1678,7 @@ export class StudioUI {
     // Capture from modal
     this.modalOverlay.querySelector('#btn-capture-modal')?.addEventListener('click', () => {
       const trans = this.modalOverlay.querySelector('#snap-trans')?.checked;
-      this.studio.captureSnapshot({ transparent: trans, multiplier: chosenScale });
+      this.requestSnapshot({ transparent: trans, multiplier: chosenScale });
     });
   }
 

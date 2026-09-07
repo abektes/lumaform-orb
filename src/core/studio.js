@@ -610,19 +610,33 @@ export class OrbStudio {
       // captureStream() watches the live canvas. Resizing or rendering a
       // thumbnail into it would put that frame into the recording, so scale the
       // already-painted frame through a temporary 2D canvas instead.
-      const output = document.createElement('canvas');
-      output.width = Math.max(1, Math.round(targetWidth * pixelRatio));
-      output.height = Math.max(1, Math.round(targetHeight * pixelRatio));
-      if (
-        transparent ||
-        output.width > this.renderer.domElement.width ||
-        output.height > this.renderer.domElement.height
-      ) {
-        throw new Error(
-          'Transparent and upscaled captures are unavailable while recording a clip.'
-        );
+      if (transparent) {
+        // The painted frame already has the background composited into it;
+        // there is no alpha left to recover by scaling it.
+        throw new Error('Transparent captures are unavailable while recording a clip.');
       }
-      output.getContext('2d')?.drawImage(this.renderer.domElement, 0, 0, output.width, output.height);
+
+      const maxWidth = this.renderer.domElement.width;
+      const maxHeight = this.renderer.domElement.height;
+      let outWidth = Math.max(1, Math.round(targetWidth * pixelRatio));
+      let outHeight = Math.max(1, Math.round(targetHeight * pixelRatio));
+
+      // Clamp rather than refuse. Three sizes the canvas with Math.floor while
+      // this rounds, so an exact 1:1 capture can land one pixel past the canvas
+      // and would otherwise throw for roughly 40% of window widths at the
+      // default 1.2 device pixel ratio. Scaling both axes by the same factor
+      // also keeps a genuinely upscaled request (2x, 3x) producing a correctly
+      // proportioned image at the resolution actually available.
+      if (outWidth > maxWidth || outHeight > maxHeight) {
+        const scale = Math.min(maxWidth / outWidth, maxHeight / outHeight);
+        outWidth = Math.max(1, Math.floor(outWidth * scale));
+        outHeight = Math.max(1, Math.floor(outHeight * scale));
+      }
+
+      const output = document.createElement('canvas');
+      output.width = outWidth;
+      output.height = outHeight;
+      output.getContext('2d')?.drawImage(this.renderer.domElement, 0, 0, outWidth, outHeight);
       return output.toDataURL(mimeType, quality);
     }
 
@@ -676,9 +690,24 @@ export class OrbStudio {
     });
   }
 
+  // Why a snapshot would be refused right now, or null if it would succeed.
+  // Exposed so callers can tell the user — a button that silently does nothing
+  // is worse than one that explains itself.
+  snapshotBlockedReason({ transparent = false, multiplier = 1 } = {}) {
+    if (!this.isRecordingClip) return null;
+    if (transparent) {
+      return 'Stop clip recording before taking a transparent snapshot — the recorded frame has no alpha.';
+    }
+    if (multiplier > 1) {
+      return 'Stop clip recording before taking an upscaled snapshot — while recording, captures are limited to the on-screen resolution.';
+    }
+    return null;
+  }
+
   captureSnapshot({ transparent = false, multiplier = 1 } = {}) {
-    if (this.isRecordingClip && (transparent || multiplier > 1)) {
-      console.warn('Stop clip recording before taking a transparent or upscaled snapshot.');
+    const blocked = this.snapshotBlockedReason({ transparent, multiplier });
+    if (blocked) {
+      console.warn(blocked);
       return null;
     }
     const dataUrl = this.renderToDataURL({
