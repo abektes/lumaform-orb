@@ -26,12 +26,18 @@ We do not yet know what movement reads as "thinking" for an AI orb. This tool ex
 - **Only touch the active engine's parameter bag** (`state.engines[state.engine]`). Writing all eight silently rewrites engines the user never opened.
 - **Engines self-dispose.** A factory returns `{ update, setParams | onParamsChange, dispose }` and must dispose every geometry and material it created.
 - **Grid cells have no bloom on purpose.** It is a full-screen pass and bleeds across scissored cells.
+- **Chrome layering beats z-index.** `.studio-ui-root` forms a stacking context. Long-lived overlays go in `ui.overlayLayer` (below the panel), tab content in `ui.panelLayer` (rewritten by `render()`), full-screen dialogs on `ui.container`. Take values from the `--z-*` scale in `:root`; `tests/layering.test.mjs` rejects raw literals.
+- **Controls must declare their own `background` and `color`**, disabled states included. The UI is dark and browser defaults are light — a button with no fill renders as a light-grey slab, and a disabled one becomes illegible. `opacity` alone is not a disabled state.
+- **Every `e.code` binding needs an entry in `src/core/shortcuts.js`.** `tests/shortcuts.test.mjs` scans both files and fails in either direction.
 
 ## Verification
 
 - **Claims need evidence.** Run the command, show the output. Several bugs here survived because something looked right.
 - **The hidden browser pane trap:** if the Browser pane is not displayed, `requestAnimationFrame` never fires and the render loop is frozen — the app looks broken but isn't. `studio.fpsTracker.fps` still reports its default `60`, so it is not a liveness signal. Step frames manually with `studio.renderFrame()`.
-- `window.__orb = { studio, state, ui }` is exposed for console-driven checks.
+- **`setTimeout` is clamped to ~1000 ms in a hidden pane.** Sleeping between `renderFrame()` calls advances a full second of `clock.getDelta()` per frame, so anything integrating real milliseconds (param tween, rehearsal player) races through whole cycles and reports plausible nonsense. Inject the delta instead: `studio.clock.getDelta = () => 0.025`, step, restore.
+- **CSS transitions are frozen too** — `getComputedStyle()` returns the starting value forever. Set `element.style.transition = 'none'` before measuring, and assert on the element that carries the rule (an ancestor's `opacity: 0` does not change a descendant's computed value).
+- **Check your fixture before reporting a bug.** Writing a param straight to state can put it outside its schema range, and import will legitimately clamp it — that reads as a round-trip bug and isn't one.
+- `window.__orb = { studio, state, ui, ab }` is exposed for console-driven checks.
 
 ## Conventions
 

@@ -1004,6 +1004,59 @@ canvas:active {
   font-family: var(--font);
 }
 
+/* A .btn-sm carrying no variant class had no fill at all, so it fell through to
+   the user agent's default button — a light grey slab with black text on a dark
+   panel. Scoped with :not() rather than declared above, because .btn-accent and
+   friends are defined EARLIER in this file: putting a background on .btn-sm
+   itself would out-rank them at equal specificity and strip the accent yellow. */
+.btn-sm:not(.btn-accent):not(.btn-primary):not(.btn-secondary):not(.btn-action) {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--text-secondary);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-sm:not(.btn-accent):not(.btn-primary):not(.btn-secondary):not(.btn-action):hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+/* Repeats the :not() chain so the disabled fill actually wins. The chain above
+   scores 0,5,0 and would otherwise out-rank the shared [disabled] rule further
+   down, leaving a disabled button wearing its enabled colours. */
+.btn-sm:not(.btn-accent):not(.btn-primary):not(.btn-secondary):not(.btn-action):disabled {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--panel-border);
+  color: var(--text-muted);
+}
+
+/* Icon button for row actions (delete, reorder). This class was used in the
+   markup with no rule behind it at all, so it rendered as a square Arial
+   default button with a 2px border. */
+.cp-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.cp-delete-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 
 
 .snapshot-btn-row {
@@ -1811,9 +1864,29 @@ kbd {
   color: var(--text-secondary);
 }
 
-.findings-selection-bar button[disabled] {
-  opacity: 0.4;
+/* One disabled treatment for every control in the inspector.
+   Opacity alone is not enough: a disabled <button> without an explicit fill
+   inherits the user agent's disabled colours (near-black text on translucent
+   light grey), which is illegible on this dark panel — the Stop button read as
+   an empty pill. Restating background and colour here keeps the control visible
+   and obviously inert. */
+.findings-selection-bar button[disabled],
+.rehearsal-chip[disabled],
+.seq-step :disabled,
+.seq-footer :disabled {
+  opacity: 0.45;
   cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--panel-border);
+  color: var(--text-muted);
+}
+
+/* The accent button keeps its identity while disabled, dimmed rather than
+   greyed, so Play stays recognisable as the primary action. */
+.btn-accent:disabled {
+  background: var(--primary);
+  color: var(--ink);
+  box-shadow: none;
 }
 
 
@@ -2032,13 +2105,6 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.rehearsal-chip[disabled],
-.seq-step :disabled,
-.seq-footer :disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .seq-strip {
