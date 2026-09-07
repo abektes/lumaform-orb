@@ -1,0 +1,586 @@
+/* Studio UI Root Container */
+.studio-ui-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-ui-root);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.studio-ui-root.zen-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.zen-hint-pill {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 12, 0.9);
+  border: 1px solid var(--primary);
+  backdrop-filter: blur(16px);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 22px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  z-index: var(--z-zen-pill);
+  box-shadow: 0 0 20px var(--primary-glow);
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+.zen-hint-pill:hover {
+  background: var(--primary);
+  color: var(--ink);
+}
+
+/* TOPBAR */
+.studio-topbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 12px 36px var(--panel-glow);
+  pointer-events: auto;
+  z-index: var(--z-panel-topbar);
+}
+
+/* The top bar normally sits below the playback dock. While its menu is open,
+   raise the whole stacking context so the dropdown can clear the dock rather
+   than being trapped by its parent's lower z-index. */
+.studio-topbar:has(.engine-dropdown-menu.open) {
+  z-index: var(--z-panel-dropdown);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.brand-diamond {
+  width: 15px;
+  height: 15px;
+  background: var(--primary);
+  transform: rotate(45deg);
+  box-shadow: 0 0 16px var(--primary);
+  display: inline-block;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.topbar-brand:hover .brand-diamond {
+  transform: rotate(225deg);
+}
+
+.brand-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.brand-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+}
+
+/* Engine Dropdown Selector */
+.topbar-engine-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.engine-dropdown-trigger {
+  background: rgba(18, 18, 24, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out), transform var(--dur-press) var(--ease-out);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.engine-dropdown-trigger:hover {
+  border-color: rgba(255, 237, 0, 0.4);
+  background: rgba(26, 26, 34, 0.85);
+  box-shadow: 0 0 16px rgba(255, 237, 0, 0.15);
+}
+
+.engine-dropdown-trigger.open {
+  border-color: var(--primary);
+  box-shadow: 0 0 20px var(--primary-glow);
+  background: rgba(26, 26, 34, 0.95);
+}
+
+.engine-dropdown-trigger .trigger-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+.engine-dropdown-trigger .trigger-name {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+}
+
+.engine-dropdown-trigger .trigger-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  letter-spacing: 0.2px;
+}
+
+.engine-dropdown-trigger .trigger-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  margin-left: 2px;
+}
+
+.engine-dropdown-trigger.open .trigger-chevron {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+
+.engine-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  /* Never from scale(0) — nothing in the real world appears out of nothing. A
+     barely-there 0.97 still reads as an object that was already there. */
+  transform: translateX(-50%) translateY(-6px) scale(0.97);
+  width: 320px;
+  background: rgba(14, 14, 18, 0.95);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.2);
+  /* Was `display: none` toggled to `display: flex` by .open. `display` is not an
+     animatable property, so the browser applied the new display and the new opacity
+     in the same frame and the declared transition never ran once — the menu popped
+     in and vanished instantly. `visibility` is transitionable (as a delayed step),
+     keeps the menu out of the a11y tree and out of hit-testing while closed, and
+     costs no layout because the menu is absolutely positioned. */
+  display: flex;
+  visibility: hidden;
+  flex-direction: column;
+  gap: 3px;
+  z-index: var(--z-panel-dropdown);
+  opacity: 0;
+  /* Scales from the trigger it hangs off, not from its own centre. */
+  transform-origin: top center;
+  transition:
+    opacity var(--dur-menu) var(--ease-out),
+    transform var(--dur-menu) var(--ease-out),
+    visibility 0s linear var(--dur-menu);
+  pointer-events: none;
+}
+
+.engine-dropdown-menu.open {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+  /* No visibility delay on the way in: it must be hittable on the first frame. */
+  transition:
+    opacity var(--dur-menu) var(--ease-out),
+    transform var(--dur-menu) var(--ease-out),
+    visibility 0s;
+}
+
+.engine-dropdown-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+  font-family: var(--font);
+}
+
+.engine-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.engine-dropdown-item.active {
+  background: rgba(255, 237, 0, 0.08);
+  border-color: rgba(255, 237, 0, 0.3);
+}
+
+.engine-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.engine-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.engine-dropdown-item.active .engine-item-title {
+  color: var(--primary);
+}
+
+.engine-item-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.engine-dropdown-item.active .engine-item-dot {
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+}
+
+.engine-item-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+}
+
+.engine-dropdown-item.active .engine-item-badge {
+  background: rgba(255, 237, 0, 0.15);
+  color: var(--primary);
+}
+
+.engine-item-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-left: 14px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-action {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.btn-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-action svg,
+.btn-sm svg,
+.dock-play-btn svg,
+.dock-icon-btn svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+#btn-zen,
+#btn-toggle-panel {
+  padding: 7px 11px;
+}
+
+.btn-highlight {
+  background: rgba(255, 237, 0, 0.12);
+  border-color: rgba(255, 237, 0, 0.35);
+  color: var(--primary);
+}
+.btn-highlight:hover {
+  background: var(--primary);
+  color: var(--ink);
+  border-color: var(--primary);
+}
+
+.btn-accent {
+  background: var(--primary);
+  border: none;
+  color: var(--ink);
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 14px var(--primary-glow);
+}
+.btn-accent:hover {
+  background: var(--primary-deep);
+  box-shadow: 0 4px 20px rgba(255, 237, 0, 0.6);
+}
+
+/* STATS BADGE */
+.studio-stats-badge {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: var(--z-panel-stats);
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(20px);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  pointer-events: auto;
+  box-shadow: 0 6px 20px var(--panel-glow);
+}
+
+.fps-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.stats-sep {
+  color: var(--text-muted);
+}
+
+.stats-engine-label {
+  color: var(--primary);
+}
+
+/* FLOATING PLAYBACK & SPEED DOCK */
+.studio-playback-dock {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 24px rgba(255, 237, 0, 0.12);
+  pointer-events: auto;
+  z-index: var(--z-panel-dock);
+}
+
+.dock-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--primary);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out), transform var(--dur-press) var(--ease-out);
+  box-shadow: 0 2px 10px rgba(255, 237, 0, 0.4);
+}
+
+.dock-play-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 18px rgba(255, 237, 0, 0.6);
+}
+
+.dock-play-btn.paused {
+  background: rgba(255, 237, 0, 0.15);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  box-shadow: none;
+}
+
+.dock-play-btn.paused:hover {
+  background: var(--primary);
+  color: var(--ink);
+}
+
+.dock-vsep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dock-speed-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dock-speed-title {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.dock-speed-slider {
+  width: 90px;
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  font-family: var(--font);
+}
+
+.dock-speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(255, 237, 0, 0.8);
+  transition: transform 0.15s ease;
+}
+
+.dock-speed-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+.dock-speed-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--primary);
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dock-speed-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dock-speed-pill {
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.dock-speed-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.dock-speed-pill.active {
+  background: var(--primary);
+  color: var(--ink);
+  border-color: var(--primary);
+  font-weight: 800;
+}
+
+.dock-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.dock-icon-btn:hover {
+  background: rgba(255, 237, 0, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.dock-icon-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--ink);
+}
+
+/* Both spans are JS hooks — updatePlayPauseBtn() rewrites them in place — so
+   the classes stay; the fixed text width keeps the dock from reflowing
+   sideways between PLAY and PAUSE. */
+.dock-play-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.dock-play-text {
+  min-width: 34px;
+  text-align: left;
+}
+

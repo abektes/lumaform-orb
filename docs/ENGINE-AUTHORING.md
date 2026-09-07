@@ -4,7 +4,7 @@
 
 Read [VISION.md](VISION.md) first — it explains what the tool is for. This document is the contract: what an engine must implement, what it must never do, and how to prove it works. Engine-specific briefs live in [engine-briefs/](engine-briefs/).
 
-The claim in VISION.md §5 is that adding an engine should be **one new file plus four small edits**. If your change is bigger than that, the abstraction has leaked and you should say so rather than route around it.
+The claim in VISION.md §5 is that adding an engine should be **one engine file plus one catalog entry**. If your change is bigger than that, the abstraction has leaked and you should say so rather than route around it.
 
 ---
 
@@ -48,7 +48,7 @@ export function createFooEngine({ studio, scene, camera, renderer, composer, poi
 - `marchQuality` is a 0–1 hint from the FPS tracker; raymarchers should scale their step count by it. Grid cells are pinned to `0.7`.
 - Everything in the argument object is optional to consume. Destructure only what you use.
 
-**`setParams(patch)`** — a *partial* update. It arrives from the UI, from presets, from an import, from the A/B swap, from a running param tween, and from the modulation rack **every frame**. `onParamsChange` is accepted as a synonym; pick one (`setParams` is the norm).
+**`setParams(patch)`** — a *partial* update. It arrives from the UI, from presets, from an import, from the A/B swap, from a running param tween, and from the modulation rack **every frame**. There is no `onParamsChange` synonym.
 
 - Merge with `Object.assign(currentParams, patch)`, then act only on the keys present.
 - It must be cheap. The modulation rack calls it at 60fps with only the keys it changed.
@@ -56,7 +56,7 @@ export function createFooEngine({ studio, scene, camera, renderer, composer, poi
 
 **`frame: { radius: N }`** — the world-space radius your engine occupies. The studio derives camera distance from it so every engine fills the same fraction of the frame ([framing.js](../src/core/framing.js)). Omit it and you get `DEFAULT_FRAME_RADIUS = 2.5`, which is almost certainly wrong for you. Measure it: bounding sphere of everything you render at default parameters.
 
-**`onPulse()`** — a click. `onPointerClick()` is an alias and **both are called on the same click** ([studio.js:59](../src/core/studio.js:59)), so implement one, or keep the handler idempotent (`pulse = 1`, not `pulse += 1`). Decay the value in `update`; do not restore it on a timer from captured initial params — that silently discards edits the user made in between.
+**`onPulse()`** — a click. Implement this one method. `onPointerClick` is not called. Decay the value in `update`; do not restore it on a timer from captured initial params — that silently discards edits the user made in between.
 
 **`onResize(width, height)`** — the drawing buffer changed. Line2 `LineMaterial.resolution` must be updated here or line widths go wrong. **Not called for grid cells**, which is a known and accepted quirk: cells render at the resolution set during construction.
 
@@ -64,62 +64,44 @@ export function createFooEngine({ studio, scene, camera, renderer, composer, poi
 
 ---
 
-## 2. The four registration touch points
+## 2. The two registration touch points
+
+`ENGINE_TYPES`, `ENGINE_INFO`, `ENGINE_PARAM_DEFINITIONS`, default bags, the default preset name, and `studio.registerEngine` are all **derived** from `src/core/engine-catalog.js`. Do not add a parallel copy in `state.js` or `main.js`.
 
 ### 2a. `src/engines/<name>-engine.js`
 
 The engine itself. One file. Named export `create<Name>Engine`.
 
-### 2b. `src/core/state.js`
+### 2b. One entry in `src/core/catalog/`
 
-Three additions and one optional one:
-
-```js
-export const ENGINE_TYPES = {
-  // ...
-  FOO: 'foo',
-};
-
-export const ENGINE_INFO = {
-  [ENGINE_TYPES.FOO]: {
-    id: ENGINE_TYPES.FOO,
-    name: 'Foo Engine',        // dropdown label
-    badge: 'Short Technique',  // shown in the stats strip
-    description: 'One sentence a designer would understand.',
-  },
-};
-
-export const ENGINE_PARAM_DEFINITIONS = {
-  [ENGINE_TYPES.FOO]: { /* see §3 */ },
-};
-```
-
-Then register the default bag in `createInitialState()`:
+Add the object to the group file that matches the substrate (`analytic.js`, `simulation.js`, or `bodies.js`):
 
 ```js
-engines: {
-  // ...
-  [ENGINE_TYPES.FOO]: getDefaultEngineParams(ENGINE_TYPES.FOO),
-},
+import { createFooEngine } from '../../engines/foo-engine.js';
+
+{
+  key: 'FOO',
+  id: 'foo',
+  name: 'Foo Engine',
+  badge: 'Short Technique',
+  description: 'One sentence a designer would understand.',
+  defaultPreset: 'Foo Default',
+  file: 'foo-engine.js',
+  factoryName: 'createFooEngine',
+  factory: createFooEngine,
+  params: { /* see §3 */ },
+}
 ```
 
-Optionally add a branch to `randomizeState()` (colors from the harmonious palette plus 3–5 parameters worth randomizing). Skip it and randomize simply does nothing for your engine, which is a soft failure, not a crash.
+`tests/engine-catalog.test.mjs` fails if the factory file is missing from the catalog, or if the catalog points at a file that does not exist.
 
-> `createInitialState()` also carries a nested-ternary chain picking a default preset name per engine. If you ship presets, add a branch. If not, leave it — the fallback is harmless.
+Randomize (`R`) reads this schema. There is no per-engine branch to add. Colours follow `paletteTargets`; motion numbers jump within `min`/`max`. An engine with neither is a no-op — `tests/randomize.test.mjs` fails if that happens.
 
-### 2c. `src/main.js`
+### 2c. `src/presets/` *(optional)*
 
-```js
-import { createFooEngine } from './engines/foo-engine.js';
-// ...
-studio.registerEngine(ENGINE_TYPES.FOO, createFooEngine);
-```
+Two or three presets in the group file that matches the catalog (`analytic.js`, `simulation.js`, `bodies.js`; Moiré lives in `moire.js` because that list is already large). `preset-library.js` is only the barrel. Each preset is `{ name, engine, badge, description, global, params }`. Not required, but an engine with no presets gives a reviewer nothing to compare against.
 
-The dropdown, tab UI, grid, sweep, export, import and A/B all read from `ENGINE_TYPES` and `ENGINE_PARAM_DEFINITIONS`. **There is nothing else to wire.** If you find yourself editing `studio-ui.js` to make your engine appear, stop — you have missed a schema field.
-
-### 2d. `src/presets/preset-library.js` *(optional)*
-
-Two or three presets. Each is `{ name, engine, badge, description, global, params }`. Not required, but an engine with no presets gives a reviewer nothing to compare against.
+The dropdown, tab UI, grid, sweep, export, import and A/B all read from the derived catalog maps. **There is nothing else to wire.** If you find yourself editing `studio-ui.js` or `main.js` to make your engine appear, stop — you have missed a catalog field.
 
 ---
 
@@ -145,7 +127,7 @@ Choosing the wrong section is the single most consequential schema mistake.
 
 Two consequences worth internalising:
 
-1. **A cheap parameter must not live in `geometry`**, or you lock it out of the modulation rack for no reason. See `shellGap` in the Moiré schema ([state.js:236](../src/core/state.js:236)) — it is conceptually geometry, but it is applied as a scale on an existing object, so it lives in `motion` and stays modulatable. Prefer designing parameters to be transforms/uniforms precisely so they can escape `geometry`.
+1. **A cheap parameter must not live in `geometry`**, or you lock it out of the modulation rack for no reason. See `shellGap` in the Moiré schema ([catalog/analytic.js](../src/core/catalog/analytic.js)) — it is conceptually geometry, but it is applied as a scale on an existing object, so it lives in `motion` and stays modulatable. Prefer designing parameters to be transforms/uniforms precisely so they can escape `geometry`.
 2. **An expensive parameter must live in `geometry`**, or the rack will rebuild your buffers sixty times a second.
 
 ### Rate parameters
@@ -178,6 +160,15 @@ named its colours anything else got a silent no-op — nine of seventeen engines
 nobody noticed because nothing errored. `tests/panel-coverage.test.mjs` now fails if any
 engine has no palette-writable colour.
 
+### Randomize
+
+The Randomize button uses the same schema. Do not add a switch, and do not invent keys.
+
+- Writable colours take a generated `{ primary, secondary, accent }` palette in schema order — the same list the chips use. `paletteRole: 'fixed'` is skipped.
+- `section: 'motion'` numbers jump within `min`/`max`, snapped to `step`.
+- Geometry numbers stay put unless you opt in with `randomize: true`. Opt a motion number out with `randomize: false`.
+- Selects are never randomized.
+
 ### Ranges
 
 `min`/`max` are not decoration. They set slider bounds, they normalise modulation depth (an `amount` of 0.5 means half the declared span, so a 0..0.03 param and a 0..360 one behave identically), they define the ladder for the parameter sweep, and they clamp on import. **A range wider than what actually looks good produces mostly-garbage variation grids** — the grid mutates within these bounds. Set them to the usable range, not the mathematically valid one.
@@ -188,7 +179,7 @@ engine has no palette-writable colour.
 
 Each of these has already gone wrong at least once in this repo.
 
-1. **Never reassign `state`, `state.global`, or `state.engines[<id>]`.** They are held by reference in `main.js`, `StudioUI` and `OrbStudio`. Always `Object.assign` into the existing object. Engines never touch app state at all — this constrains any studio-side edit your engine tempts you into.
+1. **The store owns state.** Write through store methods. Never replace `state`, `state.global`, or a `state.engines[<id>]` bag. Engines never touch app state at all — this constrains any studio-side edit your engine tempts you into.
 2. **Only the active engine's bag is meaningful.** `state.engines[state.engine]` — never write all nine.
 3. **Never modulate a rate.** Enforced by `isModulatable`. Do not build your own destination list; use `listModulationTargets()`.
 4. **Never modulate a `geometry` parameter.** Same enforcement, same reason.
@@ -269,15 +260,15 @@ Check your fixture. Writing a parameter straight to state can put it outside its
 
 - [ ] `src/engines/<name>-engine.js` exists, exports `create<Name>Engine`, disposes everything it creates
 - [ ] `frame.radius` declared and measured, not guessed
-- [ ] `ENGINE_TYPES`, `ENGINE_INFO`, `ENGINE_PARAM_DEFINITIONS` and `createInitialState()` updated in `state.js`
-- [ ] Imported and registered in `main.js`
+- [ ] One catalog entry in `src/core/catalog/` (id, info, schema, factory, defaultPreset)
+- [ ] `tests/engine-catalog.test.mjs` passes — the catalog, not `main.js`, is what registers the engine
 - [ ] Every parameter has a correct `section`, a `label` a designer would understand, and a usable range
 - [ ] At least one numeric `motion` parameter is modulatable (verify with `listModulationTargets()`)
 - [ ] `npx vite build` passes — output pasted
 - [ ] All `tests/*.test.mjs` pass — output pasted
 - [ ] Verified in main view, grid, and sweep — screenshot of the grid attached
 - [ ] Ten engine switches leave `renderer.info.memory` stable — numbers pasted
-- [ ] Optional: 2–3 presets in `preset-library.js`
+- [ ] Optional: 2–3 presets in the matching `src/presets/` group file
 - [ ] Commit message explains *why* the engine exists, not just that it was added
 
 ---

@@ -320,11 +320,7 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
     },
 
     setParams: applyParams,
-    onParamsChange: applyParams,
 
-    onPointerClick() {
-      pulseValue = 1.0;
-    },
     onPulse() {
       pulseValue = 1.0;
     },
@@ -334,9 +330,6 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
         width * (window.devicePixelRatio || 1),
         height * (window.devicePixelRatio || 1)
       );
-    },
-    resize(width, height) {
-      this.onResize(width, height);
     },
 
     dispose() {

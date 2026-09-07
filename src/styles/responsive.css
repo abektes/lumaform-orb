@@ -1,0 +1,565 @@
+/* Laptop widths. The inspector is a fixed 360px and the grid HUD is a single
+   wide flex row, so they start competing well before the 900px phone
+   breakpoint — at 1280px the HUD is wider than the canvas left beside the
+   panel. Narrow the panel and let the HUD wrap rather than overflow. These
+   queries stay after the overlay rules so their equal-specificity overrides
+   win in the cascade. */
+@media (max-width: 1280px) {
+  .studio-inspector {
+    width: 300px;
+  }
+
+  .grid-hud {
+    max-width: calc(100vw - 48px);
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 6px;
+  }
+
+  /* A wrapped HUD is two rows tall and would sit under the top bar. */
+  .studio-ui-root.grid-mode .grid-hud {
+    top: 96px;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Preserve every top-bar action as an icon at the phone breakpoint. Without
+     this compaction the newly discoverable keyboard button lands off-screen. */
+  .topbar-brand .brand-text,
+  #btn-randomize > span,
+  #btn-reset-cam > span,
+  #btn-snapshot > span,
+  #btn-export > span,
+  #btn-grid > span {
+    display: none;
+  }
+
+  .topbar-actions {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .topbar-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-actions .btn-action {
+    flex: 0 0 auto;
+    padding: 7px 9px;
+  }
+
+  /* Keep help discoverable even when the remaining actions need scrolling. */
+  .topbar-actions #btn-shortcuts {
+    order: -1;
+  }
+
+  .studio-topbar {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .topbar-engine-group {
+    flex: 0 1 220px;
+    min-width: 0;
+  }
+
+  .topbar-engine-dropdown,
+  .engine-dropdown-trigger {
+    min-width: 0;
+  }
+
+  .engine-dropdown-trigger .trigger-name {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .studio-inspector {
+    width: calc(100vw - 32px);
+    max-height: 52vh;
+    top: auto;
+    bottom: 16px;
+  }
+
+  /* Bottom-left overlays would land on top of the bottom-docked inspector. */
+  .ab-readout {
+    bottom: auto;
+    top: 88px;
+  }
+
+  .clip-indicator {
+    bottom: auto;
+    top: 128px;
+  }
+
+  .sweep-caption {
+    bottom: 56vh;
+  }
+}
+
+@media (max-width: 620px) {
+  .topbar-brand {
+    display: none;
+  }
+
+  .topbar-engine-group {
+    flex-basis: 150px;
+  }
+
+  .engine-dropdown-trigger {
+    padding-inline: 8px;
+  }
+
+  .engine-dropdown-trigger .trigger-icon,
+  .engine-dropdown-trigger .trigger-badge,
+  .engine-dropdown-trigger .trigger-chevron {
+    display: none;
+  }
+
+  .engine-dropdown-trigger .trigger-name {
+    max-width: 64px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Rehearsal room — findings are the palette; this strip is a disposable
+   arrangement for judging movement between them.
+   --------------------------------------------------------------------------- */
+.rehearsal-shelf {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.rehearsal-chip {
+  flex: 0 0 auto;
+  width: 76px;
+  padding: 0 0 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.rehearsal-chip:hover:not([disabled]) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.rehearsal-chip img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  background: #000;
+}
+
+.rehearsal-chip span {
+  display: block;
+  padding: 3px 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seq-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.seq-step {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.seq-step.playing {
+  border-color: var(--primary);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.seq-thumb {
+  width: 48px;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #000;
+}
+
+.seq-body {
+  min-width: 0;
+}
+
+.seq-name {
+  overflow: hidden;
+  margin-bottom: 1px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seq-engine {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.seq-timings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.seq-timings label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.seq-timings input {
+  width: 50px;
+  padding: 2px 3px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 9px;
+}
+
+.seq-timings select {
+  max-width: 78px;
+  padding: 2px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 9px;
+}
+
+.seq-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seq-footer {
+  margin-top: 12px;
+}
+
+.seq-active-note {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+/* ---------------------------------------------------------------------------
+   Keyboard map. This full-screen dialog is a sibling of .studio-ui-root so it
+   can cover the inspector, while still yielding to the modal layer.
+   --------------------------------------------------------------------------- */
+.shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 6, 9, 0.7);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.shortcuts-card {
+  width: min(760px, 100%);
+  max-height: min(72vh, 620px);
+  overflow-y: auto;
+  padding: 18px 20px 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px var(--panel-glow);
+}
+
+.shortcuts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.shortcuts-title {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.shortcuts-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px 24px;
+}
+
+.shortcuts-group h3 {
+  margin: 0 0 6px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.shortcut-row kbd {
+  flex: 0 0 auto;
+  min-width: 22px;
+  padding: 2px 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.shortcut-row em {
+  color: var(--text-muted);
+  font-style: normal;
+}
+
+.shortcuts-foot {
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.btn-shortcuts {
+  min-width: 32px;
+  justify-content: center;
+  padding-inline: 10px;
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .shortcuts-overlay {
+    align-items: flex-start;
+    padding: 88px 16px 16px;
+  }
+
+  .shortcuts-card {
+    max-height: calc(100vh - 104px);
+  }
+
+  .shortcuts-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 20px;
+  }
+}
+
+@media (max-width: 620px) {
+  .shortcuts-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Parameter row. A slider alone cannot reproduce a value read from a finding,
+   so the readout is an exact-value field and the range stays visible.
+   --------------------------------------------------------------------------- */
+.ctrl-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ctrl-number {
+  width: 58px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: text;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ctrl-number:hover {
+  border-color: var(--input-border);
+}
+
+.ctrl-number:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ctrl-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease,
+    color 0.15s ease, border-color 0.15s ease;
+}
+
+.ctrl-reset:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: rgba(255, 237, 0, 0.08);
+  color: var(--primary);
+}
+
+/* Keep the button in layout so the row does not reflow when it leaves default.
+   The scoped selector also outranks generic disabled button variants. */
+.param-row .ctrl-reset:disabled,
+.param-row .ctrl-reset.is-default {
+  opacity: 0.18;
+  border-color: var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.ctrl-range {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   Press, pointer and motion preferences.
+
+   Collected here rather than scattered through each component because they are
+   one decision applied uniformly, and because the rules above them were written
+   over many sittings and had drifted: two :active states existed across roughly
+   fifty pressable controls, so almost nothing in this UI acknowledged being
+   clicked. A control that does not move under the cursor reads as not having
+   registered the click, which is the single cheapest thing to get wrong.
+   --------------------------------------------------------------------------- */
+
+.zen-hint-pill:active,
+.engine-dropdown-trigger:active,
+.engine-dropdown-item:active,
+.btn-action:active,
+.dock-play-btn:active,
+.dock-speed-pill:active,
+.dock-icon-btn:active,
+.tab-btn:active,
+.palette-chip:active,
+.preset-card:active,
+.bg-mode-btn:active,
+.modal-tab-btn:active,
+.grid-hud-btn:active,
+.import-file-label:active,
+.btn-sm:active,
+.cp-delete-btn:active {
+  /* Subtle on purpose. Below about 0.95 it reads as the button shrinking rather
+     than as the surface taking the press. */
+  transform: scale(0.97);
+}
+
+/* A touch tap fires :hover and then leaves it stuck until the next tap
+   elsewhere, so a hover state that moves the element leaves it visibly wrong.
+   Gate only the transform-bearing hovers; colour hovers are harmless. */
+@media (hover: hover) and (pointer: fine) {
+  .preset-card:hover,
+  .palette-chip:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion means less movement, not no feedback. Opacity and colour
+     still carry state, so they are kept; everything positional is dropped and
+     the press scale goes with it. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .engine-dropdown-menu,
+  .engine-dropdown-menu.open {
+    transform: translateX(-50%);
+  }
+
+  .zen-hint-pill:active,
+  .engine-dropdown-trigger:active,
+  .engine-dropdown-item:active,
+  .btn-action:active,
+  .dock-play-btn:active,
+  .dock-speed-pill:active,
+  .dock-icon-btn:active,
+  .tab-btn:active,
+  .palette-chip:active,
+  .preset-card:active,
+  .bg-mode-btn:active,
+  .modal-tab-btn:active,
+  .grid-hud-btn:active,
+  .import-file-label:active,
+  .btn-sm:active,
+  .cp-delete-btn:active {
+    transform: none;
+  }
+
+  .preset-card:hover,
+  .palette-chip:hover {
+    transform: none;
+  }
+}

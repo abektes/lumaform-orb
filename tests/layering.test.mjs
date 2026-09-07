@@ -1,7 +1,7 @@
 // Guards the stacking contract. The grid HUD once painted over the engine
 // dropdown because two subtrees were ordered against different, undocumented
 // scales; naming them is only half a fix if a raw number can still be added.
-import { readFileSync } from 'node:fs';
+import { readAllCss } from './css-source.mjs';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -9,7 +9,7 @@ function ok(name, condition, extra = '') {
   if (!condition) failures++;
 }
 
-const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+const css = readAllCss();
 
 // --- the scale is declared ---
 const scale = {};
@@ -17,9 +17,8 @@ for (const m of css.matchAll(/--z-([a-z-]+):\s*(-?\d+);/g)) scale[m[1]] = Number
 
 const REQUIRED = [
   'canvas', 'ui-root', 'zen-pill', 'dialog', 'modal',
-  'layer-overlays', 'layer-panel',
   'overlay-hud', 'overlay-caption', 'overlay-readout', 'overlay-clip',
-  'panel-topbar', 'panel-dock', 'panel-dropdown',
+  'panel-stats', 'panel-inspector', 'panel-topbar', 'panel-dock', 'panel-dropdown',
 ];
 const missing = REQUIRED.filter((k) => !(k in scale));
 ok('every layer is named', missing.length === 0, missing.join(', '));
@@ -30,14 +29,15 @@ ok('body-level order is strictly increasing', bodyOrder.every((k, i) =>
   i === 0 || scale[k] > scale[bodyOrder[i - 1]]),
   bodyOrder.map((k) => `${k}=${scale[k]}`).join(' '));
 
-// The whole point of the fix: the panel layer paints ABOVE the overlay layer.
-ok('the panel layer outranks the overlay layer', scale['layer-panel'] > scale['layer-overlays']);
-
-// --- within-layer order ---
+// Overlay chrome and panel chrome are siblings inside the root. Every overlay
+// token must stay below every panel token or the HUD covers the dropdown again.
 const overlays = ['overlay-hud', 'overlay-caption', 'overlay-readout', 'overlay-clip'];
+const panel = ['panel-stats', 'panel-inspector', 'panel-topbar', 'panel-dock', 'panel-dropdown'];
+ok('every overlay token sits below every panel token',
+  Math.max(...overlays.map((k) => scale[k])) < Math.min(...panel.map((k) => scale[k])));
+
 ok('overlay order is strictly increasing', overlays.every((k, i) =>
   i === 0 || scale[k] > scale[overlays[i - 1]]));
-const panel = ['panel-topbar', 'panel-dock', 'panel-dropdown'];
 ok('panel order is strictly increasing', panel.every((k, i) =>
   i === 0 || scale[k] > scale[panel[i - 1]]));
 
@@ -67,10 +67,10 @@ ok('no comment still claims a class is mirrored onto <body>',
   !/mirrored onto <body>/i.test(zIndexSection));
 
 // --- overlays are absolute, not fixed ---
-// position:fixed inside the overlay layer works only while no ancestor has a
+// position:fixed inside the root works only while no ancestor has a
 // transform, filter or backdrop-filter. This file uses backdrop-filter freely,
-// so the first one applied to the root or a layer would silently re-anchor all
-// four overlays.
+// so the first one applied to the root would silently re-anchor all four
+// overlays.
 for (const selector of ['.grid-hud', '.sweep-caption', '.ab-readout', '.clip-indicator']) {
   const block = css.slice(css.indexOf(`\n${selector} {`));
   const body = block.slice(0, block.indexOf('}'));

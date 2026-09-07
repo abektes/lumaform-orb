@@ -45,10 +45,7 @@ export function normalizeSnapshot(source) {
   }
 }
 
-// Writes in place. `state`, `state.global` and each `state.engines[...]` bag are
-// held by reference in main.js, StudioUI and OrbStudio, so reassigning any of
-// them would orphan those holders — the same class of bug that made randomize
-// break grid entry.
+// Writes in place into the store-owned containers. Callers pass store.state.
 //
 // Returns true when the engine type changed, which the caller must handle with
 // setEngine() rather than updateParameters().

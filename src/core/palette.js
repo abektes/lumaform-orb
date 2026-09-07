@@ -62,3 +62,59 @@ export function applyPalette(defs, params, paletteKey) {
   });
   return patch;
 }
+
+function hslToHex(h, s, l) {
+  s /= 100;
+  l /= 100;
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+export function generateHarmoniousPalette(rng = Math.random) {
+  const baseHue = Math.floor(rng() * 360);
+  const schemeType = Math.floor(rng() * 4);
+  let h2;
+  let h3;
+
+  switch (schemeType) {
+    case 0:
+      h2 = (baseHue + 180) % 360;
+      h3 = (baseHue + 40) % 360;
+      break;
+    case 1:
+      h2 = (baseHue + 120) % 360;
+      h3 = (baseHue + 240) % 360;
+      break;
+    case 2:
+      h2 = (baseHue + 35) % 360;
+      h3 = (baseHue + 70) % 360;
+      break;
+    default:
+      h2 = (baseHue + 150) % 360;
+      h3 = (baseHue + 210) % 360;
+      break;
+  }
+
+  const sat = 85 + Math.floor(rng() * 15);
+  return {
+    primary: hslToHex(baseHue, sat, 55 + Math.floor(rng() * 15)),
+    secondary: hslToHex(h2, sat, 60 + Math.floor(rng() * 15)),
+    accent: hslToHex(h3, sat, 65 + Math.floor(rng() * 15)),
+  };
+}
+
+// Randomize uses the same target list as the color chips so a new engine
+// recolours as soon as it declares colors — no per-engine switch.
+export function applyGeneratedPalette(defs, palette) {
+  const colors = [palette?.primary, palette?.secondary, palette?.accent].filter(Boolean);
+  if (!colors.length) return {};
+
+  const patch = {};
+  paletteTargets(defs).forEach((key, i) => {
+    patch[key] = colors[i % colors.length];
+  });
+  return patch;
+}

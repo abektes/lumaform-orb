@@ -335,7 +335,7 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
       }
     },
 
-    onPointerClick() {
+    onPulse() {
       pulseVal = 1.0;
     },
 

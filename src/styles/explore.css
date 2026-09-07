@@ -1,0 +1,565 @@
+/* ---------------------------------------------------------------------------
+   Variation grid mode — hide the inspector and playback dock so all 9 cells are
+   visible and comparable. The top bar stays put so the Grid toggle stays
+   reachable while the grid is showing.
+   --------------------------------------------------------------------------- */
+.studio-ui-root.grid-mode .studio-inspector,
+.studio-ui-root.grid-mode .studio-playback-dock {
+  display: none;
+}
+
+.btn-action.active {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Marks a parameter whose value is currently being driven by a modulation
+   route — the slider shows the base value while the engine renders the
+   modulated one, and without this the difference reads as a broken control. */
+.mod-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 6px var(--primary-glow);
+  vertical-align: middle;
+}
+
+/* Motion Lab routing rows: source -> destination -> amount -> remove */
+.mod-route-row {
+  display: grid;
+  grid-template-columns: 78px 1fr 82px 22px;
+  gap: 6px;
+  align-items: center;
+}
+
+/* The columns previously relied on source order inside the grid; the named
+   classes make the layout explicit and stop a long destination label from
+   squeezing the amount field to nothing. */
+.mod-route-source,
+.mod-route-dest {
+  min-width: 0;      /* lets a long <option> label ellipsize instead of pushing */
+  font-size: 11px;
+  padding: 4px 6px;
+}
+
+.mod-route-amount {
+  width: 100%;
+  min-width: 0;
+}
+
+.mod-route-remove {
+  justify-self: end;
+}
+
+/* ---------------------------------------------------------------------------
+   Shiki output inside the export tab. Shiki emits its own <pre class="shiki">
+   with an inline background, so strip the chrome it brings and let the
+   .code-preview container own the frame and the scrolling.
+   --------------------------------------------------------------------------- */
+.code-preview .shiki,
+.code-preview .shiki-fallback {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.code-preview .shiki code,
+.code-preview .shiki-fallback code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.code-preview .shiki-fallback {
+  color: #e2e8f0;
+}
+
+/* ---------------------------------------------------------------------------
+   Grid mode HUD. Sits below the top bar; the inspector and dock are hidden in
+   grid mode so this is the only control surface available over the cells.
+   --------------------------------------------------------------------------- */
+.grid-hud {
+  /* Absolute against .studio-ui-root, which is inset:0 over the viewport.
+     Not fixed: fixed positioning silently re-anchors to the nearest ancestor
+     with a transform, filter or backdrop-filter, and this file applies
+     backdrop-filter to almost every panel — one added to the root would
+     move all four overlays at once. */
+  position: absolute;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 12px 36px var(--panel-glow);
+  pointer-events: auto;
+  z-index: var(--z-overlay-hud);
+  font-family: var(--font);
+}
+
+.grid-hud-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grid-hud-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.grid-hud-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.grid-hud-chip,
+.grid-hud-btn {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+  white-space: nowrap;
+}
+
+.grid-hud-chip:hover,
+.grid-hud-btn:hover {
+  border-color: rgba(255, 237, 0, 0.4);
+  color: var(--text-primary);
+}
+
+.grid-hud-chip.active {
+  background: rgba(255, 237, 0, 0.12);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.grid-hud-count {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 8px;
+  background: rgba(255, 237, 0, 0.18);
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-hud-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Sweep strip caption. Labels the parameter and prints the value under each
+   cell — a ladder with no numbers is just a row of shapes.
+   --------------------------------------------------------------------------- */
+.sweep-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  z-index: var(--z-overlay-caption);
+  pointer-events: none;
+  font-family: var(--font);
+  text-align: center;
+}
+
+.sweep-caption.hidden {
+  display: none;
+}
+
+.sweep-title {
+  display: inline-block;
+  padding: 4px 14px;
+  margin-bottom: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.sweep-values {
+  display: grid;
+  width: 100%;
+}
+
+.sweep-values span {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   A/B compare readout. Bottom-left, out of the playback dock's way.
+   --------------------------------------------------------------------------- */
+.ab-readout {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(20px);
+  border-radius: var(--radius-pill);
+  font-family: var(--font);
+  font-size: 11px;
+  z-index: var(--z-overlay-readout);
+  pointer-events: none;
+}
+
+.ab-readout.hidden {
+  display: none;
+}
+
+.ab-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.ab-slot.empty {
+  opacity: 0.35;
+}
+
+.ab-slot.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--ink);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.ab-hint {
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.ab-readout.flash {
+  animation: ab-flash 0.28s ease-out;
+}
+
+@keyframes ab-flash {
+  0% { border-color: var(--primary); box-shadow: 0 0 18px var(--primary-glow); }
+  100% { border-color: var(--panel-border); box-shadow: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   File picker in the export modal. A bare <input type="file"> can't be styled,
+   so the input is hidden and this label is the button.
+   --------------------------------------------------------------------------- */
+.import-file-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  margin-left: 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.import-file-label:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.grid-hud,
+.ab-readout,
+.sweep-caption {
+  transition: opacity 0.3s ease;
+}
+
+/* The A/B hint carries transition settings once both slots are filled, so it
+   needs more room than the original "` to swap". */
+.ab-readout .ab-hint {
+  max-width: 340px;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Audio input controls and level meter in the Motion Lab.
+   --------------------------------------------------------------------------- */
+.audio-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.audio-meter {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.audio-meter-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--primary));
+  /* This readout should report the signal, not ease behind it. */
+}
+
+/* ---------------------------------------------------------------------------
+   Recording indicator. Top-right, clear of the top bar and grid HUD.
+   --------------------------------------------------------------------------- */
+.clip-indicator {
+  position: absolute;
+  /* Bottom-left, stacked above the A/B readout. The old top-right position sat
+     under the inspector, which outranks every overlay token. */
+  bottom: 64px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--panel-bg);
+  border: 1px solid #ef4444;
+  backdrop-filter: blur(20px);
+  border-radius: var(--radius-pill);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ef4444;
+  z-index: var(--z-overlay-clip);
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.3s ease;
+}
+
+.clip-indicator.hidden {
+  display: none;
+}
+
+.clip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef4444;
+  animation: clip-pulse 1s ease-in-out infinite;
+}
+
+@keyframes clip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.clip-hint {
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+
+
+/* ---------------------------------------------------------------------------
+   Findings gallery — browse kept configs by eye rather than by timestamp.
+   --------------------------------------------------------------------------- */
+.findings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finding-card {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.finding-card:hover {
+  border-color: rgba(255, 237, 0, 0.4);
+}
+
+.finding-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  background: #000;
+}
+
+.finding-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 2px;
+}
+
+.finding-note {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  user-select: text;
+}
+
+.finding-note:focus {
+  outline: none;
+  border-bottom-color: var(--primary);
+}
+
+.finding-engine {
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.finding-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 8px;
+}
+
+.finding-actions .btn-sm {
+  flex: 1;
+}
+
+.findings-footer {
+  margin-top: 12px;
+}
+
+/* The ring belongs to the card so it remains visible while its note has focus. */
+.finding-card.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary), 0 0 14px var(--primary-glow);
+}
+
+.finding-card .finding-thumb {
+  cursor: pointer;
+}
+
+.findings-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.findings-selection-count {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* One disabled treatment for every control in the inspector.
+   Opacity alone is not enough: a disabled <button> without an explicit fill
+   inherits the user agent's disabled colours (near-black text on translucent
+   light grey), which is illegible on this dark panel — the Stop button read as
+   an empty pill. Restating background and colour here keeps the control visible
+   and obviously inert. */
+.findings-selection-bar button[disabled],
+.rehearsal-chip[disabled],
+.seq-step :disabled,
+.seq-footer :disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--panel-border);
+  color: var(--text-muted);
+}
+
+/* The accent button keeps its identity while disabled, dimmed rather than
+   greyed, so Play stays recognisable as the primary action. */
+.btn-accent:disabled {
+  background: var(--primary);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Previous / next engine steppers. Cycling is the common case; the dropdown is
+   for jumping somewhere specific.
+   --------------------------------------------------------------------------- */
+.topbar-engine-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.engine-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.engine-step:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(255, 237, 0, 0.1);
+}
+
+.engine-step:active {
+  transform: scale(0.92);
+}
+

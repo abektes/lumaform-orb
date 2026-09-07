@@ -5,6 +5,7 @@
 // browser button (Arial, square, 2px border) on a dark panel for as long as
 // nobody looked. A class that looks like a hook and isn't one hides real defects.
 import { readFileSync, readdirSync } from 'node:fs';
+import { readAllCss } from './css-source.mjs';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -13,14 +14,16 @@ function ok(name, condition, extra = '') {
 }
 
 const root = new URL('../', import.meta.url);
-const css = readFileSync(new URL('src/style.css', root), 'utf8');
+const css = readAllCss();
 const uiFiles = readdirSync(new URL('src/ui', root))
   .filter((f) => f.endsWith('.js'))
   .map((f) => readFileSync(new URL(`src/ui/${f}`, root), 'utf8'));
 const js = [...uiFiles, readFileSync(new URL('src/main.js', root), 'utf8')].join('\n');
 
 // Strip comments so a class named only in prose does not count as a rule.
-const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const cssNoComments = css
+  .replace(/@import\s+[^;]+;/g, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
 const defined = new Set();
 for (const m of cssNoComments.matchAll(/\.([a-zA-Z][\w-]*)/g)) defined.add(m[1]);
 

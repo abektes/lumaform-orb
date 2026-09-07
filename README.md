@@ -112,18 +112,23 @@ Motion Lab → **Mic** (or **Test Tone** if you just want to see it work). Enabl
 
 ```
 src/
-  main.js                  entry point; registers every engine
+  main.js                  entry point; calls registerAllEngines()
   core/
     studio.js              the render loop — the single place time advances
-    state.js               ENGINE_TYPES, ENGINE_INFO, ENGINE_PARAM_DEFINITIONS
+    engine-catalog.js      the one engine list; types, info, schema, factories
+    catalog/               grouped catalog entries
+    state.js               initial state, randomize, custom presets
+    store.js               single owner of the live state object
+    engine-notify.js       setParams / onPulse / onResize dispatch
     modulation.js          LFO / noise / envelope / audio → parameters and tempo
     variation-grid.js      nine independent engine instances, one renderer
     framing.js             derives camera distance from each engine's declared radius
     palette.js             schema-driven colour harmonies
     …                      sweep, sequence, findings, config I/O, clip recording
   engines/                 one file per engine
-  ui/studio-ui.js          the whole panel, as HTML strings
-  presets/preset-library.js
+  ui/                      studio-ui.js plus tab/shell modules
+  styles/                  CSS surfaces; style.css is the barrel
+  presets/                 curated looks; preset-library.js is the barrel
 tests/                     plain Node scripts, no framework
 docs/
   VISION.md                why this exists and why several decisions are not arbitrary
@@ -133,7 +138,7 @@ docs/
 
 ## Adding an engine
 
-One new file plus four small edits. [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) is the full contract — factory shape, the four registration touch points, schema rules, the six contexts an engine has to survive, and the verification checklist. If your change is bigger than that, the abstraction has leaked; say so rather than routing around it.
+One engine file plus one catalog entry. [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) is the full contract — factory shape, the catalog, schema rules, the six contexts an engine has to survive, and the verification checklist. If your change is bigger than that, the abstraction has leaked; say so rather than routing around it.
 
 ## Working in this repo
 

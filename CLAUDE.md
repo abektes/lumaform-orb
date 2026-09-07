@@ -4,7 +4,7 @@ A WebGL exploration tool for designing animated AI-assistant orbs. Seventeen eng
 
 **Read [docs/VISION.md](docs/VISION.md) before non-trivial work** — it explains what this is for and why several decisions that look arbitrary are not. Implementation plans live in `docs/superpowers/plans/`.
 
-**Adding an engine?** [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) is the full contract — factory shape, the four registration touch points, schema rules, and the verification checklist. Proposed engines live in [docs/engine-briefs/](docs/engine-briefs/).
+**Adding an engine?** [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) is the full contract — factory shape, one catalog entry, schema rules, and the verification checklist. Proposed engines live in [docs/engine-briefs/](docs/engine-briefs/).
 
 ## Stack
 
@@ -22,13 +22,13 @@ We do not yet know what movement reads as "thinking" for an AI orb. This tool ex
 
 ## Invariants — breaking these fails in hard-to-trace ways
 
-- **Never reassign `state`, `state.global`, or `state.engines[<id>]`.** They are held by reference in `main.js`, `StudioUI` and `OrbStudio`; reassigning orphans the other holders. Always `Object.assign` into the existing object. This bug already shipped once.
+- **The store owns state.** Read `store.state`. Write through store methods (`patchEngine`, `patchGlobal`, `setEngine`, …). Never replace `state`, `state.global`, or a `state.engines[<id>]` bag.
 - **Never modulate a rate parameter.** Engines compute `angle = time × rate`, so changing a rate mid-flight rewrites the accumulated angle and the object jumps. Shape tempo through the integrated `_timeScale` destination instead.
 - **Never modulate a `geometry`-section parameter.** Several engines rebuild geometry on change; at 60fps that thrashes the GPU. Use `listModulationTargets()` — it already excludes both classes.
 - **Only touch the active engine's parameter bag** (`state.engines[state.engine]`). Writing all eight silently rewrites engines the user never opened.
-- **Engines self-dispose.** A factory returns `{ update, setParams | onParamsChange, dispose }` and must dispose every geometry and material it created.
+- **Engines self-dispose.** A factory returns `{ update, setParams, dispose, onPulse?, onResize? }`. The studio dispatches only those names through `notifyEngine`. Dispose every geometry and material the factory created.
 - **Grid cells have no bloom on purpose.** It is a full-screen pass and bleeds across scissored cells.
-- **Chrome layering beats z-index.** `.studio-ui-root` forms a stacking context. Long-lived overlays go in `ui.overlayLayer` (below the panel), tab content in `ui.panelLayer` (rewritten by `render()`), full-screen dialogs on `ui.container`. Take values from the `--z-*` scale in `:root`; `tests/layering.test.mjs` rejects raw literals.
+- **Chrome layering beats z-index.** `.studio-ui-root` forms a stacking context. Session chrome mounts on `ui.root` (overlay tokens below panel tokens). `render()` rewrites inspector tab content only. Full-screen dialogs go on `ui.container`. Take values from the `--z-*` scale in `:root`; `tests/layering.test.mjs` rejects raw literals.
 - **Controls must declare their own `background` and `color`**, disabled states included. The UI is dark and browser defaults are light — a button with no fill renders as a light-grey slab, and a disabled one becomes illegible. `opacity` alone is not a disabled state.
 - **Every `e.code` binding needs an entry in `src/core/shortcuts.js`.** `tests/shortcuts.test.mjs` scans both files and fails in either direction.
 

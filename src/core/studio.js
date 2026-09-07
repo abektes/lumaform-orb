@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createPointerTracker, createClickPulse } from '../shared/pointer.js';
 import { createFpsTracker } from '../shared/fps.js';
-import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS } from './state.js';
+import { ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { createVariationGrid, DEFAULT_BREADTH } from './variation-grid.js';
 import { cameraDistanceForRadius, engineFrameRadius } from './framing.js';
@@ -15,6 +15,7 @@ import { createParamTween } from './param-tween.js';
 import { createAudioInput } from './audio-input.js';
 import { createClipRecorder } from './clip-recorder.js';
 import { createSequencePlayer } from './sequence.js';
+import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
 
 export class OrbStudio {
   constructor(containerElement, options = {}) {
@@ -56,8 +57,7 @@ export class OrbStudio {
     this.smoothedPointer = new THREE.Vector2(0, 0);
 
     this.clickPulseTracker = createClickPulse(this.renderer.domElement, () => {
-      this.activeEngine?.onPulse?.();
-      this.activeEngine?.onPointerClick?.();
+      notifyPulse(this.activeEngine);
       this.modulation.trigger(this.virtualTime);
     });
 
@@ -223,13 +223,7 @@ export class OrbStudio {
 
     this.syncModulation(state);
     this.updateGlobalSettings(state.global);
-    if (this.activeEngine) {
-      if (typeof this.activeEngine.onParamsChange === 'function') {
-        this.activeEngine.onParamsChange(state.engines[type]);
-      } else if (typeof this.activeEngine.setParams === 'function') {
-        this.activeEngine.setParams(state.engines[type]);
-      }
-    }
+    notifyParams(this.activeEngine, state.engines[type]);
     this.onWindowResize();
 
     // The grid owns its own engine instances, built from the factory that was
@@ -279,11 +273,7 @@ export class OrbStudio {
       this.baseParams = { ...p };
       this.paramDefs = ENGINE_PARAM_DEFINITIONS[this.activeEngineType] || {};
       this.lastModulated = {};
-      if (typeof this.activeEngine.onParamsChange === 'function') {
-        this.activeEngine.onParamsChange(p);
-      } else if (typeof this.activeEngine.setParams === 'function') {
-        this.activeEngine.setParams(p);
-      }
+      notifyParams(this.activeEngine, p);
       // After the engine has seen the params, so a size change it reports is read
       // from the updated frame hint rather than the stale one.
       this.reframeForRadiusChange();
@@ -467,11 +457,7 @@ export class OrbStudio {
     this.lastModulated = { ...modulated };
     if (!dirty) return;
 
-    if (typeof this.activeEngine.onParamsChange === 'function') {
-      this.activeEngine.onParamsChange(patch);
-    } else if (typeof this.activeEngine.setParams === 'function') {
-      this.activeEngine.setParams(patch);
-    }
+    notifyParams(this.activeEngine, patch);
   }
 
   onWindowResize() {
@@ -484,11 +470,7 @@ export class OrbStudio {
     this.renderer.setSize(width, height);
     this.composer.setSize(width, height);
 
-    if (this.activeEngine?.resize) {
-      this.activeEngine.resize(width, height);
-    } else if (this.activeEngine?.onResize) {
-      this.activeEngine.onResize(width, height);
-    }
+    notifyResize(this.activeEngine, width, height);
   }
 
   // Frames the active engine at a consistent fraction of the viewport. Engines
@@ -577,11 +559,7 @@ export class OrbStudio {
         }
         Object.assign(this.baseParams, tweened);
         this.applyModulatedParams({});
-        if (Object.keys(patch).length && typeof this.activeEngine?.setParams === 'function') {
-          this.activeEngine.setParams(patch);
-        } else if (Object.keys(patch).length && typeof this.activeEngine?.onParamsChange === 'function') {
-          this.activeEngine.onParamsChange(patch);
-        }
+        if (Object.keys(patch).length) notifyParams(this.activeEngine, patch);
       }
     }
     if (sequenceCompleted) this.stopSequence();
@@ -877,11 +855,7 @@ export class OrbStudio {
       this.composer.setSize(targetWidth, targetHeight);
       this.camera.aspect = targetWidth / targetHeight;
       this.camera.updateProjectionMatrix();
-      if (this.activeEngine?.resize) {
-        this.activeEngine.resize(targetWidth, targetHeight);
-      } else {
-        this.activeEngine?.onResize?.(targetWidth, targetHeight);
-      }
+      notifyResize(this.activeEngine, targetWidth, targetHeight);
 
       this.composer.render();
       dataUrl = this.renderer.domElement.toDataURL(mimeType, quality);
@@ -896,11 +870,7 @@ export class OrbStudio {
       this.composer.setSize(composerWidth, composerHeight);
       this.camera.aspect = cameraAspect;
       this.camera.updateProjectionMatrix();
-      if (this.activeEngine?.resize) {
-        this.activeEngine.resize(rendererSize.x, rendererSize.y);
-      } else {
-        this.activeEngine?.onResize?.(rendererSize.x, rendererSize.y);
-      }
+      notifyResize(this.activeEngine, rendererSize.x, rendererSize.y);
     }
 
     return dataUrl;

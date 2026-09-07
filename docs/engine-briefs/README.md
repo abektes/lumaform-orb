@@ -70,10 +70,10 @@ Give the agent this, substituting the brief:
 
 ## Running several in parallel
 
-The four engines share no source files except two, and both edits are purely additive:
+The engines share no source files except the catalog group they belong to:
 
-- `src/core/state.js` — a new key in `ENGINE_TYPES`, `ENGINE_INFO`, `ENGINE_PARAM_DEFINITIONS`, and `createInitialState().engines`
-- `src/main.js` — one import line and one `registerEngine` line
+- `src/engines/<name>-engine.js` — the factory
+- `src/core/catalog/<group>.js` — one entry (id, info, schema, factory, defaultPreset)
 
 Running agents in separate worktrees is safe; expect trivial conflicts in those two files at merge time, all resolvable by keeping both sides. Nothing else overlaps.
 

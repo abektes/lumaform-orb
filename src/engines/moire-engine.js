@@ -239,10 +239,6 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
       targetRotY = nx * currentParams.tiltStrength * 0.6;
     },
 
-    onPointerClick() {
-      pulse = 1;
-    },
-
     // Was mutating zDepth and restoring it from the *initial* params on a timer,
     // which silently discarded any edit made since. A decaying value needs no
     // restore and so cannot fight the user.

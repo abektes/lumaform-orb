@@ -1,0 +1,565 @@
+/* INSPECTOR SIDEBAR */
+.studio-inspector {
+  position: absolute;
+  top: 90px;
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  z-index: var(--z-panel-inspector);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(30px) saturate(180%);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px var(--panel-glow);
+  pointer-events: auto;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.studio-inspector.collapsed {
+  transform: translateX(390px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.inspector-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--panel-border);
+  padding: 10px 10px 8px;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.inspector-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tab-btn.active {
+  color: var(--ink);
+  background: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+.panel-section {
+  margin-bottom: 22px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.section-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Palette Harmonies Quick-Bar */
+.palette-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.palette-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius-pill);
+  padding: 6px 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.palette-chip:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: var(--primary);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.palette-dot-bar {
+  width: 38px;
+  height: 6px;
+  border-radius: 3px;
+  display: block;
+}
+
+/* Empty states. These were emitted with no rule at all, so the text that tells
+   a first-time user what to do rendered at browser defaults. */
+.empty-notice {
+  padding: 14px 12px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.empty-notice b {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+/* Controls */
+.controls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.control-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ctrl-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ctrl-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Range Sliders */
+.studio-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+  cursor: pointer;
+  font-family: var(--font);
+}
+
+.studio-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 0 12px var(--primary);
+  border: 2px solid #000;
+  transition: transform 0.1s ease;
+}
+
+.studio-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+/* Color Controls */
+.control-row.color-control {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.color-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-picker-input {
+  -webkit-appearance: none;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font);
+}
+
+.color-picker-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker-input::-webkit-color-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+}
+
+.color-hex-input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  width: 76px;
+  text-transform: uppercase;
+}
+
+/* Select Controls */
+.studio-select {
+  /* Without `appearance: none` the platform draws its own control: on macOS that
+     means a light bevelled slab with the native arrow, which ignores the fill
+     below and is why these read as broken against the dark panel. Suppressing it
+     means we now owe our own arrow — hence the inline SVG background. */
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--input-bg);
+  /* The caret is drawn from two gradients rather than an inline SVG data URI:
+     tests/css-hygiene.test.mjs extracts class names with a `.name` regex, and the
+     `xmlns="http://www.w3.org/2000/svg"` in a data URI reads to it as rules for
+     `.w3` and `.org`. Gradients avoid the false positive and cost one less decode. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position: right 14px center, right 9px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat, no-repeat;
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  /* Right padding clears the arrow so long option labels cannot run under it. */
+  padding: 8px 30px 8px 12px;
+  border-radius: 10px;
+  outline: none;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-hover) ease,
+    background-color var(--dur-hover) ease;
+}
+
+.studio-select:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* Keyboard focus must be visible; `outline: none` above removes the only cue the
+   platform gave us. :focus-visible keeps it off pointer interactions. */
+.studio-select:focus-visible {
+  border-color: rgba(255, 237, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 237, 0, 0.15);
+}
+
+.studio-select:disabled {
+  /* An explicit fill and text colour, not opacity — a disabled control that only
+     drops opacity becomes unreadable against this panel. */
+  background-color: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.studio-select option {
+  background: #000000;
+  color: #fff;
+}
+
+/* Presets Grid */
+.presets-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 12px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.preset-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.preset-card.active {
+  border-color: var(--primary);
+  background: rgba(255, 237, 0, 0.08);
+  box-shadow: 0 0 16px rgba(255, 237, 0, 0.2);
+}
+
+.preset-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.preset-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.preset-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--primary);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+}
+
+.preset-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.preset-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Save Preset Row */
+.save-preset-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Saved presets. These were emitted with no rule at all, so the name rendered
+   as plain default text even though clicking it loads the preset. */
+.custom-presets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-preset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cp-name:hover {
+  color: var(--primary);
+}
+
+.studio-input {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  outline: none;
+}
+
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  border: none;
+  font-family: var(--font);
+}
+
+/* A .btn-sm carrying no variant class had no fill at all, so it fell through to
+   the user agent's default button — a light grey slab with black text on a dark
+   panel. Scoped with :not() rather than declared above, because .btn-accent and
+   friends are defined EARLIER in this file: putting a background on .btn-sm
+   itself would out-rank them at equal specificity and strip the accent yellow. */
+.btn-sm:not(.btn-accent):not(.btn-primary):not(.btn-secondary):not(.btn-action) {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--text-secondary);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-sm:not(.btn-accent):not(.btn-primary):not(.btn-secondary):not(.btn-action):hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+/* Repeats the :not() chain so the disabled fill actually wins. The chain above
+   scores 0,5,0 and would otherwise out-rank the shared [disabled] rule further
+   down, leaving a disabled button wearing its enabled colours. */
+.btn-sm:not(.btn-accent):not(.btn-primary):not(.btn-secondary):not(.btn-action):disabled {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--panel-border);
+  color: var(--text-muted);
+}
+
+/* Icon button for row actions (delete, reorder). This class was used in the
+   markup with no rule behind it at all, so it rendered as a square Arial
+   default button with a 2px border. */
+.cp-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.cp-delete-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+
+
+.snapshot-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.embed-textarea {
+  width: 100%;
+  height: 72px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px;
+  color: #e2e8f0;
+  font-family: monospace;
+  font-size: 11px;
+  resize: none;
+  outline: none;
+}
+
+/* Background modes */
+.bg-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.bg-mode-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.bg-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.bg-mode-btn.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Hotkeys table */
+.hotkeys-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hotkey-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+kbd {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--text-primary);
+}
+

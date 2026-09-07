@@ -255,7 +255,7 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
       }
     },
 
-    onPointerClick() {
+    onPulse() {
       clickBoost = 1.0;
     },
 

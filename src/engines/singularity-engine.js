@@ -327,7 +327,7 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
       }
     },
 
-    onPointerClick() {
+    onPulse() {
       pulseValue = 1.0;
     },
 

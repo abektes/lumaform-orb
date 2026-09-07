@@ -439,10 +439,6 @@ export function createFluxEngine({ studio, scene, camera, renderer, pointerTrack
       pulse = 1;
     },
 
-    onPointerClick() {
-      pulse = 1;
-    },
-
     onResize() {
       if (pointMaterial) pointMaterial.uniforms.uPixelRatio.value = renderer?.getPixelRatio?.() ?? 1;
     },

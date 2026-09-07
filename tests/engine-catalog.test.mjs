@@ -1,10 +1,13 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import {
+  ENGINE_CATALOG,
   ENGINE_INFO,
   ENGINE_PARAM_DEFINITIONS,
   ENGINE_TYPES,
-  createInitialState,
-} from '../src/core/state.js';
+  getDefaultEngineParams,
+  getDefaultPresetName,
+} from '../src/core/engine-catalog.js';
+import { createInitialState } from '../src/core/state.js';
 import { listModulationTargets } from '../src/core/modulation.js';
 import { PRESET_LIBRARY } from '../src/presets/preset-library.js';
 
@@ -20,38 +23,54 @@ const state = createInitialState();
 const sections = new Set(['geometry', 'motion', 'colors']);
 const colorPattern = /^#[0-9a-f]{6}$/i;
 
-const NEW_ENGINES = [
-  'aqueous',
-  'curldrift',
-  'murmuration',
-  'filament',
-  'prismbloom',
-  'coronaveil',
-  'echorings',
-  'chromasphere',
-  'vocalis',
-  'aetheria',
-  'superposition',
-  'synthesis',
-  'ferrotrails',
-];
+const HELPER_ENGINE_FILES = new Set([
+  'curl-drift-field.js',
+  'murmuration-simulation.js',
+  'tesseract-projection.js',
+]);
 
-ok('all thirteen new engines are in the catalog',
-  NEW_ENGINES.every((id) => Object.values(ENGINE_TYPES).includes(id)));
+const liveEngineFiles = readdirSync(new URL('src/engines', root))
+  .filter((name) => name.endsWith('-engine.js'));
 
-for (const engine of Object.values(ENGINE_TYPES)) {
-  const info = ENGINE_INFO[engine];
-  const defs = ENGINE_PARAM_DEFINITIONS[engine];
-  const bag = state.engines[engine];
-  ok(`${engine} has designer-facing metadata`,
-    !!info?.name && !!info?.badge && !!info?.description);
-  ok(`${engine} has a parameter schema`, !!defs && Object.keys(defs).length > 0);
-  ok(`${engine} has an initial parameter bag`, !!bag);
-  if (!defs || !bag) continue;
+ok('main.js registers from the catalog, not a hand-written factory list',
+  main.includes('registerAllEngines(studio)')
+    && !main.includes('studio.registerEngine('));
 
-  ok(`${engine} defaults exactly match its schema`,
-    Object.keys(defs).every((key) => bag[key] === defs[key].default)
-      && Object.keys(bag).every((key) => key in defs));
+ok('every catalog id is unique',
+  new Set(ENGINE_CATALOG.map((entry) => entry.id)).size === ENGINE_CATALOG.length);
+
+ok('ENGINE_TYPES is derived from the catalog',
+  Object.values(ENGINE_TYPES).length === ENGINE_CATALOG.length
+    && ENGINE_CATALOG.every((entry) => ENGINE_TYPES[entry.key] === entry.id));
+
+for (const entry of ENGINE_CATALOG) {
+  const { id } = entry;
+  ok(`${id} catalog entry is complete`,
+    !!entry.key
+      && !!entry.name
+      && !!entry.badge
+      && !!entry.description
+      && !!entry.defaultPreset
+      && !!entry.file
+      && !!entry.factoryName
+      && typeof entry.factory === 'function'
+      && entry.params
+      && Object.keys(entry.params).length > 0);
+
+  ok(`${id} info and schema are derived from the same entry`,
+    ENGINE_INFO[id]?.name === entry.name
+      && ENGINE_PARAM_DEFINITIONS[id] === entry.params);
+
+  const bag = state.engines[id];
+  const defs = entry.params;
+  ok(`${id} initial bag is derived from schema defaults`,
+    !!bag
+      && Object.keys(defs).every((key) => bag[key] === defs[key].default)
+      && Object.keys(bag).every((key) => key in defs)
+      && JSON.stringify(getDefaultEngineParams(id)) === JSON.stringify(bag));
+
+  ok(`${id} default preset name comes from the catalog`,
+    getDefaultPresetName(id) === entry.defaultPreset);
 
   let schemaValid = true;
   for (const def of Object.values(defs)) {
@@ -74,59 +93,27 @@ for (const engine of Object.values(ENGINE_TYPES)) {
       schemaValid = false;
     }
   }
-  ok(`${engine} schema fields are complete and bounded`, schemaValid);
-  ok(`${engine} exposes a safe modulation target`,
+  ok(`${id} schema fields are complete and bounded`, schemaValid);
+  ok(`${id} exposes a safe modulation target`,
     listModulationTargets(defs).length > 0);
+
+  const source = readFileSync(new URL(`src/engines/${entry.file}`, root), 'utf8');
+  ok(`${id} factory file exports ${entry.factoryName}`,
+    source.includes(`export function ${entry.factoryName}`));
+
 }
 
-for (const engine of NEW_ENGINES) {
-  const constant = Object.entries(ENGINE_TYPES).find(([, id]) => id === engine)?.[0];
-  const info = ENGINE_INFO[engine];
-  const defs = ENGINE_PARAM_DEFINITIONS[engine];
-  const preset = PRESET_LIBRARY.find((entry) => entry.engine === engine);
-  const filename = {
-    aqueous: 'aqueous',
-    curldrift: 'curl-drift',
-    murmuration: 'murmuration',
-    filament: 'filament',
-    prismbloom: 'prism-bloom',
-    coronaveil: 'corona-veil',
-    echorings: 'echo-rings',
-    chromasphere: 'chromasphere',
-    vocalis: 'vocalis',
-    aetheria: 'aetheria',
-    superposition: 'superposition',
-    synthesis: 'synthesis',
-    ferrotrails: 'ferro-trails',
-  }[engine];
-  const factory = {
-    aqueous: 'createAqueousEngine',
-    curldrift: 'createCurlDriftEngine',
-    murmuration: 'createMurmurationEngine',
-    filament: 'createFilamentEngine',
-    prismbloom: 'createPrismBloomEngine',
-    coronaveil: 'createCoronaVeilEngine',
-    echorings: 'createEchoRingsEngine',
-    chromasphere: 'createChromasphereEngine',
-    vocalis: 'createVocalisEngine',
-    aetheria: 'createAetheriaEngine',
-    superposition: 'createSuperpositionEngine',
-    synthesis: 'createSynthesisEngine',
-    ferrotrails: 'createFerroTrailsEngine',
-  }[engine];
+ok('every live engine file is in the catalog or an explicit helper',
+  liveEngineFiles.every((file) => (
+    HELPER_ENGINE_FILES.has(file)
+      || ENGINE_CATALOG.some((entry) => entry.file === file)
+  )));
 
-  ok(`${info.name} factory file exists and exports its factory`, (() => {
-    const source = readFileSync(new URL(`src/engines/${filename}-engine.js`, root), 'utf8');
-    return source.includes(`export function ${factory}`);
-  })());
-  ok(`${info.name} is imported and registered`,
-    main.includes(`import { ${factory} }`)
-      && main.includes(`studio.registerEngine(ENGINE_TYPES.${constant}, ${factory})`));
-  ok(`${info.name} has a complete curated preset`,
-    !!preset
-      && Object.keys(defs).every((key) => key in preset.params)
-      && Object.keys(preset.params).every((key) => key in defs));
-}
+ok('the catalog does not point at a missing engine file',
+  ENGINE_CATALOG.every((entry) => liveEngineFiles.includes(entry.file)));
+
+ok('every preset targets a catalogued engine',
+  PRESET_LIBRARY.every((preset) => ENGINE_CATALOG.some((entry) => entry.id === preset.engine)));
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

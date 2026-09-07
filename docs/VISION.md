@@ -55,19 +55,21 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 **No framework.** Vanilla JS, ES modules, Vite. The UI is built as HTML strings and DOM nodes. Adding React to drive a sidebar over a Three.js canvas is a large, invasive change with no rendering benefit. Most component libraries are therefore off the table — that is a known and accepted cost.
 
-**Never reassign shared state containers.** `state`, `state.global`, and each `state.engines[<id>]` object are held by reference across `main.js`, `StudioUI` and `OrbStudio`. Reassigning any of them orphans the other holders. This exact bug made the variation grid breed from stale parameters after a randomize. Always `Object.assign` into the existing object. The `StudioUI` constructor is the only place `this.state` is ever assigned.
+**The store owns state.** `createStudioStore()` holds `state`, `state.global`, and each `state.engines[<id>]` bag. `main.js` and `StudioUI` read `store.state` and write through store methods. `OrbStudio` receives the same object as an argument; it does not own it. Partials are patches — never replace a container.
 
 **Rate parameters must never be modulated directly.** Engines compute `angle = time × rate`. Changing a rate mid-flight retroactively rewrites the entire accumulated angle and the object visibly jumps. Tempo is shaped instead through the integrated `_timeScale` destination, which multiplies the delta before it is added to `virtualTime`. `listModulationTargets()` enforces this — use it rather than building your own destination list.
 
 **Geometry-section parameters must never be modulated.** Several engines dispose and rebuild geometry on parameter change (`auris` `buildGeometry`, `polytope` `buildMeshes`, `tesseract` `LineGeometry`). Doing that at 60fps thrashes the GPU. Every such parameter lives in the `geometry` section, so excluding that section covers the class.
 
-**Engines are interchangeable and self-disposing.** An engine is a factory returning `{ update, setParams | onParamsChange, dispose, onPulse?, onResize? }`. It owns its geometries and materials and must dispose all of them. Adding another engine should be one engine file plus small catalog, schema, registration, and optional preset edits — if it needs studio or UI changes, the abstraction has leaked.
+**Engines are interchangeable and self-disposing.** An engine is a factory returning `{ update, setParams, dispose, onPulse?, onResize? }`. The studio reaches those methods only through `notifyEngine`. It owns its geometries and materials and must dispose all of them. Adding another engine should be one engine file plus one catalog entry — if it needs studio or UI changes, the abstraction has leaked.
 
 **The studio is the single choke point.** `OrbStudio.renderFrame()` is the one place time advances and parameters reach the active engine. Anything that should affect every engine belongs there, not in each engine.
 
 **Only the active engine's parameter bag is meaningful.** State holds a bag per engine. Snapshot, export and import must touch only `state.engines[state.engine]` — writing every bag would silently rewrite engines the user never opened.
 
-**Chrome is layered, and the layer decides before the z-index does.** `.studio-ui-root` is positioned with a z-index and so forms a stacking context — a `z-index: 1000` inside it cannot outrank a `200` outside it. Inside the root are two layers: `overlayLayer` (never rewritten by `render()`, holds long-lived chrome, paints *below* the panel) and `panelLayer` (replaced wholesale on every `render()`). Mounting an overlay on `document.body` to survive `render()` puts it above the entire panel — that is what made the grid HUD cover the engine dropdown. Pick the layer first, then take a value from the scale declared in `:root` in `src/style.css`; only a full-screen dialog belongs at body level. `tests/layering.test.mjs` fails on any raw `z-index` literal.
+**Chrome is layered, and the layer decides before the z-index does.** `.studio-ui-root` is positioned with a z-index and so forms a stacking context — a `z-index: 1000` inside it cannot outrank a `200` outside it. Overlay tokens (`--z-overlay-*`) sit below panel tokens (`--z-panel-*`) so the grid HUD cannot cover the engine dropdown. Mounting an overlay on `document.body` puts it above the entire panel. Only a full-screen dialog belongs at body level. `tests/layering.test.mjs` fails on any raw `z-index` literal.
+
+**The shell is persistent.** `render()` rewrites inspector tab content only. Top bar, dock, tabs, and session chrome (clip / A/B / sweep / grid HUD) are mounted once on `ui.root`.
 
 **Every control must declare its own fill — never inherit the user agent's.** The UI is dark; browser defaults are light. A `<button>` with no `background`/`color` renders as a light-grey slab with black text, and when disabled it drops to near-black text on translucent grey, which is illegible here. `.btn-sm` had no fill and `.cp-delete-btn` had no rule at all, so both rendered as raw browser buttons (Arial, square, 2px border) until this was fixed. A disabled state needs an explicit `background` and `color`, not just `opacity`. Watch specificity when adding one: variant classes like `.btn-accent` are defined *earlier* in `src/style.css` than the `.btn-sm` base, which is why the base fill is scoped with `:not()` — and why the disabled rule has to repeat that chain to win.
 
@@ -138,7 +140,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 | --- | --- |
 | Engines | 17 registered vocabularies: analytic wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations |
 | Stateful motion | Murmuration, Curl Drift, Filament Lattice and Echo Rings carry bounded history so settle and propagation emerge from motion |
-| Parameter schema | `ENGINE_PARAM_DEFINITIONS` in `src/core/state.js` — drives the entire UI |
+| Parameter schema | Derived from `src/core/engine-catalog.js` — drives the entire UI |
 | Parameter controls | Shared numeric rows with formatted and typed exact values, visible ranges, and one-click reset |
 | Modulation | LFO / fbm noise / envelope / live mic or test tone → parameters and tempo; Motion Lab tab |
 | Variation grid | 3×3, per-cell patch + clock, promote, mark, export |

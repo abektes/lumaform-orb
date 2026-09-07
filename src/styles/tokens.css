@@ -1,0 +1,110 @@
+:root {
+  /* Lumaform Design System Tokens */
+  --primary: #ffed00; /* Electric canary yellow */
+  --primary-deep: #e6d200;
+  --primary-glow: rgba(255, 237, 0, 0.45);
+  --ink: #000000;
+  --surface-dark: #000000;
+  --panel-bg: rgba(10, 10, 12, 0.88);
+  --panel-border: rgba(255, 255, 255, 0.11);
+  --panel-glow: rgba(0, 0, 0, 0.7);
+  --radius-pill: 46px;
+  --font: 'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
+
+  --accent-cyan: #00f2fe;
+  --accent-blue: #057eff;
+  --accent-purple: #a855f7;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-border: rgba(255, 255, 255, 0.12);
+
+  /* ---------------------------------------------------------------------------
+     Motion. The built-in CSS easings are too weak to read as intentional — a
+     panel that eases with the stock `ease` looks like it is drifting rather than
+     responding. These are the stronger variants.
+
+     `--ease-out` is the default for anything entering or leaving: it moves most
+     in the first few frames, which is exactly when the user is looking. Never
+     use `ease-in` on chrome; it delays the initial movement and the same
+     duration then reads as sluggish.
+
+     Durations are deliberately short. Every control here is operated repeatedly
+     while tuning an orb, and an animation you see two hundred times a session
+     must get out of the way.
+     --------------------------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 120ms;
+  --dur-hover: 160ms;
+  --dur-menu: 180ms;
+
+  /* ---------------------------------------------------------------------------
+     Stacking contract. Two independent scales, because .studio-ui-root is a
+     positioned element with a z-index and therefore forms a STACKING CONTEXT:
+     values inside it are only ever compared with their siblings inside it. The
+     engine dropdown's old raw 1000 could never outrank the modal's 200 for this
+     reason, and the grid HUD once covered that dropdown because it was mounted
+     outside the root entirely. Enforced by tests/layering.test.mjs.
+
+     1. Body level — real siblings, compared with each other.
+     2. Inside .studio-ui-root — overlays vs chrome, compared as siblings.
+        Overlay tokens stay below panel tokens so the HUD cannot cover the
+        engine dropdown. Only a full-screen dialog belongs at body level.
+     --------------------------------------------------------------------------- */
+  --z-canvas: 1;
+  --z-ui-root: 10;
+  --z-zen-pill: 100;
+  --z-dialog: 150;
+  --z-modal: 200;
+
+  --z-overlay-hud: 40;
+  --z-overlay-caption: 50;
+  --z-overlay-readout: 60;
+  --z-overlay-clip: 70;
+
+  --z-panel-stats: 80;
+  --z-panel-inspector: 90;
+  --z-panel-topbar: 100;
+  --z-panel-dock: 120;
+  --z-panel-dropdown: 1000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--surface-dark);
+  font-family: var(--font);
+  color: var(--text-primary);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-canvas);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+canvas:active {
+  cursor: grabbing;
+}
+

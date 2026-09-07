@@ -523,10 +523,6 @@ export function createPrismBloomEngine({ scene, pointerTracker, params }) {
       triggerPulse();
     },
 
-    onPointerClick() {
-      triggerPulse();
-    },
-
     dispose() {
       scene.remove(group);
       petalGeometry.dispose();

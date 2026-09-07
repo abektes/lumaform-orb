@@ -82,9 +82,7 @@ export function sanitizeParams(params, defs) {
   return { params: out, dropped };
 }
 
-// Writes in place. state, state.global and each state.engines[...] bag are held
-// by reference across main.js, StudioUI and OrbStudio; reassigning any of them
-// orphans those holders.
+// Writes in place into the store-owned containers. Callers pass store.state.
 export function applyConfig(state, config, defs) {
   const { params, dropped } = sanitizeParams(config.params, defs);
 

@@ -26,7 +26,7 @@ It is explicitly **not** a component library, not an embeddable runtime, and not
 
 ## Positioning
 
-Twenty-two independent shader engines — wireframes, raymarchers, particle swarms, spring networks, physical bodies — all driven through **one parameter schema and one render loop**. Adding an engine is one file plus four small registration edits; the schema alone generates every control in the panel.
+Twenty-two independent shader engines — wireframes, raymarchers, particle swarms, spring networks, physical bodies — all driven through **one parameter schema and one render loop**. Adding an engine is one file plus one catalog entry; the schema alone generates every control in the panel.
 
 The mechanism a neighbouring tool could not truthfully copy is the combination of that uniformity with instruments built for comparison rather than for authoring:
 
@@ -79,7 +79,7 @@ Sessions are exploratory and fast. The tool is operated by keyboard as much as b
 
 Real and citable:
 
-- 22 working engines in `src/engines/`, with 54 curated presets in `src/presets/preset-library.js`.
+- 22 working engines in `src/engines/`, with 54 curated presets in `src/presets/`.
 - `docs/VISION.md` — purpose, architectural invariants, a decision log, and a list of deliberately deferred work.
 - `docs/ENGINE-AUTHORING.md` and `docs/engine-briefs/` — the engine contract and proposed engines.
 - `README.md`, `CLAUDE.md`.

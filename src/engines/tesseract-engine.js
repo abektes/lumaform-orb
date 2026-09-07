@@ -441,9 +441,6 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
       }
     },
 
-    onPointerClick() {
-      clickPulse = 1.0;
-    },
     onPulse() {
       clickPulse = 1.0;
     },

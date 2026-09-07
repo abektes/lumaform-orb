@@ -1,27 +1,7 @@
 import { OrbStudio } from './core/studio.js';
-import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS, createInitialState } from './core/state.js';
-import { createTesseractEngine } from './engines/tesseract-engine.js';
-import { createMoireEngine } from './engines/moire-engine.js';
-import { createAurisEngine } from './engines/auris-engine.js';
-import { createHopfEngine } from './engines/hopf-engine.js';
-import { createPolytopeEngine } from './engines/polytope-engine.js';
-import { createNebulaEngine } from './engines/nebula-engine.js';
-import { createQuantumEngine } from './engines/quantum-engine.js';
-import { createSingularityEngine } from './engines/singularity-engine.js';
-import { createFluxEngine } from './engines/flux-engine.js';
-import { createAqueousEngine } from './engines/aqueous-engine.js';
-import { createCurlDriftEngine } from './engines/curl-drift-engine.js';
-import { createMurmurationEngine } from './engines/murmuration-engine.js';
-import { createFilamentEngine } from './engines/filament-engine.js';
-import { createPrismBloomEngine } from './engines/prism-bloom-engine.js';
-import { createCoronaVeilEngine } from './engines/corona-veil-engine.js';
-import { createEchoRingsEngine } from './engines/echo-rings-engine.js';
-import { createChromasphereEngine } from './engines/chromasphere-engine.js';
-import { createVocalisEngine } from './engines/vocalis-engine.js';
-import { createAetheriaEngine } from './engines/aetheria-engine.js';
-import { createSuperpositionEngine } from './engines/superposition-engine.js';
-import { createSynthesisEngine } from './engines/synthesis-engine.js';
-import { createFerroTrailsEngine } from './engines/ferro-trails-engine.js';
+import { ENGINE_PARAM_DEFINITIONS, createInitialState } from './core/state.js';
+import { createStudioStore } from './core/store.js';
+import { registerAllEngines } from './core/engine-catalog.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
 import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
@@ -38,7 +18,8 @@ import {
 import { PRESET_LIBRARY } from './presets/preset-library.js';
 
 const container = document.getElementById('container');
-const state = createInitialState();
+const store = createStudioStore(createInitialState());
+const state = store.state;
 
 // Check for preset query parameter in URL
 const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -48,42 +29,20 @@ if (reqPresetName) {
     (p) => p.name.toLowerCase() === reqPresetName.toLowerCase() || p.badge?.toLowerCase() === reqPresetName.toLowerCase()
   );
   if (matchedPreset) {
-    state.engine = matchedPreset.engine;
-    state.activePresetName = matchedPreset.name;
-    if (matchedPreset.global) Object.assign(state.global, matchedPreset.global);
-    if (matchedPreset.params) Object.assign(state.engines[matchedPreset.engine], matchedPreset.params);
+    store.setEngine(matchedPreset.engine);
+    store.setActivePresetName(matchedPreset.name);
+    store.patchGlobal(matchedPreset.global);
+    store.patchEngine(matchedPreset.engine, matchedPreset.params);
   }
 }
 
 // Initialize Three.js Studio Core
 const studio = new OrbStudio(container);
 
-// Register Generator Engines
-studio.registerEngine(ENGINE_TYPES.TESSERACT, createTesseractEngine);
-studio.registerEngine(ENGINE_TYPES.MOIRE, createMoireEngine);
-studio.registerEngine(ENGINE_TYPES.AURIS, createAurisEngine);
-studio.registerEngine(ENGINE_TYPES.HOPF, createHopfEngine);
-studio.registerEngine(ENGINE_TYPES.POLYTOPE, createPolytopeEngine);
-studio.registerEngine(ENGINE_TYPES.NEBULA, createNebulaEngine);
-studio.registerEngine(ENGINE_TYPES.QUANTUM, createQuantumEngine);
-studio.registerEngine(ENGINE_TYPES.SINGULARITY, createSingularityEngine);
-studio.registerEngine(ENGINE_TYPES.FLUX, createFluxEngine);
-studio.registerEngine(ENGINE_TYPES.AQUEOUS, createAqueousEngine);
-studio.registerEngine(ENGINE_TYPES.CURL_DRIFT, createCurlDriftEngine);
-studio.registerEngine(ENGINE_TYPES.MURMURATION, createMurmurationEngine);
-studio.registerEngine(ENGINE_TYPES.FILAMENT, createFilamentEngine);
-studio.registerEngine(ENGINE_TYPES.PRISM_BLOOM, createPrismBloomEngine);
-studio.registerEngine(ENGINE_TYPES.CORONA_VEIL, createCoronaVeilEngine);
-studio.registerEngine(ENGINE_TYPES.ECHO_RINGS, createEchoRingsEngine);
-studio.registerEngine(ENGINE_TYPES.CHROMASPHERE, createChromasphereEngine);
-studio.registerEngine(ENGINE_TYPES.VOCALIS, createVocalisEngine);
-studio.registerEngine(ENGINE_TYPES.AETHERIA, createAetheriaEngine);
-studio.registerEngine(ENGINE_TYPES.SUPERPOSITION, createSuperpositionEngine);
-studio.registerEngine(ENGINE_TYPES.SYNTHESIS, createSynthesisEngine);
-studio.registerEngine(ENGINE_TYPES.FERRO_TRAILS, createFerroTrailsEngine);
+registerAllEngines(studio);
 
 // Initialize Studio UI
-const ui = new StudioUI(document.body, studio, state, (updatedState) => {
+const ui = new StudioUI(document.body, studio, store, (updatedState) => {
   studio.setEngine(updatedState.engine, updatedState);
 });
 
@@ -96,19 +55,13 @@ setInterval(() => {
 }, 250);
 
 // Exploration handle — patch modulation routes from the console without a reload.
-window.__orb = { studio, state, ui };
+window.__orb = { studio, state, store, ui };
 
 // --- clip recording ---------------------------------------------------------
-// Mounted in the UI's overlay layer: render() only rewrites the panel layer, so
-// these survive, and they stay inside the panel's stacking context so the engine
-// dropdown can still open over them.
-const clipIndicator = document.createElement('div');
-clipIndicator.className = 'clip-indicator hidden';
-ui.overlayLayer.appendChild(clipIndicator);
+const clipIndicator = ui.clipIndicator;
 
-// This is a full-screen dialog and therefore sits beside the UI root. Putting it
-// in overlayLayer would trap it below the inspector inside the root's stacking
-// context, leaving the controls it explains on top of it.
+// Full-screen dialog: a sibling of the UI root so it can cover the inspector.
+// Overlay tokens on the root sit *below* the panel and could not cover it.
 const shortcutsOverlay = createShortcutsOverlay();
 ui.container.appendChild(shortcutsOverlay.element);
 ui.onToggleShortcuts = () => shortcutsOverlay.toggle();
@@ -186,9 +139,7 @@ const ab = createAbCompare(studio, state, {
   getTransition: () => ({ durationMs: TRANSITION_DURATIONS[transitionIndex], easing: transitionEasing }),
 });
 
-const abReadout = document.createElement('div');
-abReadout.className = 'ab-readout hidden';
-ui.overlayLayer.appendChild(abReadout);
+const abReadout = ui.abReadout;
 
 // Name the slot that is still empty, rather than assuming A is always filled
 // first — pressing 2 before 1 used to produce "press 2 to fill B".
@@ -236,9 +187,7 @@ document.addEventListener('input', (e) => {
   if (key) lastTouchedParam = key;
 }, true);
 
-const sweepCaption = document.createElement('div');
-sweepCaption.className = 'sweep-caption hidden';
-ui.overlayLayer.appendChild(sweepCaption);
+const sweepCaption = ui.sweepCaption;
 
 function showSweepCaption(info) {
   if (!info) {
@@ -308,8 +257,8 @@ function downloadGridSelection() {
 // Promoting a cell adopts both its look and its motion patch. Shared by the
 // grid and the sweep, which reuse the same pointer handling.
 function onGridPromote({ params, modulation }) {
-  Object.assign(state.engines[state.engine], params);
-  if (modulation) state.modulation = modulation;
+  store.patchActiveEngine(params);
+  if (modulation) store.setModulation(modulation);
 }
 
 let gridHud = null;
@@ -376,12 +325,7 @@ function toggleGrid() {
       onExport: () => downloadGridSelection(),
       onExit: () => toggleGrid(),
     });
-    // Mounted on document.body, not ui.root: StudioUI.render() assigns
-    // root.innerHTML, so anything parented there is destroyed by the next
-    // re-render — and Randomize, Export and the engine dropdown all stay
-    // clickable in the top bar during grid mode. The A/B readout and sweep
-    // caption are mounted the same way for the same reason.
-    ui.overlayLayer.appendChild(gridHud.element);
+    ui.root.appendChild(gridHud.element);
     markedPollId = setInterval(syncMarkedCount, 200);
   }
 }

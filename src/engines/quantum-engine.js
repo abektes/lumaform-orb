@@ -444,7 +444,7 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
       }
     },
 
-    onPointerClick() {
+    onPulse() {
       pulseTime = 1.0;
     },
 

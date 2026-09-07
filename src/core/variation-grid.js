@@ -22,6 +22,7 @@ import {
   listModulationTargets,
 } from './modulation.js';
 import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from './framing.js';
+import { notifyParams } from './engine-notify.js';
 
 // --- colour jitter ---------------------------------------------------------
 
@@ -99,9 +100,9 @@ export function chooseMutationKeys(
 // Mutate around `base` rather than jumping fully random — exploration wants a
 // controllable radius so you can zoom in on a promising region.
 //
-// Only ever writes keys that exist in `defs`. randomizeState() in state.js writes
-// `rotSpeedZW`, which no engine reads and no schema declares; a mutator that
-// invented keys would multiply that class of bug by the number of cells.
+// Only ever writes keys that exist in `defs`. The old randomize switch invented
+// keys like `rotSpeedZW` that no engine read; a mutator that did the same would
+// multiply that class of bug by the number of cells.
 export function mutateParams(
   base,
   defs,
@@ -257,8 +258,7 @@ export function createVariationGrid({
       params,
       global: globalSettings,
     });
-    if (typeof engine.setParams === 'function') engine.setParams(params);
-    else if (typeof engine.onParamsChange === 'function') engine.onParamsChange(params);
+    notifyParams(engine, params);
     return {
       scene,
       engine,
@@ -295,8 +295,7 @@ export function createVariationGrid({
     }
     cell.lastMod = { ...modulated };
     if (!dirty) return;
-    if (typeof cell.engine.setParams === 'function') cell.engine.setParams(patchOut);
-    else if (typeof cell.engine.onParamsChange === 'function') cell.engine.onParamsChange(patchOut);
+    notifyParams(cell.engine, patchOut);
   }
 
   function disposeCell(cell) {
