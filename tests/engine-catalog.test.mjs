@@ -28,10 +28,14 @@ const NEW_ENGINES = [
   'prismbloom',
   'coronaveil',
   'echorings',
-  'mycelium',
+  'chromasphere',
+  'vocalis',
+  'aetheria',
+  'superposition',
+  'synthesis',
 ];
 
-ok('all eight new engines are in the catalog',
+ok('all twelve new engines are in the catalog',
   NEW_ENGINES.every((id) => Object.values(ENGINE_TYPES).includes(id)));
 
 for (const engine of Object.values(ENGINE_TYPES)) {
@@ -87,7 +91,11 @@ for (const engine of NEW_ENGINES) {
     prismbloom: 'prism-bloom',
     coronaveil: 'corona-veil',
     echorings: 'echo-rings',
-    mycelium: 'mycelium',
+    chromasphere: 'chromasphere',
+    vocalis: 'vocalis',
+    aetheria: 'aetheria',
+    superposition: 'superposition',
+    synthesis: 'synthesis',
   }[engine];
   const factory = {
     aqueous: 'createAqueousEngine',
@@ -97,7 +105,11 @@ for (const engine of NEW_ENGINES) {
     prismbloom: 'createPrismBloomEngine',
     coronaveil: 'createCoronaVeilEngine',
     echorings: 'createEchoRingsEngine',
-    mycelium: 'createMyceliumEngine',
+    chromasphere: 'createChromasphereEngine',
+    vocalis: 'createVocalisEngine',
+    aetheria: 'createAetheriaEngine',
+    superposition: 'createSuperpositionEngine',
+    synthesis: 'createSynthesisEngine',
   }[engine];
 
   ok(`${info.name} factory file exists and exports its factory`, (() => {

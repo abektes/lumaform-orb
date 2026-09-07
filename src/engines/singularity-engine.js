@@ -15,6 +15,8 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
     diskSpeed: 0.85,
     dopplerShift: 0.75,
     diskTilt: 0.28,
+    spiralArms: 3,
+    armContrast: 0.65,
     color1: '#f59e0b', // Burning gold
     color2: '#ef4444', // Collapsar red
     color3: '#38bdf8', // Relativistic blue
@@ -42,6 +44,8 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
       uDiskSpeed: { value: currentParams.diskSpeed },
       uDopplerShift: { value: currentParams.dopplerShift },
       uDiskTilt: { value: currentParams.diskTilt },
+      uSpiralArms: { value: currentParams.spiralArms },
+      uArmContrast: { value: currentParams.armContrast },
       uColor1: { value: hexToVec3(currentParams.color1) },
       uColor2: { value: hexToVec3(currentParams.color2) },
       uColor3: { value: hexToVec3(currentParams.color3) },
@@ -68,6 +72,8 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
       uniform float uDiskSpeed;
       uniform float uDopplerShift;
       uniform float uDiskTilt;
+      uniform float uSpiralArms;
+      uniform float uArmContrast;
       uniform vec3 uColor1;
       uniform vec3 uColor2;
       uniform vec3 uColor3;
@@ -179,16 +185,36 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
                                smoothstep(uDiskOuter, uDiskOuter - 0.5, diskR);
 
             float phi = atan(diskP.z, diskP.x);
+            // Keplerian shear: inner material laps the outer, which is what makes a
+            // disk read as falling in rather than as a spinning plate.
             float orbitalVelocity = uDiskSpeed * (2.4 / sqrt(max(diskR, 0.5)));
-            float swirlAngle = phi + uTime * orbitalVelocity;
-            float turbulence = fbm(vec2(diskR * 3.8 - uTime * 0.4, swirlAngle * 3.0));
+            float swirlAngle = phi - uTime * orbitalVelocity;
+
+            // Coherent spiral density waves. This is the part the eye can actually
+            // track, and it is what was missing: swirlAngle previously fed nothing
+            // but fbm(), and a ray-march that sums dozens of noise samples along each
+            // ray averages them to a near-constant. The disk was mathematically
+            // animated and visually frozen — 290 seconds of uTime moved the rendered
+            // image by under 1% per pixel. Structure survives accumulation; noise
+            // does not.
+            float arms = 0.5 + 0.5 * sin(swirlAngle * uSpiralArms + log(max(diskR, 0.35)) * 2.2);
+
+            // Turbulence stays, but at a much lower frequency so it reads as texture
+            // riding the arms rather than as the boiling static it averaged into.
+            float turbulence = fbm(vec2(diskR * 1.5, swirlAngle * 0.75));
+            float structure = mix(0.45 + turbulence * 0.75, arms * 1.15, uArmContrast);
 
             // Relativistic Doppler Beaming
             vec3 tangent = vec3(-sin(phi), 0.0, cos(phi));
             float beaming = 1.0 + dot(tangent, -dir) * uDopplerShift * 0.7;
             beaming = clamp(beaming, 0.25, 2.4);
 
-            float density = verticalDensity * radialFade * (0.35 + turbulence * 0.85) * uAccretionDensity * beaming;
+            // A click drives a brief brightening surge outward through the disk.
+            // uPulse was declared and written every frame but never read, so
+            // clicking this engine — alone among all of them — did nothing at all.
+            float surge = uPulse * exp(-abs(diskR - mix(uDiskInner, uDiskOuter, 1.0 - uPulse)) * 2.2);
+
+            float density = verticalDensity * radialFade * (0.28 + structure * 0.9 + surge * 0.8) * uAccretionDensity * beaming;
             float tempGradient = smoothstep(uDiskOuter, uDiskInner, diskR);
 
             vec3 plasmaColor = mix(uColor2, uColor1, pow(tempGradient, 1.8));
@@ -234,7 +260,16 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
 
   let pulseValue = 0;
 
+  // The visible extent is the accretion disk, not the event horizon, and gravitational
+  // lensing bends light in from beyond it — hence the margin over diskOuter. Without a
+  // hint at all this engine fell back to DEFAULT_FRAME_RADIUS 2.5, which framed a disk
+  // of radius 3.5 as if it were smaller than a Polytope and lit 72% of the frame.
+  const frameRadiusFor = (p) => Math.max(0.5, p.diskOuter) * 1.2;
+  const frame = { radius: frameRadiusFor(currentParams) };
+
   return {
+    frame,
+
     update({ time, pointer }) {
       pulseValue *= 0.92;
       material.uniforms.uTime.value = time;
@@ -258,6 +293,7 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
       }
       if (newParams.diskOuter !== undefined) {
         material.uniforms.uDiskOuter.value = newParams.diskOuter;
+        frame.radius = frameRadiusFor(currentParams);
       }
       if (newParams.accretionDensity !== undefined) {
         material.uniforms.uAccretionDensity.value = newParams.accretionDensity;
@@ -273,6 +309,12 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
       }
       if (newParams.diskTilt !== undefined) {
         material.uniforms.uDiskTilt.value = newParams.diskTilt;
+      }
+      if (newParams.spiralArms !== undefined) {
+        material.uniforms.uSpiralArms.value = newParams.spiralArms;
+      }
+      if (newParams.armContrast !== undefined) {
+        material.uniforms.uArmContrast.value = newParams.armContrast;
       }
       if (newParams.color1) {
         material.uniforms.uColor1.value = hexToVec3(newParams.color1);

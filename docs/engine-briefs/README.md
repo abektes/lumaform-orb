@@ -3,14 +3,21 @@
 One brief per proposed engine. Each is self-contained: an agent should be able to build the engine from its brief plus [../ENGINE-AUTHORING.md](../ENGINE-AUTHORING.md) without further context.
 
 **Implementation status:** all four briefs are built. The same expansion also
-added four original concepts designed to cover additional visual vocabularies:
+added four original concepts designed to cover additional visual vocabularies.
+Mycelium was later replaced by Chromasphere: it was the fourth glowing-line engine
+of the batch and competed with Filament, Curl Drift and Echo Rings for the same
+visual territory, while nothing in the library was solid, opaque or reflective.
 
 | Engine | Concept | Substrate | Bet |
 |---|---|---|---|
 | Prism Bloom | Iridescent crystalline petals | Instanced mesh + shader | Reads as **opening / receptive** |
 | Corona Veil | Aurora membranes around a dark core | Instanced ribbon shader | Reads as **quietly active** |
 | Echo Rings | Remembered spherical wavefronts | Line2 + pulse pool | Reads as **acknowledging** |
-| Mycelium | Bioluminescent branching network | Line2 + signal points | Reads as **connected / routing** |
+| Chromasphere | Solid mirrored body under an analytic studio | Opaque shader mesh | Reads as **present / physical** |
+| [Vocalis](vocalis.md) | Acoustic diaphragm & formant ripples | Line2 ribbons + vocal nucleus | Reads as **speaking / vocal articulation** |
+| [Aetheria](aetheria.md) | Chromatic fluid pearl & silk caustics | Displaced fluid sphere + silk caustics | Reads as **listening / receptive presence** |
+| [Superposition](superposition.md) | Coherent quantum orbital wavepacket | Structured shells + phase lobes | Reads as **hypothesizing / uncertainty** |
+| [Synthesis](synthesis.md) | 4-body fluid orbital fusion & stardust | Potential metaballs + filaments + stardust | Reads as **deliberation / harmonious thought** |
 
 | Brief | Concept | Substrate | Bet | Difficulty |
 |---|---|---|---|---|
@@ -18,6 +25,10 @@ added four original concepts designed to cover additional visual vocabularies:
 | [filament-lattice.md](filament-lattice.md) | Verlet spring network on a geodesic | Line2 + instanced nodes | Reads as **propagating** | Medium-hard |
 | [aqueous.md](aqueous.md) | Refracting displaced blob | Transmissive mesh | Reads as **listening / at rest** | Easy |
 | [curl-drift.md](curl-drift.md) | Ribbons advected through a curl-noise field | Line2 | Reads as **streaming / speaking** | Medium |
+| [vocalis.md](vocalis.md) | Vocal articulation & diaphragm | Line2 ribbons + core | Reads as **speaking / voice reactive** | Medium |
+| [aetheria.md](aetheria.md) | Iridescent chromatic fluid pearl | Fluid mesh + caustics | Reads as **listening / gentle presence** | Medium |
+| [superposition.md](superposition.md) | Quantum orbital wavepacket | Structured phase lobes | Reads as **hypothesizing / uncertainty** | Medium |
+| [synthesis.md](synthesis.md) | 4-body fluid orbital fusion | Metaball bodies + filaments | Reads as **deliberation / thought** | Medium |
 
 ---
 

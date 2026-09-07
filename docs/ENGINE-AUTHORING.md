@@ -156,6 +156,28 @@ Any key matching `/speed|rate|spin|flow|rot[A-Z]|^rot/i` is excluded from modula
 
 Conversely: if you invent a rate-like parameter named `tempo` or `velocity`, the pattern will **not** match, and the rack will happily modulate it into a visible jump. Name rates so the pattern catches them.
 
+### Colour parameters and the palette chips
+
+The Colors tab offers six one-click harmonies. They are applied to your engine's colour
+parameters **in schema declaration order**, cycling through the palette's three roles —
+so declare your most characteristic colour first.
+
+Mark any colour that is structural rather than expressive with `paletteRole: 'fixed'`:
+
+```js
+shadowColor: { type: 'color', label: 'Shadow Ambient Tone', default: '#090d16', section: 'colors', paletteRole: 'fixed' },
+```
+
+Shadow tones, dark resting states and white core sparks are load-bearing contrast, not
+decoration — tinting them palette-cyan does not recolour the orb, it destroys the read.
+Everything else should stay writable.
+
+This used to be a map in `studio-ui.js` keyed by literal parameter name (`color1`,
+`color2`, `colorShell`…), guarded with `if (params[k] !== undefined)`. Any engine that
+named its colours anything else got a silent no-op — nine of seventeen engines did, and
+nobody noticed because nothing errored. `tests/panel-coverage.test.mjs` now fails if any
+engine has no palette-writable colour.
+
 ### Ranges
 
 `min`/`max` are not decoration. They set slider bounds, they normalise modulation depth (an `amount` of 0.5 means half the declared span, so a 0..0.03 param and a 0..360 one behave identically), they define the ladder for the parameter sweep, and they clamp on import. **A range wider than what actually looks good produces mostly-garbage variation grids** — the grid mutates within these bounds. Set them to the usable range, not the mathematically valid one.

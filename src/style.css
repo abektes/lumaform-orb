@@ -21,6 +21,26 @@
   --input-border: rgba(255, 255, 255, 0.12);
 
   /* ---------------------------------------------------------------------------
+     Motion. The built-in CSS easings are too weak to read as intentional — a
+     panel that eases with the stock `ease` looks like it is drifting rather than
+     responding. These are the stronger variants.
+
+     `--ease-out` is the default for anything entering or leaving: it moves most
+     in the first few frames, which is exactly when the user is looking. Never
+     use `ease-in` on chrome; it delays the initial movement and the same
+     duration then reads as sluggish.
+
+     Durations are deliberately short. Every control here is operated repeatedly
+     while tuning an orb, and an animation you see two hundred times a session
+     must get out of the way.
+     --------------------------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 120ms;
+  --dur-hover: 160ms;
+  --dur-menu: 180ms;
+
+  /* ---------------------------------------------------------------------------
      Stacking contract. Three independent scales, because .studio-ui-root is a
      positioned element with a z-index and therefore forms a STACKING CONTEXT:
      values inside it are only ever compared with their siblings inside it. The
@@ -125,7 +145,7 @@ canvas:active {
   cursor: pointer;
   z-index: var(--z-zen-pill);
   box-shadow: 0 0 20px var(--primary-glow);
-  transition: all 0.2s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 .zen-hint-pill:hover {
   background: var(--primary);
@@ -215,7 +235,7 @@ canvas:active {
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out), transform var(--dur-press) var(--ease-out);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
@@ -271,7 +291,9 @@ canvas:active {
   position: absolute;
   top: calc(100% + 8px);
   left: 50%;
-  transform: translateX(-50%) translateY(-6px);
+  /* Never from scale(0) — nothing in the real world appears out of nothing. A
+     barely-there 0.97 still reads as an object that was already there. */
+  transform: translateX(-50%) translateY(-6px) scale(0.97);
   width: 320px;
   background: rgba(14, 14, 18, 0.95);
   backdrop-filter: blur(28px);
@@ -280,20 +302,37 @@ canvas:active {
   border-radius: var(--radius-md);
   padding: 6px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.2);
-  display: none;
+  /* Was `display: none` toggled to `display: flex` by .open. `display` is not an
+     animatable property, so the browser applied the new display and the new opacity
+     in the same frame and the declared transition never ran once — the menu popped
+     in and vanished instantly. `visibility` is transitionable (as a delayed step),
+     keeps the menu out of the a11y tree and out of hit-testing while closed, and
+     costs no layout because the menu is absolutely positioned. */
+  display: flex;
+  visibility: hidden;
   flex-direction: column;
   gap: 3px;
   z-index: var(--z-panel-dropdown);
   opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  /* Scales from the trigger it hangs off, not from its own centre. */
+  transform-origin: top center;
+  transition:
+    opacity var(--dur-menu) var(--ease-out),
+    transform var(--dur-menu) var(--ease-out),
+    visibility 0s linear var(--dur-menu);
   pointer-events: none;
 }
 
 .engine-dropdown-menu.open {
-  display: flex;
+  visibility: visible;
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(-50%) translateY(0) scale(1);
   pointer-events: auto;
+  /* No visibility delay on the way in: it must be hittable on the first frame. */
+  transition:
+    opacity var(--dur-menu) var(--ease-out),
+    transform var(--dur-menu) var(--ease-out),
+    visibility 0s;
 }
 
 .engine-dropdown-item {
@@ -305,7 +344,7 @@ canvas:active {
   border: 1px solid transparent;
   cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
   font-family: var(--font);
 }
 
@@ -393,7 +432,7 @@ canvas:active {
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .btn-action:hover {
@@ -511,7 +550,7 @@ canvas:active {
   font-weight: 800;
   letter-spacing: 0.05em;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out), transform var(--dur-press) var(--ease-out);
   box-shadow: 0 2px 10px rgba(255, 237, 0, 0.4);
 }
 
@@ -602,7 +641,7 @@ canvas:active {
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .dock-speed-pill:hover {
@@ -630,7 +669,7 @@ canvas:active {
   justify-content: center;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .dock-icon-btn:hover {
@@ -706,7 +745,7 @@ canvas:active {
   padding: 6px 12px;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -772,7 +811,7 @@ canvas:active {
   font-weight: 600;
   color: var(--text-secondary);
   font-family: var(--font);
-  transition: all 0.2s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .palette-chip:hover {
@@ -908,16 +947,55 @@ canvas:active {
 
 /* Select Controls */
 .studio-select {
-  background: var(--input-bg);
+  /* Without `appearance: none` the platform draws its own control: on macOS that
+     means a light bevelled slab with the native arrow, which ignores the fill
+     below and is why these read as broken against the dark panel. Suppressing it
+     means we now owe our own arrow — hence the inline SVG background. */
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--input-bg);
+  /* The caret is drawn from two gradients rather than an inline SVG data URI:
+     tests/css-hygiene.test.mjs extracts class names with a `.name` regex, and the
+     `xmlns="http://www.w3.org/2000/svg"` in a data URI reads to it as rules for
+     `.w3` and `.org`. Gradients avoid the false positive and cost one less decode. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position: right 14px center, right 9px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat, no-repeat;
   border: 1px solid var(--input-border);
   color: var(--text-primary);
   font-family: var(--font);
   font-size: 12px;
   font-weight: 600;
-  padding: 8px 12px;
+  /* Right padding clears the arrow so long option labels cannot run under it. */
+  padding: 8px 30px 8px 12px;
   border-radius: 10px;
   outline: none;
   cursor: pointer;
+  transition:
+    border-color var(--dur-hover) ease,
+    background-color var(--dur-hover) ease;
+}
+
+.studio-select:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* Keyboard focus must be visible; `outline: none` above removes the only cue the
+   platform gave us. :focus-visible keeps it off pointer interactions. */
+.studio-select:focus-visible {
+  border-color: rgba(255, 237, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 237, 0, 0.15);
+}
+
+.studio-select:disabled {
+  /* An explicit fill and text colour, not opacity — a disabled control that only
+     drops opacity becomes unreadable against this panel. */
+  background-color: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .studio-select option {
@@ -938,7 +1016,7 @@ canvas:active {
   padding: 12px 14px;
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .preset-card:hover {
@@ -1143,7 +1221,7 @@ canvas:active {
   padding: 8px;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .bg-mode-btn:hover {
@@ -1258,7 +1336,7 @@ kbd {
   font-weight: 600;
   padding: 14px 0;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .modal-tab-btn.active {
@@ -1537,7 +1615,7 @@ kbd {
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -1694,7 +1772,7 @@ kbd {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .import-file-label:hover {
@@ -1965,7 +2043,7 @@ kbd {
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .engine-step:hover {
@@ -2458,4 +2536,89 @@ kbd {
   color: var(--text-muted);
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   Press, pointer and motion preferences.
+
+   Collected here rather than scattered through each component because they are
+   one decision applied uniformly, and because the rules above them were written
+   over many sittings and had drifted: two :active states existed across roughly
+   fifty pressable controls, so almost nothing in this UI acknowledged being
+   clicked. A control that does not move under the cursor reads as not having
+   registered the click, which is the single cheapest thing to get wrong.
+   --------------------------------------------------------------------------- */
+
+.zen-hint-pill:active,
+.engine-dropdown-trigger:active,
+.engine-dropdown-item:active,
+.btn-action:active,
+.dock-play-btn:active,
+.dock-speed-pill:active,
+.dock-icon-btn:active,
+.tab-btn:active,
+.palette-chip:active,
+.preset-card:active,
+.bg-mode-btn:active,
+.modal-tab-btn:active,
+.grid-hud-btn:active,
+.import-file-label:active,
+.btn-sm:active,
+.cp-delete-btn:active {
+  /* Subtle on purpose. Below about 0.95 it reads as the button shrinking rather
+     than as the surface taking the press. */
+  transform: scale(0.97);
+}
+
+/* A touch tap fires :hover and then leaves it stuck until the next tap
+   elsewhere, so a hover state that moves the element leaves it visibly wrong.
+   Gate only the transform-bearing hovers; colour hovers are harmless. */
+@media (hover: hover) and (pointer: fine) {
+  .preset-card:hover,
+  .palette-chip:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion means less movement, not no feedback. Opacity and colour
+     still carry state, so they are kept; everything positional is dropped and
+     the press scale goes with it. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .engine-dropdown-menu,
+  .engine-dropdown-menu.open {
+    transform: translateX(-50%);
+  }
+
+  .zen-hint-pill:active,
+  .engine-dropdown-trigger:active,
+  .engine-dropdown-item:active,
+  .btn-action:active,
+  .dock-play-btn:active,
+  .dock-speed-pill:active,
+  .dock-icon-btn:active,
+  .tab-btn:active,
+  .palette-chip:active,
+  .preset-card:active,
+  .bg-mode-btn:active,
+  .modal-tab-btn:active,
+  .grid-hud-btn:active,
+  .import-file-label:active,
+  .btn-sm:active,
+  .cp-delete-btn:active {
+    transform: none;
+  }
+
+  .preset-card:hover,
+  .palette-chip:hover {
+    transform: none;
+  }
 }

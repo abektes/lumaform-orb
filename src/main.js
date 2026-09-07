@@ -16,7 +16,11 @@ import { createFilamentEngine } from './engines/filament-engine.js';
 import { createPrismBloomEngine } from './engines/prism-bloom-engine.js';
 import { createCoronaVeilEngine } from './engines/corona-veil-engine.js';
 import { createEchoRingsEngine } from './engines/echo-rings-engine.js';
-import { createMyceliumEngine } from './engines/mycelium-engine.js';
+import { createChromasphereEngine } from './engines/chromasphere-engine.js';
+import { createVocalisEngine } from './engines/vocalis-engine.js';
+import { createAetheriaEngine } from './engines/aetheria-engine.js';
+import { createSuperpositionEngine } from './engines/superposition-engine.js';
+import { createSynthesisEngine } from './engines/synthesis-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
 import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
@@ -70,7 +74,11 @@ studio.registerEngine(ENGINE_TYPES.FILAMENT, createFilamentEngine);
 studio.registerEngine(ENGINE_TYPES.PRISM_BLOOM, createPrismBloomEngine);
 studio.registerEngine(ENGINE_TYPES.CORONA_VEIL, createCoronaVeilEngine);
 studio.registerEngine(ENGINE_TYPES.ECHO_RINGS, createEchoRingsEngine);
-studio.registerEngine(ENGINE_TYPES.MYCELIUM, createMyceliumEngine);
+studio.registerEngine(ENGINE_TYPES.CHROMASPHERE, createChromasphereEngine);
+studio.registerEngine(ENGINE_TYPES.VOCALIS, createVocalisEngine);
+studio.registerEngine(ENGINE_TYPES.AETHERIA, createAetheriaEngine);
+studio.registerEngine(ENGINE_TYPES.SUPERPOSITION, createSuperpositionEngine);
+studio.registerEngine(ENGINE_TYPES.SYNTHESIS, createSynthesisEngine);
 
 // Initialize Studio UI
 const ui = new StudioUI(document.body, studio, state, (updatedState) => {

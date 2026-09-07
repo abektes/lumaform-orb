@@ -1,0 +1,295 @@
+import * as THREE from 'three';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+const FRAME_RADIUS = 2.25;
+const SEGMENTS_PER_RING = 128;
+
+export function createVocalisEngine({ scene, camera, renderer, params }) {
+  const currentParams = {
+    ringCount: 6,
+    baseRadius: 1.45,
+    lineWidth: 2.4,
+    diaphragmDepth: 0.6,
+    apertureSize: 0.35,
+    vocalRipple: 0.14,
+    formantHarmonics: 3,
+    formantGain: 1.2,
+    breatheAmp: 0.04,
+    articulationRate: 1.2,
+    plosiveSurge: 1.4,
+    coreColor: '#ffffff',
+    diaphragmColor: '#00f2fe',
+    formantColor: '#a855f7',
+    glowIntensity: 1.8,
+    glottisDarkness: 0.8,
+    ...params,
+  };
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  let rings = []; // array of { line, geometry, material, posArr, colArr, baseR, zOffset }
+  let glottisMesh = null;
+  let glottisGeometry = null;
+  let glottisMaterial = null;
+  let coreOccluder = null;
+  let occluderGeometry = null;
+  let occluderMaterial = null;
+
+  let plosiveTimer = 0;
+  let articulationPhase = 0;
+
+  const coreRGB = new THREE.Color(currentParams.coreColor);
+  const diaphragmRGB = new THREE.Color(currentParams.diaphragmColor);
+  const formantRGB = new THREE.Color(currentParams.formantColor);
+  const tempColor = new THREE.Color();
+
+  function buildRings() {
+    for (const r of rings) {
+      group.remove(r.line);
+      r.geometry.dispose();
+      r.material.dispose();
+    }
+    rings = [];
+
+    if (glottisMesh) {
+      group.remove(glottisMesh);
+      glottisGeometry.dispose();
+      glottisMaterial.dispose();
+      glottisMesh = null;
+    }
+    if (coreOccluder) {
+      group.remove(coreOccluder);
+      occluderGeometry.dispose();
+      occluderMaterial.dispose();
+      coreOccluder = null;
+    }
+
+    const count = parseInt(currentParams.ringCount, 10) || 6;
+    const baseR = Number(currentParams.baseRadius) || 1.45;
+    const depth = Number(currentParams.diaphragmDepth) || 0.6;
+    const size = renderer?.getSize ? renderer.getSize(new THREE.Vector2()) : new THREE.Vector2(1024, 768);
+
+    for (let i = 0; i < count; i++) {
+      const ringNorm = i / Math.max(1, count - 1); // 0 (inner) to 1 (outer)
+      const ringRadius = baseR * (0.35 + ringNorm * 0.75);
+      // Diaphragm curvature: inner rings recessed slightly in Z like a speaker cone
+      const ringZ = (Math.pow(ringNorm, 1.5) - 0.5) * depth;
+
+      const posArr = new Float32Array((SEGMENTS_PER_RING + 1) * 3);
+      const colArr = new Float32Array((SEGMENTS_PER_RING + 1) * 3);
+
+      const geometry = new LineGeometry();
+      geometry.setPositions(posArr);
+      geometry.setColors(colArr);
+
+      const material = new LineMaterial({
+        color: 0xffffff,
+        vertexColors: true,
+        linewidth: Number(currentParams.lineWidth) || 2.4,
+        resolution: size,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+
+      const line = new Line2(geometry, material);
+      line.computeLineDistances();
+      group.add(line);
+
+      rings.push({
+        line,
+        geometry,
+        material,
+        posArr,
+        colArr,
+        baseR: ringRadius,
+        zOffset: ringZ,
+        index: i,
+        norm: ringNorm,
+      });
+    }
+
+    // Inner glowing glottal nucleus (the vocal core that flashes on syllables)
+    const nucleusR = baseR * 0.28;
+    glottisGeometry = new THREE.SphereGeometry(nucleusR, 32, 24);
+    glottisMaterial = new THREE.MeshBasicMaterial({
+      color: coreRGB,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    glottisMesh = new THREE.Mesh(glottisGeometry, glottisMaterial);
+    group.add(glottisMesh);
+
+    // Occluder sphere behind glottis for depth contrast
+    const occluderR = baseR * 0.55;
+    occluderGeometry = new THREE.SphereGeometry(occluderR, 32, 24);
+    occluderMaterial = new THREE.MeshBasicMaterial({
+      color: 0x020408,
+      transparent: true,
+      opacity: Number(currentParams.glottisDarkness) || 0.8,
+      depthWrite: true,
+    });
+    coreOccluder = new THREE.Mesh(occluderGeometry, occluderMaterial);
+    coreOccluder.position.z = -depth * 0.4;
+    group.add(coreOccluder);
+  }
+
+  buildRings();
+
+  return {
+    frame: { radius: FRAME_RADIUS },
+
+    update({ time, delta }) {
+      const dt = Math.min(delta || 0, 1 / 30);
+      const rate = Number(currentParams.articulationRate) || 1.2;
+      articulationPhase += dt * rate * 3.2;
+
+      if (plosiveTimer > 0) {
+        plosiveTimer = Math.max(0, plosiveTimer - dt * 2.0);
+      }
+
+      // Gentle orientation sway
+      group.rotation.y = Math.sin(time * 0.2) * 0.18;
+      group.rotation.x = Math.cos(time * 0.16) * 0.12;
+
+      const aperture = Number(currentParams.apertureSize) || 0.35;
+      const rippleAmp = Number(currentParams.vocalRipple) || 0.14;
+      const harmonics = parseInt(currentParams.formantHarmonics, 10) || 3;
+      const formantGain = Number(currentParams.formantGain) || 1.2;
+      const breathe = 1.0 + Math.sin(time * 1.5) * (Number(currentParams.breatheAmp) || 0.04);
+      const glow = Number(currentParams.glowIntensity) || 1.8;
+
+      // Update concentric vocal diaphragm rings
+      for (let r = 0; r < rings.length; r++) {
+        const ring = rings[r];
+        const geom = ring.geometry;
+        const posArr = ring.posArr;
+        const colArr = ring.colArr;
+        const ringNorm = ring.norm;
+
+        // Aperture dilation: inner rings dilate most with speech volume
+        const dilation = aperture * (1.0 - ringNorm * 0.6) * 0.6;
+        const plosiveDilation = plosiveTimer * (1.0 - ringNorm * 0.4) * 0.4;
+        const currentR = (ring.baseR + dilation + plosiveDilation) * breathe;
+
+        for (let p = 0; p <= SEGMENTS_PER_RING; p++) {
+          const theta = (p / SEGMENTS_PER_RING) * Math.PI * 2.0;
+
+          // Travelling phonetic ripples around the perimeter
+          const primaryWave = Math.sin(theta * harmonics - articulationPhase + ringNorm * 2.0);
+          const secondaryHarmonic = Math.sin(theta * (harmonics * 2 + 1) + articulationPhase * 1.5);
+          const combinedRipple = (primaryWave * 0.75 + secondaryHarmonic * 0.25) * rippleAmp * (0.8 + ringNorm * 0.5);
+
+          const rEff = currentR + combinedRipple;
+          const x = Math.cos(theta) * rEff;
+          const y = Math.sin(theta) * rEff;
+          const z = ring.zOffset + Math.sin(theta * 2.0 + articulationPhase) * rippleAmp * 0.3;
+
+          posArr[p * 3] = x;
+          posArr[p * 3 + 1] = y;
+          posArr[p * 3 + 2] = z;
+
+          // Color articulation: inner rings mix toward coreRGB, outer toward formantRGB
+          const formantMix = Math.pow(ringNorm, 0.8);
+          tempColor.copy(diaphragmRGB).lerp(formantRGB, formantMix);
+
+          // Ripple crest illumination
+          const waveGaze = Math.max(0, primaryWave);
+          tempColor.lerp(coreRGB, waveGaze * 0.45 + plosiveTimer * 0.5);
+          tempColor.multiplyScalar(glow * (0.7 + waveGaze * 0.8 * formantGain + plosiveTimer * 0.8));
+
+          colArr[p * 3] = tempColor.r;
+          colArr[p * 3 + 1] = tempColor.g;
+          colArr[p * 3 + 2] = tempColor.b;
+        }
+
+        geom.setPositions(posArr);
+        geom.setColors(colArr);
+      }
+
+      // Glottal nucleus flare on articulation & plosive surge
+      if (glottisMesh && glottisMaterial) {
+        const nucleusPulse = (1.0 + aperture * 0.5 + plosiveTimer * 0.8) * breathe;
+        glottisMesh.scale.set(nucleusPulse, nucleusPulse, nucleusPulse);
+
+        tempColor.copy(coreRGB).lerp(diaphragmRGB, 0.25);
+        tempColor.multiplyScalar(glow * (1.0 + plosiveTimer * 1.5 + aperture * 0.6));
+        glottisMaterial.color.copy(tempColor);
+      }
+    },
+
+    setParams(patch) {
+      let needsRebuild = false;
+      if (patch.ringCount !== undefined && patch.ringCount !== currentParams.ringCount) {
+        currentParams.ringCount = patch.ringCount;
+        needsRebuild = true;
+      }
+      if (patch.baseRadius !== undefined && patch.baseRadius !== currentParams.baseRadius) {
+        currentParams.baseRadius = patch.baseRadius;
+        needsRebuild = true;
+      }
+      if (patch.diaphragmDepth !== undefined && patch.diaphragmDepth !== currentParams.diaphragmDepth) {
+        currentParams.diaphragmDepth = patch.diaphragmDepth;
+        needsRebuild = true;
+      }
+      if (patch.lineWidth !== undefined && patch.lineWidth !== currentParams.lineWidth) {
+        currentParams.lineWidth = patch.lineWidth;
+        for (const ring of rings) {
+          if (ring.material) ring.material.linewidth = patch.lineWidth;
+        }
+      }
+
+      Object.assign(currentParams, patch);
+
+      if (patch.coreColor !== undefined) coreRGB.set(patch.coreColor);
+      if (patch.diaphragmColor !== undefined) diaphragmRGB.set(patch.diaphragmColor);
+      if (patch.formantColor !== undefined) formantRGB.set(patch.formantColor);
+
+      if (patch.glottisDarkness !== undefined && occluderMaterial) {
+        occluderMaterial.opacity = patch.glottisDarkness;
+      }
+
+      if (needsRebuild) {
+        buildRings();
+      }
+    },
+
+    onPulse() {
+      plosiveTimer = Number(currentParams.plosiveSurge) || 1.4;
+    },
+
+    onResize(width, height) {
+      for (const ring of rings) {
+        if (ring.material) {
+          ring.material.resolution.set(width, height);
+        }
+      }
+    },
+
+    dispose() {
+      scene.remove(group);
+      for (const ring of rings) {
+        group.remove(ring.line);
+        ring.geometry?.dispose();
+        ring.material?.dispose();
+      }
+      rings = [];
+      if (glottisMesh) {
+        group.remove(glottisMesh);
+        glottisGeometry?.dispose();
+        glottisMaterial?.dispose();
+      }
+      if (coreOccluder) {
+        group.remove(coreOccluder);
+        occluderGeometry?.dispose();
+        occluderMaterial?.dispose();
+      }
+    },
+  };
+}

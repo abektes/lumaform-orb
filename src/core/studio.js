@@ -284,6 +284,9 @@ export class OrbStudio {
       } else if (typeof this.activeEngine.setParams === 'function') {
         this.activeEngine.setParams(p);
       }
+      // After the engine has seen the params, so a size change it reports is read
+      // from the updated frame hint rather than the stale one.
+      this.reframeForRadiusChange();
     }
   }
 
@@ -493,10 +496,32 @@ export class OrbStudio {
   // left Hopf cropped at 1.34 of the visible half-height and Singularity at 0.46.
   frameActiveEngine() {
     const radius = engineFrameRadius(this.activeEngine);
+    this.framedRadius = radius;
     this.camera.position.set(0, 0, cameraDistanceForRadius(radius, this.camera.fov));
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(0, 0, 0);
     this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  // Engines whose size parameters change how much space they occupy report a new
+  // frame.radius from setParams. Nothing consumed it: frameActiveEngine only ran on
+  // engine switch and resize, so dragging a size slider grew the orb past the frame
+  // edge and left it there. Re-framing wholesale is not the fix — it snaps the camera
+  // back to the front and resets the orbit target, discarding whatever view the user
+  // had set up. Only the distance is rescaled, along the direction they are already
+  // looking from.
+  reframeForRadiusChange() {
+    if (!this.activeEngine) return;
+    const radius = engineFrameRadius(this.activeEngine);
+    if (Math.abs(radius - (this.framedRadius ?? radius)) < 1e-3) return;
+    this.framedRadius = radius;
+
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const current = offset.length();
+    if (current < 1e-6) return;
+    offset.multiplyScalar(cameraDistanceForRadius(radius, this.camera.fov) / current);
+    this.camera.position.copy(this.controls.target.clone().add(offset));
     this.controls.update();
   }
 

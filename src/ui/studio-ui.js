@@ -15,6 +15,7 @@ import { makeStep, totalDuration } from '../core/sequence.js';
 import { formatParamValue, parseParamValue, isAtDefault } from '../core/param-format.js';
 import { EASING_NAMES } from '../core/easing.js';
 import { SHORTCUT_GROUPS, formatKey, shortcutsInGroup } from '../core/shortcuts.js';
+import { PALETTES, PALETTE_KEYS, applyPalette } from '../core/palette.js';
 import { highlightJs, ensureHighlighter } from './highlight.js';
 import {
   LFO_SHAPES,
@@ -805,30 +806,14 @@ export class StudioUI {
             <span class="section-title">COLOR HARMONIES</span>
           </div>
           <div class="palette-chips-grid">
-            <button class="palette-chip" data-palette="cosmic" title="Cosmic Aurora">
-              <span class="palette-dot-bar" style="background: linear-gradient(90deg, #057eff, #a855f7, #00f2fe);"></span>
-              <span>Cosmic</span>
-            </button>
-            <button class="palette-chip" data-palette="solar" title="Solar Flare">
-              <span class="palette-dot-bar" style="background: linear-gradient(90deg, #ff5500, #ff0055, #ffc400);"></span>
-              <span>Solar</span>
-            </button>
-            <button class="palette-chip" data-palette="cyber" title="Cyber Emerald">
-              <span class="palette-dot-bar" style="background: linear-gradient(90deg, #059669, #06b6d4, #10b981);"></span>
-              <span>Cyber</span>
-            </button>
-            <button class="palette-chip" data-palette="rose" title="Rose Gold">
-              <span class="palette-dot-bar" style="background: linear-gradient(90deg, #f43f5e, #fb923c, #fda4af);"></span>
-              <span>Rose</span>
-            </button>
-            <button class="palette-chip" data-palette="cryo" title="Sub-Zero Cryo">
-              <span class="palette-dot-bar" style="background: linear-gradient(90deg, #00f0ff, #38bdf8, #e0f2fe);"></span>
-              <span>Cryo</span>
-            </button>
-            <button class="palette-chip" data-palette="molten" title="Obsidian Molten">
-              <span class="palette-dot-bar" style="background: linear-gradient(90deg, #f59e0b, #ef4444, #38bdf8);"></span>
-              <span>Molten</span>
-            </button>
+            ${PALETTE_KEYS.map((key) => {
+              const p = PALETTES[key];
+              return `
+            <button class="palette-chip" data-palette="${key}" title="${p.title}">
+              <span class="palette-dot-bar" style="background: linear-gradient(90deg, ${p.colors.join(', ')});"></span>
+              <span>${p.label}</span>
+            </button>`;
+            }).join('')}
           </div>
         </div>
       `
@@ -1948,30 +1933,18 @@ export class StudioUI {
       });
     });
 
-    // Color Harmonies Quick Chips
-    const PALETTES = {
-      cosmic: { color1: '#057eff', color2: '#a855f7', color3: '#00f2fe', colorShell: '#00f2fe', wireColor: '#00f2fe', cellColor: '#a855f7' },
-      solar: { color1: '#ff5500', color2: '#ff0055', color3: '#ffc400', colorShell: '#ffc400', wireColor: '#ffed00', cellColor: '#ff5500' },
-      cyber: { color1: '#059669', color2: '#06b6d4', color3: '#10b981', colorShell: '#10b981', wireColor: '#10b981', cellColor: '#06b6d4' },
-      rose: { color1: '#f43f5e', color2: '#fb923c', color3: '#fda4af', colorShell: '#fda4af', wireColor: '#fda4af', cellColor: '#f43f5e' },
-      cryo: { color1: '#00f0ff', color2: '#38bdf8', color3: '#e0f2fe', colorShell: '#e0f2fe', wireColor: '#00f0ff', cellColor: '#38bdf8' },
-      molten: { color1: '#ffed00', color2: '#ef4444', color3: '#38bdf8', colorShell: '#ffed00', wireColor: '#ffed00', cellColor: '#ef4444' },
-    };
-
+    // Color Harmonies Quick Chips. The palette is resolved against the active engine's
+    // own colour schema — see src/core/palette.js for why a name-keyed map was wrong.
     this.root.querySelectorAll('.palette-chip').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const pKey = btn.getAttribute('data-palette');
-        const pal = PALETTES[pKey];
-        if (pal) {
-          const engineParams = this.state.engines[this.state.engine];
-          for (const [k, v] of Object.entries(pal)) {
-            if (engineParams[k] !== undefined) {
-              engineParams[k] = v;
-            }
-          }
-          this.onStateChange(this.state);
-          this.render();
-        }
+        const defs = ENGINE_PARAM_DEFINITIONS[this.state.engine] || {};
+        const engineParams = this.state.engines[this.state.engine];
+        const patch = applyPalette(defs, engineParams, btn.getAttribute('data-palette'));
+        if (!Object.keys(patch).length) return;
+        // Assign into the existing bag; it is held by reference elsewhere.
+        Object.assign(engineParams, patch);
+        this.onStateChange(this.state);
+        this.render();
       });
     });
 
