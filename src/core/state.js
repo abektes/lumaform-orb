@@ -11,6 +11,7 @@ export const ENGINE_TYPES = {
   NEBULA: 'nebula',
   QUANTUM: 'quantum',
   SINGULARITY: 'singularity',
+  FLUX: 'flux',
 };
 
 export const ENGINE_INFO = {
@@ -61,6 +62,12 @@ export const ENGINE_INFO = {
     name: 'Chrono Singularity',
     badge: 'Relativistic Black Hole',
     description: 'Event horizon with gravitational light bending, Doppler-beamed accretion disk, and relativistic photon sphere.',
+  },
+  [ENGINE_TYPES.FLUX]: {
+    id: ENGINE_TYPES.FLUX,
+    name: 'Flux Ribbon',
+    badge: 'Travelling Wave',
+    description: 'A bundle of glowing strands streaming in a travelling wave, fanning apart and converging into bright knots. Renders as a wide ribbon or wrapped onto an orb.',
   },
 };
 
@@ -261,6 +268,42 @@ export const ENGINE_PARAM_DEFINITIONS = {
     twistSpeed: { type: 'number', label: 'Chiral Winding Speed', min: 0.0, max: 2.0, step: 0.05, default: 0.15, section: 'motion' },
     tiltStrength: { type: 'number', label: 'Mouse Parallax Depth', min: 0.0, max: 1.0, step: 0.05, default: 0.35, section: 'motion' },
   },
+
+  // Section assignment is load-bearing here. `geometry` is what excludes a
+  // parameter from modulation (isModulatable in modulation.js), so anything that
+  // rebuilds the strand lattice must live there — while amplitude and its
+  // neighbours are plain shader uniforms and therefore safe to drive at frame
+  // rate. That is what makes `amplitude` an audio destination for free.
+  [ENGINE_TYPES.FLUX]: {
+    layout: {
+      type: 'select',
+      label: 'Layout',
+      options: ['ribbon', 'orb'],
+      default: 'ribbon',
+      section: 'geometry',
+    },
+    strands: { type: 'number', label: 'Strand Count', min: 6, max: 64, step: 1, default: 28, section: 'geometry' },
+    segments: { type: 'number', label: 'Strand Resolution', min: 40, max: 300, step: 10, default: 160, section: 'geometry' },
+    bandSpread: { type: 'number', label: 'Band Spread', min: 0.0, max: 3.0, step: 0.05, default: 1.1, section: 'geometry' },
+    ribbonWidth: { type: 'number', label: 'Ribbon Width', min: 4.0, max: 24.0, step: 0.5, default: 14.0, section: 'geometry' },
+    twist: { type: 'number', label: 'Orb Twist', min: -2.0, max: 2.0, step: 0.05, default: 0.6, section: 'geometry' },
+    sparkleDensity: { type: 'number', label: 'Sparkle Density', min: 0.0, max: 0.2, step: 0.005, default: 0.03, section: 'geometry' },
+
+    // Uniforms — modulatable. `flowSpeed` is auto-excluded by RATE_PATTERN.
+    amplitude: { type: 'number', label: 'Wave Amplitude', min: 0.0, max: 2.5, step: 0.05, default: 0.85, section: 'motion' },
+    wavelength: { type: 'number', label: 'Wavelength', min: 0.1, max: 1.5, step: 0.02, default: 0.42, section: 'motion' },
+    phaseSpread: { type: 'number', label: 'Strand Phase Spread', min: 0.0, max: 8.0, step: 0.1, default: 2.4, section: 'motion' },
+    depth: { type: 'number', label: 'Depth Separation', min: 0.0, max: 5.0, step: 0.1, default: 2.2, section: 'motion' },
+    turbulence: { type: 'number', label: 'Turbulence', min: 0.0, max: 1.5, step: 0.05, default: 0.35, section: 'motion' },
+    flowSpeed: { type: 'number', label: 'Flow Speed', min: -3.0, max: 3.0, step: 0.05, default: 0.9, section: 'motion' },
+
+    colorA: { type: 'color', label: 'Leading Colour', default: '#ff4fd8', section: 'colors' },
+    colorB: { type: 'color', label: 'Mid Colour', default: '#a86bff', section: 'colors' },
+    colorC: { type: 'color', label: 'Trailing Colour', default: '#4fd0ff', section: 'colors' },
+    glow: { type: 'number', label: 'Strand Glow', min: 0.2, max: 3.0, step: 0.05, default: 2.1, section: 'colors' },
+    sparkleSize: { type: 'number', label: 'Sparkle Size', min: 0.5, max: 8.0, step: 0.1, default: 2.2, section: 'colors' },
+    sparkleBrightness: { type: 'number', label: 'Sparkle Brightness', min: 0.0, max: 5.0, step: 0.1, default: 2.4, section: 'colors' },
+  },
 };
 
 export function getDefaultEngineParams(engineType) {
@@ -306,6 +349,7 @@ export function createInitialState() {
       [ENGINE_TYPES.NEBULA]: getDefaultEngineParams(ENGINE_TYPES.NEBULA),
       [ENGINE_TYPES.QUANTUM]: getDefaultEngineParams(ENGINE_TYPES.QUANTUM),
       [ENGINE_TYPES.SINGULARITY]: getDefaultEngineParams(ENGINE_TYPES.SINGULARITY),
+      [ENGINE_TYPES.FLUX]: getDefaultEngineParams(ENGINE_TYPES.FLUX),
     },
   };
 }

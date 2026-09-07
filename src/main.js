@@ -8,6 +8,7 @@ import { createPolytopeEngine } from './engines/polytope-engine.js';
 import { createNebulaEngine } from './engines/nebula-engine.js';
 import { createQuantumEngine } from './engines/quantum-engine.js';
 import { createSingularityEngine } from './engines/singularity-engine.js';
+import { createFluxEngine } from './engines/flux-engine.js';
 import { StudioUI } from './ui/studio-ui.js';
 import { createGridHud } from './ui/grid-hud.js';
 import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
@@ -53,6 +54,7 @@ studio.registerEngine(ENGINE_TYPES.POLYTOPE, createPolytopeEngine);
 studio.registerEngine(ENGINE_TYPES.NEBULA, createNebulaEngine);
 studio.registerEngine(ENGINE_TYPES.QUANTUM, createQuantumEngine);
 studio.registerEngine(ENGINE_TYPES.SINGULARITY, createSingularityEngine);
+studio.registerEngine(ENGINE_TYPES.FLUX, createFluxEngine);
 
 // Initialize Studio UI
 const ui = new StudioUI(document.body, studio, state, (updatedState) => {
