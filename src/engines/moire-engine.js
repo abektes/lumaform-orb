@@ -27,6 +27,7 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
     twistAngle: 0.72,  // shear that turns meridians into helices
     lineWidth: 1.6,
     lineColor: '#7fe9ff',
+    innerLineColor: null, // optional; inner shell otherwise uses lineColor at 0.65
     lineGlow: 1.0,
 
     motionMode: 'counter_spin', // 'counter_spin' | 'orbit_3d' | 'wave_pulse' | 'interactive_tilt'
@@ -85,6 +86,18 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
     return material;
   }
 
+  function applyShellColors() {
+    const glow = currentParams.lineGlow;
+    if (outerMaterial) {
+      outerMaterial.color.copy(new THREE.Color(currentParams.lineColor)).multiplyScalar(glow);
+    }
+    if (innerMaterial) {
+      const innerHex = currentParams.innerLineColor || currentParams.lineColor;
+      const dim = currentParams.innerLineColor ? 1.0 : 0.65;
+      innerMaterial.color.copy(new THREE.Color(innerHex)).multiplyScalar(glow * dim);
+    }
+  }
+
   function disposeMeshes() {
     if (outerMesh) outerGroup.remove(outerMesh);
     if (innerMesh) innerGroup.remove(innerMesh);
@@ -128,7 +141,11 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
 
     innerGeometry = new LineSegmentsGeometry();
     innerGeometry.setPositions(innerPos);
-    innerMaterial = makeMaterial(currentParams.lineColor, currentParams.lineGlow, 0.65);
+    innerMaterial = makeMaterial(
+      currentParams.innerLineColor || currentParams.lineColor,
+      currentParams.lineGlow,
+      currentParams.innerLineColor ? 1.0 : 0.65,
+    );
     innerMesh = new LineSegments2(innerGeometry, innerMaterial);
     innerMesh.computeLineDistances();
     innerMesh.renderOrder = 2;
@@ -227,10 +244,12 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
         if (outerMaterial) outerMaterial.linewidth = newParams.lineWidth;
         if (innerMaterial) innerMaterial.linewidth = newParams.lineWidth;
       }
-      if (newParams.lineColor !== undefined || newParams.lineGlow !== undefined) {
-        const base = new THREE.Color(currentParams.lineColor);
-        if (outerMaterial) outerMaterial.color.copy(base).multiplyScalar(currentParams.lineGlow);
-        if (innerMaterial) innerMaterial.color.copy(base).multiplyScalar(currentParams.lineGlow * 0.65);
+      if (
+        newParams.lineColor !== undefined
+        || newParams.innerLineColor !== undefined
+        || newParams.lineGlow !== undefined
+      ) {
+        applyShellColors();
       }
     },
 
