@@ -93,7 +93,6 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
         resolution: size,
         transparent: true,
         opacity: 0.95,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
 
@@ -121,8 +120,7 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
     glottisMaterial = new THREE.MeshBasicMaterial({
       color: coreRGB,
       transparent: true,
-      opacity: 0.95,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.85,
       depthWrite: false,
     });
     glottisMesh = new THREE.Mesh(glottisGeometry, glottisMaterial);
@@ -180,34 +178,26 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
         const dilation = aperture * (1.0 - ringNorm * 0.6) * 0.6;
         const plosiveDilation = plosiveTimer * (1.0 - ringNorm * 0.4) * 0.4;
         const currentR = (ring.baseR + dilation + plosiveDilation) * breathe;
+        ring.material.opacity = Math.min(0.95, 0.4 + glow * 0.22);
 
         for (let p = 0; p <= SEGMENTS_PER_RING; p++) {
           const theta = (p / SEGMENTS_PER_RING) * Math.PI * 2.0;
 
-          // Travelling phonetic ripples around the perimeter
           const primaryWave = Math.sin(theta * harmonics - articulationPhase + ringNorm * 2.0);
-          const secondaryHarmonic = Math.sin(theta * (harmonics * 2 + 1) + articulationPhase * 1.5);
-          const combinedRipple = (primaryWave * 0.75 + secondaryHarmonic * 0.25) * rippleAmp * (0.8 + ringNorm * 0.5);
+          const combinedRipple = primaryWave * rippleAmp * ring.baseR;
 
           const rEff = currentR + combinedRipple;
           const radiusScale = ring.rest.radius > 1e-8 ? rEff / ring.rest.radius : 1;
           const point = sampleRingPoint(layout, theta, ring.rest, radiusScale);
-          const zRipple = layout === 'globe'
-            ? 0
-            : Math.sin(theta * 2.0 + articulationPhase) * rippleAmp * 0.3;
 
           posArr[p * 3] = point[0];
           posArr[p * 3 + 1] = point[1];
-          posArr[p * 3 + 2] = point[2] + zRipple;
+          posArr[p * 3 + 2] = point[2];
 
-          // Color articulation: inner rings mix toward coreRGB, outer toward formantRGB
           const formantMix = Math.pow(ringNorm, 0.8);
           tempColor.copy(diaphragmRGB).lerp(formantRGB, formantMix);
-
-          // Ripple crest illumination
           const waveGaze = Math.max(0, primaryWave);
-          tempColor.lerp(coreRGB, waveGaze * 0.45 + plosiveTimer * 0.5);
-          tempColor.multiplyScalar(glow * (0.7 + waveGaze * 0.8 * formantGain + plosiveTimer * 0.8));
+          tempColor.multiplyScalar(0.7 + waveGaze * 0.12 * formantGain + plosiveTimer * 0.1);
 
           colArr[p * 3] = tempColor.r;
           colArr[p * 3 + 1] = tempColor.g;
@@ -223,8 +213,8 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
         const nucleusPulse = (1.0 + aperture * 0.5 + plosiveTimer * 0.8) * breathe;
         glottisMesh.scale.set(nucleusPulse, nucleusPulse, nucleusPulse);
 
-        tempColor.copy(coreRGB).lerp(diaphragmRGB, 0.25);
-        tempColor.multiplyScalar(glow * (1.0 + plosiveTimer * 1.5 + aperture * 0.6));
+        tempColor.copy(coreRGB).lerp(diaphragmRGB, 0.4);
+        tempColor.multiplyScalar(0.45 + plosiveTimer * 0.35 + aperture * 0.15);
         glottisMaterial.color.copy(tempColor);
       }
     },
