@@ -1,9 +1,6 @@
 import {
   ENGINE_INFO,
   ENGINE_PARAM_DEFINITIONS,
-  loadSavedPresets,
-  saveCustomPreset,
-  deleteCustomPreset,
 } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
 import { SHORTCUT_GROUPS, formatKey, shortcutsInGroup } from '../core/shortcuts.js';
@@ -105,65 +102,6 @@ export function renderPerfTab() {
 }
 
 export function attachControlListeners() {
-  // Presets click
-  this.root.querySelectorAll('.preset-card').forEach((card) => {
-    card.addEventListener('click', () => {
-      const name = card.getAttribute('data-preset-name');
-      const preset = PRESET_LIBRARY.find((p) => p.name === name);
-      if (preset) {
-        this.store.setActivePresetName(preset.name);
-        this.store.patchGlobal(preset.global);
-        this.store.patchActiveEngine(preset.params);
-        this.onStateChange(this.state);
-        this.render();
-      }
-    });
-  });
-
-  // Save custom preset
-  this.root.querySelector('#btn-save-custom-preset')?.addEventListener('click', () => {
-    const input = this.root.querySelector('#custom-preset-input');
-    const name = input?.value.trim() || `Custom ${Date.now()}`;
-    saveCustomPreset({
-      name,
-      engine: this.state.engine,
-      global: { ...this.state.global },
-      params: { ...this.state.engines[this.state.engine] },
-      modulation: structuredClone(this.state.modulation),
-    });
-    this.store.setActivePresetName(name);
-    this.render();
-  });
-
-  // Load custom preset
-  this.root.querySelectorAll('[data-load-custom]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const name = btn.getAttribute('data-load-custom');
-      const list = loadSavedPresets();
-      const found = list.find((p) => p.name === name);
-      if (found) {
-        this.store.setActivePresetName(found.name);
-        this.store.patchGlobal(found.global);
-        this.store.patchActiveEngine(found.params);
-        // Optional: presets saved before the Motion Lab existed have no
-        // modulation block, and should keep whatever rack is currently set.
-        if (found.modulation) this.store.setModulation(structuredClone(found.modulation));
-        this.onStateChange(this.state);
-        this.render();
-      }
-    });
-  });
-
-  // Delete custom preset
-  this.root.querySelectorAll('[data-delete-custom]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const name = btn.getAttribute('data-delete-custom');
-      deleteCustomPreset(name);
-      this.render();
-    });
-  });
-
   // Rows own their synchronization so an engine key can safely match a
   // global (or a future Motion Lab) key without cross-updating its controls.
   this.root.querySelectorAll('.param-row').forEach((row) => {

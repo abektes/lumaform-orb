@@ -1,12 +1,12 @@
-/* Laptop widths. The inspector is a fixed 360px and the grid HUD is a single
+/* Laptop widths. The inspector is a fixed 400px and the grid HUD is a single
    wide flex row, so they start competing well before the 900px phone
    breakpoint — at 1280px the HUD is wider than the canvas left beside the
-   panel. Narrow the panel and let the HUD wrap rather than overflow. These
-   queries stay after the overlay rules so their equal-specificity overrides
-   win in the cascade. */
+   panel. Keep the panel wide enough for Tune’s six destinations on one row,
+   then let the HUD wrap rather than overflow. These queries stay after the
+   overlay rules so their equal-specificity overrides win in the cascade. */
 @media (max-width: 1280px) {
   .studio-inspector {
-    width: 300px;
+    --inspector-width: 380px;
   }
 
   .grid-hud {
@@ -498,6 +498,9 @@
 .dock-speed-pill:active,
 .dock-icon-btn:active,
 .tab-btn:active,
+.mode-btn:active,
+.tab-lab:active,
+.lab-entry:active,
 .palette-chip:active,
 .preset-card:active,
 .bg-mode-btn:active,
@@ -547,6 +550,9 @@
   .dock-speed-pill:active,
   .dock-icon-btn:active,
   .tab-btn:active,
+  .mode-btn:active,
+  .tab-lab:active,
+  .lab-entry:active,
   .palette-chip:active,
   .preset-card:active,
   .bg-mode-btn:active,

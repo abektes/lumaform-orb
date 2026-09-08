@@ -5,6 +5,14 @@ import {
 } from '../core/state.js';
 import { createFindingsStore } from '../core/findings.js';
 import { ICONS } from './icons.js';
+import { GLOBAL_NUMBER_DEFINITIONS } from './studio-format.js';
+import {
+  defaultLastByMode,
+  leafForModeSwitch,
+  modeForLeaf,
+  rememberSection,
+  resolveLeaf,
+} from './inspector-nav.js';
 import { shellMarkup } from './studio-shell.js';
 import {
   modDot,
@@ -20,6 +28,7 @@ import {
 } from './studio-params.js';
 import {
   renderPresetsTab,
+  attachPresetListeners,
   importConfigText,
   requestSnapshot,
   saveFinding,
@@ -59,9 +68,9 @@ export class StudioUI {
     this.onStateChange = onStateChange;
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const reqTab = urlParams?.get('tab');
-    const validTabs = ['presets', 'findings', 'rehearsal', 'colors', 'geometry', 'motion', 'motionlab', 'optics', 'space', 'export', 'perf'];
-    this.activeTab = validTabs.includes(reqTab) ? reqTab : 'presets';
+    this.activeTab = resolveLeaf(urlParams?.get('tab'));
+    this.activeMode = modeForLeaf(this.activeTab);
+    this.lastSectionByMode = rememberSection(defaultLastByMode(), this.activeMode, this.activeTab);
     this.initialOpenDropdown = urlParams?.get('openDropdown') === 'true';
     this.isZenMode = false;
     this.isSidebarOpen = true;
@@ -111,6 +120,11 @@ export class StudioUI {
     this.root.innerHTML = this.shellMarkup();
     this.container.appendChild(this.root);
     this.inspectorContent = this.root.querySelector('.inspector-content');
+    this.inspectorContent.addEventListener('click', (e) => {
+      const trigger = e.target.closest('[data-inspector-leaf]');
+      if (!trigger || !this.inspectorContent.contains(trigger)) return;
+      this.setInspectorDestination(trigger.getAttribute('data-inspector-leaf'));
+    });
 
     // Session chrome lives on the root as siblings of the shell. Overlay
     // tokens sit below panel tokens, so these stay under the inspector
@@ -220,6 +234,7 @@ export class StudioUI {
   render() {
     this.syncShell();
     this.inspectorContent.innerHTML = this.renderTabContent();
+    this.attachPresetListeners();
     this.attachControlListeners();
     this.attachMotionLabListeners();
     this.attachFindingsListeners();
@@ -242,8 +257,22 @@ export class StudioUI {
 
     this.root.querySelector('#btn-grid')?.classList.toggle('active', !!this.studio.isGridMode);
 
-    this.root.querySelectorAll('.tab-btn').forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-tab') === this.activeTab);
+    this.root.querySelectorAll('.mode-btn').forEach((btn) => {
+      const selected = btn.getAttribute('data-mode') === this.activeMode;
+      btn.classList.toggle('active', selected);
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+
+    const sections = this.root.querySelector('.inspector-sections');
+    const modeLabel = this.root.querySelector(`.mode-btn[data-mode="${this.activeMode}"]`)?.textContent;
+    if (sections && modeLabel) sections.setAttribute('aria-label', modeLabel);
+
+    this.root.querySelectorAll('.inspector-nav [data-tab]').forEach((btn) => {
+      const selected = btn.getAttribute('data-tab') === this.activeTab;
+      const inMode = btn.getAttribute('data-mode') === this.activeMode;
+      btn.classList.toggle('active', selected);
+      btn.toggleAttribute('hidden', !inMode);
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
 
     this.root.querySelector('.studio-inspector')?.classList.toggle('collapsed', !this.isSidebarOpen);
@@ -301,8 +330,7 @@ export class StudioUI {
     this.root.querySelector('#btn-reset-cam')?.addEventListener('click', () => this.studio.resetCamera());
     this.root.querySelector('#btn-snapshot')?.addEventListener('click', () => this.studio.captureSnapshot());
     this.root.querySelector('#btn-export')?.addEventListener('click', () => {
-      this.activeTab = 'export';
-      this.render();
+      this.setInspectorDestination('export', { reveal: true });
     });
     this.root.querySelector('#btn-grid')?.addEventListener('click', () => this.onToggleGrid?.());
     this.root.querySelector('#btn-shortcuts')?.addEventListener('click', () => this.onToggleShortcuts?.());
@@ -396,12 +424,47 @@ export class StudioUI {
   }
 
   attachTabListeners() {
-    this.root.querySelectorAll('.tab-btn').forEach((btn) => {
+    this.root.querySelectorAll('.mode-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.activeTab = btn.getAttribute('data-tab');
-        this.render();
+        this.setInspectorMode(btn.getAttribute('data-mode'));
       });
     });
+    this.root.querySelectorAll('.inspector-nav [data-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.setInspectorDestination(btn.getAttribute('data-tab'));
+      });
+    });
+  }
+
+  setInspectorMode(mode) {
+    if (mode === this.activeMode) return;
+    const next = leafForModeSwitch(this.lastSectionByMode, mode);
+    this.activeMode = mode;
+    this.activeTab = next;
+    this.syncInspectorUrl(next);
+    this.render();
+  }
+
+  setInspectorDestination(leaf, { reveal = false } = {}) {
+    const next = resolveLeaf(leaf);
+    const nextMode = modeForLeaf(next);
+    if (reveal) this.isSidebarOpen = true;
+    if (next === this.activeTab && nextMode === this.activeMode) {
+      if (reveal) this.syncShell();
+      return;
+    }
+    this.activeTab = next;
+    this.activeMode = nextMode;
+    this.lastSectionByMode = rememberSection(this.lastSectionByMode, this.activeMode, next);
+    this.syncInspectorUrl(next);
+    this.render();
+  }
+
+  syncInspectorUrl(leaf) {
+    if (typeof window === 'undefined' || !window.history?.replaceState) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', leaf);
+    window.history.replaceState({}, '', url);
   }
 
   renderTabContent() {
@@ -448,6 +511,7 @@ export class StudioUI {
 Object.assign(StudioUI.prototype, {
   shellMarkup,
   renderPresetsTab,
+  attachPresetListeners,
   modDot,
   renderNumberRow,
   numberDefinition,

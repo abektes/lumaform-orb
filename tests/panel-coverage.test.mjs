@@ -22,6 +22,7 @@ import {
 import { PALETTES, PALETTE_KEYS, applyPalette, paletteTargets, isPaletteTarget } from '../src/core/palette.js';
 import { listModulationTargets } from '../src/core/modulation.js';
 import { listSweepableParams } from '../src/core/sweep.js';
+import { inspectorLeaves } from '../src/ui/inspector-nav.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -36,18 +37,13 @@ const hex = /^#[0-9a-f]{6}$/i;
 
 // --- the tabs the panel offers -------------------------------------------------
 
-// Kept in step with the validTabs list in studio-ui.js; if that list changes and this
-// one does not, the mismatch check below fails rather than this file quietly rotting.
+// Kept in step with inspectorLeaves(); if the catalog drops a parameter section
+// this test fails rather than quietly covering tabs the UI no longer has.
 const PARAM_TABS = ['colors', 'geometry', 'motion'];
-
-const declared = ui.match(/const validTabs = \[([^\]]+)\]/);
-ok('validTabs is still declared in studio-ui.js', !!declared);
-if (declared) {
-  const list = declared[1].split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
-  ok('every parameter tab this test covers still exists in the UI',
-    PARAM_TABS.every((t) => list.includes(t)),
-    `ui has: ${list.join(', ')}`);
-}
+const list = inspectorLeaves();
+ok('every parameter tab this test covers still exists in the UI',
+  PARAM_TABS.every((t) => list.includes(t)),
+  `ui has: ${list.join(', ')}`);
 
 // --- Colors / Geometry / Motion tabs -------------------------------------------
 

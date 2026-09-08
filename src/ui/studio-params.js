@@ -137,6 +137,7 @@ export function renderParamsSection(sectionName) {
     <div class="panel-section">
       <div class="section-header">
         <span class="section-title">${sectionName.toUpperCase()} CONTROLS</span>
+        ${sectionName === 'motion' ? '<button type="button" class="lab-entry" data-inspector-leaf="motionlab">Motion Lab</button>' : ''}
       </div>
 
       <div class="controls-list">

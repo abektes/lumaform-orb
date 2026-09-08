@@ -82,7 +82,7 @@ export function renderMotionLabTab() {
     <div class="panel-section">
       <div class="section-header">
         <span class="section-title">MODULATION</span>
-        <span class="section-meta">${(mod.routes || []).length} route(s)</span>
+        <button type="button" class="lab-entry" data-inspector-leaf="motion">Motion</button>
       </div>
       <div class="controls-list">
         <div class="control-row">

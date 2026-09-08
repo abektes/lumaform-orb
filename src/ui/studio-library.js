@@ -1,4 +1,4 @@
-import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS, loadSavedPresets } from '../core/state.js';
+import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS, loadSavedPresets, saveCustomPreset, deleteCustomPreset } from '../core/state.js';
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
 import { parseConfigFile, applyConfig } from '../core/config-io.js';
 import { makeFinding } from '../core/findings.js';
@@ -73,6 +73,60 @@ export function renderPresetsTab() {
       }
     </div>
   `;
+}
+
+export function attachPresetListeners() {
+  this.root.querySelectorAll('.preset-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const name = card.getAttribute('data-preset-name');
+      const preset = PRESET_LIBRARY.find((p) => p.name === name);
+      if (!preset) return;
+      this.store.setActivePresetName(preset.name);
+      this.store.patchGlobal(preset.global);
+      this.store.patchActiveEngine(preset.params);
+      this.onStateChange(this.state);
+      this.render();
+    });
+  });
+
+  this.root.querySelector('#btn-save-custom-preset')?.addEventListener('click', () => {
+    const input = this.root.querySelector('#custom-preset-input');
+    const name = input?.value.trim() || `Custom ${Date.now()}`;
+    saveCustomPreset({
+      name,
+      engine: this.state.engine,
+      global: { ...this.state.global },
+      params: { ...this.state.engines[this.state.engine] },
+      modulation: structuredClone(this.state.modulation),
+    });
+    this.store.setActivePresetName(name);
+    this.render();
+  });
+
+  this.root.querySelectorAll('[data-load-custom]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const name = btn.getAttribute('data-load-custom');
+      const list = loadSavedPresets();
+      const found = list.find((p) => p.name === name);
+      if (!found) return;
+      this.store.setActivePresetName(found.name);
+      this.store.patchGlobal(found.global);
+      this.store.patchActiveEngine(found.params);
+      // Optional: presets saved before the Motion Lab existed have no
+      // modulation block, and should keep whatever rack is currently set.
+      if (found.modulation) this.store.setModulation(structuredClone(found.modulation));
+      this.onStateChange(this.state);
+      this.render();
+    });
+  });
+
+  this.root.querySelectorAll('[data-delete-custom]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteCustomPreset(btn.getAttribute('data-delete-custom'));
+      this.render();
+    });
+  });
 }
 
 export function importConfigText(text) {

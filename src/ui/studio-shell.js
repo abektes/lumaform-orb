@@ -1,5 +1,6 @@
 import { ENGINE_TYPES, ENGINE_INFO } from '../core/state.js';
 import { ICONS } from './icons.js';
+import { INSPECTOR_MODES, INSPECTOR_MODE_ORDER } from './inspector-nav.js';
 
 export function shellMarkup() {
   const currentEngine = ENGINE_INFO[this.state.engine] || { name: this.state.engine, badge: '' };
@@ -133,19 +134,31 @@ export function shellMarkup() {
 
     <!-- RIGHT INSPECTOR SIDEBAR -->
     <aside class="studio-inspector ${this.isSidebarOpen ? '' : 'collapsed'}">
-      <div class="inspector-tabs">
-        <button class="tab-btn ${this.activeTab === 'presets' ? 'active' : ''}" data-tab="presets">Presets</button>
-        <button class="tab-btn ${this.activeTab === 'findings' ? 'active' : ''}" data-tab="findings">Findings</button>
-        <button class="tab-btn ${this.activeTab === 'rehearsal' ? 'active' : ''}" data-tab="rehearsal">Rehearsal</button>
-        <button class="tab-btn ${this.activeTab === 'colors' ? 'active' : ''}" data-tab="colors">Colors</button>
-        <button class="tab-btn ${this.activeTab === 'geometry' ? 'active' : ''}" data-tab="geometry">Geometry</button>
-        <button class="tab-btn ${this.activeTab === 'motion' ? 'active' : ''}" data-tab="motion">Motion</button>
-        <button class="tab-btn ${this.activeTab === 'motionlab' ? 'active' : ''}" data-tab="motionlab">Motion Lab</button>
-        <button class="tab-btn ${this.activeTab === 'optics' ? 'active' : ''}" data-tab="optics">Optics</button>
-        <button class="tab-btn ${this.activeTab === 'space' ? 'active' : ''}" data-tab="space">Space</button>
-        <button class="tab-btn ${this.activeTab === 'export' ? 'active' : ''}" data-tab="export">Export</button>
-        <button class="tab-btn ${this.activeTab === 'perf' ? 'active' : ''}" data-tab="perf">Perf</button>
-      </div>
+      <nav class="inspector-nav" aria-label="Inspector">
+        <div class="inspector-modes">
+          ${INSPECTOR_MODE_ORDER.map((id) => {
+            const mode = INSPECTOR_MODES[id];
+            const selected = id === this.activeMode;
+            return `<button type="button" class="mode-btn ${selected ? 'active' : ''}" data-mode="${id}" aria-pressed="${selected}">${mode.label}</button>`;
+          }).join('')}
+        </div>
+        <div class="inspector-sections" aria-label="${INSPECTOR_MODES[this.activeMode].label}">
+          ${INSPECTOR_MODE_ORDER.map((id) => {
+            const mode = INSPECTOR_MODES[id];
+            const hidden = id !== this.activeMode;
+            const sections = mode.sections
+              .map((section) => {
+                const selected = this.activeTab === section.id;
+                return `<button type="button" class="tab-btn ${selected ? 'active' : ''}" data-mode="${id}" data-tab="${section.id}" ${hidden ? 'hidden' : ''} aria-pressed="${selected}">${section.label}</button>`;
+              })
+              .join('');
+            const lab = mode.secondary
+              ? `<button type="button" class="tab-lab ${this.activeTab === mode.secondary.id ? 'active' : ''}" data-mode="${id}" data-tab="${mode.secondary.id}" ${hidden ? 'hidden' : ''} aria-pressed="${this.activeTab === mode.secondary.id}" aria-label="${mode.secondary.label}">${mode.secondary.shortLabel}</button>`
+              : '';
+            return sections + lab;
+          }).join('')}
+        </div>
+      </nav>
 
       <div class="inspector-content custom-scroll"></div>
     </aside>

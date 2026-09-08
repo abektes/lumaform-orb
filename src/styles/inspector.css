@@ -1,10 +1,11 @@
 /* INSPECTOR SIDEBAR */
 .studio-inspector {
+  --inspector-width: 400px;
   position: absolute;
   top: 90px;
   right: 16px;
   bottom: 16px;
-  width: 360px;
+  width: var(--inspector-width);
   z-index: var(--z-panel-inspector);
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
@@ -18,23 +19,54 @@
 }
 
 .studio-inspector.collapsed {
-  transform: translateX(390px);
+  transform: translateX(calc(var(--inspector-width) + 30px));
   opacity: 0;
   pointer-events: none;
 }
 
-.inspector-tabs {
-  display: flex;
+.inspector-nav {
+  flex-shrink: 0;
   border-bottom: 1px solid var(--panel-border);
-  padding: 10px 10px 8px;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
-.inspector-tabs::-webkit-scrollbar {
-  display: none;
+.inspector-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 10px 10px 6px;
+}
+
+.mode-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 8px 6px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mode-btn.active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 237, 0, 0.4);
+}
+
+.inspector-sections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 10px;
 }
 
 .tab-btn {
@@ -44,7 +76,7 @@
   font-family: var(--font);
   font-size: 11px;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease, color var(--dur-hover) ease, box-shadow var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
@@ -61,6 +93,63 @@
   background: var(--primary);
   font-weight: 700;
   box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.tab-lab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 6px 8px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color var(--dur-hover) ease, border-color var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.tab-lab:hover {
+  color: var(--text-primary);
+}
+
+.tab-lab.active {
+  color: var(--ink);
+  background: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.tab-btn[hidden],
+.tab-lab[hidden] {
+  display: none;
+}
+
+.lab-entry {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color var(--dur-hover) ease, border-color var(--dur-hover) ease, background-color var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
+}
+
+.lab-entry:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 237, 0, 0.45);
+}
+
+.mode-btn:focus-visible,
+.tab-btn:focus-visible,
+.tab-lab:focus-visible,
+.lab-entry:focus-visible {
+  outline: none;
+  border-color: rgba(255, 237, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 237, 0, 0.15);
 }
 
 .inspector-content {
