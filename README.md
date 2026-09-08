@@ -112,9 +112,12 @@ Motion Lab → **Mic** (or **Test Tone** if you just want to see it work). Enabl
 
 ```
 src/
-  main.js                  entry point; calls registerAllEngines()
+  main.js                  composition root; constructs exploration sessions
   core/
     studio.js              the render loop — the single place time advances
+    studio-grid.js         variation grid and parameter sweep
+    studio-capture.js      clip recording and snapshots
+    studio-sequence.js     rehearsal playback
     engine-catalog.js      the one engine list; types, info, schema, factories
     catalog/               grouped catalog entries
     state.js               initial state, randomize, custom presets
@@ -126,7 +129,7 @@ src/
     palette.js             schema-driven colour harmonies
     …                      sweep, sequence, findings, config I/O, clip recording
   engines/                 one file per engine
-  ui/                      studio-ui.js plus tab/shell modules
+  ui/                      studio-ui.js, tab modules, exploration sessions
   styles/                  CSS surfaces; style.css is the barrel
   presets/                 curated looks; preset-library.js is the barrel
 tests/                     plain Node scripts, no framework

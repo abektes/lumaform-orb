@@ -129,7 +129,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 - **Commit in coherent slices** with messages that explain *why*, not just what changed.
 - **Comments explain why.** The codebase is full of non-obvious constraints; a comment that restates the code is worse than none.
 - **Placement comments move with the thing they describe.** Re-rooting or repositioning chrome means rewriting its placement comment in the same change; stale placement guidance can recreate the bug the move fixed.
-- **Keyboard bindings and the map move together.** Every `e.code` shortcut in `main.js` or `studio-ui.js` needs a matching entry in `src/core/shortcuts.js`; `tests/shortcuts.test.mjs` scans both directions so hidden or stale bindings fail validation.
+- **Keyboard bindings and the map move together.** Every `e.code` shortcut in `main.js`, `studio-ui.js`, or a `src/ui/*-session.js` file needs a matching entry in `src/core/shortcuts.js`; `tests/shortcuts.test.mjs` scans both directions so hidden or stale bindings fail validation.
 - **CSS guards check existence, not appearance.** `tests/css-hygiene.test.mjs` proves every emitted class has a rule and no rule is unreachable; `tests/layering.test.mjs` proves z-index values come from the `--z-*` scale. Neither proves a rule is *right* — a rule can be present, reachable and wrong. Screenshot comparison against the previous look is still the reviewer's job for any stylesheet change.
 
 ---

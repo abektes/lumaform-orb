@@ -16,6 +16,8 @@ function ok(name, condition, extra = '') {
 const root = new URL('../', import.meta.url);
 const ui = readFileSync(new URL('src/ui/studio-ui.js', root), 'utf8');
 const main = readFileSync(new URL('src/main.js', root), 'utf8');
+const gridSession = readFileSync(new URL('src/ui/grid-session.js', root), 'utf8');
+const abSession = readFileSync(new URL('src/ui/ab-session.js', root), 'utf8');
 const css = readAllCss();
 
 ok('StudioUI no longer exposes overlayLayer', !/\boverlayLayer\b/.test(ui));
@@ -31,11 +33,14 @@ ok('session chrome hosts live on StudioUI',
   /this\.clipIndicator/.test(ui) && /this\.abReadout/.test(ui) && /this\.sweepCaption/.test(ui));
 
 ok('main.js does not mount through overlayLayer', !/\boverlayLayer\b/.test(main));
-ok('main.js uses the UI-owned chrome hosts',
+ok('main.js wires sessions to the UI-owned chrome hosts',
   /ui\.clipIndicator/.test(main)
-    && /ui\.abReadout/.test(main)
-    && /ui\.sweepCaption/.test(main)
-    && /ui\.root\.appendChild\(gridHud\.element\)/.test(main));
+    && /createAbSession\(/.test(main)
+    && /createGridSession\(/.test(main));
+ok('A/B readout and sweep caption still mount on StudioUI hosts',
+  /ui\.abReadout/.test(abSession) && /ui\.sweepCaption/.test(gridSession));
+ok('the grid HUD still appends to the persistent root',
+  /ui\.root\.appendChild\(gridHud\.element\)/.test(gridSession));
 
 ok('the two-layer stacking wrappers are gone from CSS',
   !/\.studio-overlay-layer/.test(css) && !/\.studio-panel-layer/.test(css)

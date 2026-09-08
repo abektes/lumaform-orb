@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   SHORTCUTS,
   SHORTCUT_GROUPS,
@@ -51,7 +51,11 @@ ok('grouping covers the whole registry',
 
 // Both handlers intentionally use e.code literals. Scanning that common form
 // makes an undocumented binding fail immediately without executing browser code.
-const sources = ['src/main.js', 'src/ui/studio-ui.js'];
+const uiDir = new URL('../src/ui/', import.meta.url);
+const sources = [
+  'src/main.js',
+  ...readdirSync(uiDir).filter((name) => name.endsWith('.js')).map((name) => `src/ui/${name}`),
+];
 const bound = new Set();
 for (const path of sources) {
   const text = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
