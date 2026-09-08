@@ -104,15 +104,16 @@ const FRAGMENT_SHADER = /* glsl */ `
       ? mix(uColorA, uColorB, vU * 2.0)
       : mix(uColorB, uColorC, (vU - 0.5) * 2.0);
 
-    // Strands near a wave crest burn toward white, which is what makes the
-    // convergences read as hot cores rather than merely denser colour.
+    // Glow used to multiply the whole strand, which pushed every pixel into HDR
+    // before additive blending — palettes washed to the same pale haze. Rest
+    // stays in display range so hue reads; crests still go HDR so crossings
+    // stack into knots. Keep in step with flux-color.js.
     float hot = smoothstep(0.45, 1.0, abs(vCrest));
-    vec3 col = mix(ramp, vec3(1.0), hot * 0.34);
-
-    // Edge strands sit slightly darker so the bundle has a discernible body.
     float body = 0.55 + 0.45 * (1.0 - abs(vS - 0.5) * 2.0);
+    float restGain = min(1.0, 0.55 * body);
+    float intensity = restGain + hot * body * max(0.0, uGlow - 0.55);
 
-    gl_FragColor = vec4(col * uGlow * body, 1.0);
+    gl_FragColor = vec4(ramp * intensity, 1.0);
   }
 `;
 
@@ -315,6 +316,9 @@ export function createFluxEngine({ studio, scene, camera, renderer, pointerTrack
       blending: THREE.AdditiveBlending,
       depthTest: false,
       depthWrite: false,
+      // OutputPass is the composer's tone mapper. Tone-mapping this unlit HDR
+      // strand as well crushed every palette toward the same highlight.
+      toneMapped: false,
     });
 
     lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
@@ -347,7 +351,7 @@ export function createFluxEngine({ studio, scene, camera, renderer, pointerTrack
       pointMaterial = new THREE.ShaderMaterial({
         uniforms: {
           ...sharedUniforms(),
-          uColor: { value: new THREE.Color('#ffffff') },
+          uColor: { value: new THREE.Color(currentParams.colorB) },
           uBrightness: { value: currentParams.sparkleBrightness },
           uSize: { value: currentParams.sparkleSize },
           uPixelRatio: { value: renderer?.getPixelRatio?.() ?? 1 },
@@ -358,6 +362,7 @@ export function createFluxEngine({ studio, scene, camera, renderer, pointerTrack
         blending: THREE.AdditiveBlending,
         depthTest: false,
         depthWrite: false,
+        toneMapped: false,
       });
 
       pointMesh = new THREE.Points(pointGeometry, pointMaterial);
@@ -432,6 +437,9 @@ export function createFluxEngine({ studio, scene, camera, renderer, pointerTrack
         if (newParams[key] !== undefined && lineMaterial) {
           lineMaterial.uniforms[uniform].value.set(currentParams[key]);
         }
+      }
+      if (newParams.colorB !== undefined && pointMaterial) {
+        pointMaterial.uniforms.uColor.value.set(currentParams.colorB);
       }
     },
 

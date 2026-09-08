@@ -212,23 +212,24 @@ export function createAqueousEngine({ scene, params }) {
         float fresnel = pow(1.0 - facing, max(uFresnelPower, 0.001));
         vec3 refracted = refract(-viewDirection, normal, 1.0 / max(uIor, 1.001));
 
-        // A procedural environment keeps fake refraction self-contained. It
-        // remains legible against black and does not need the renderer's shared
-        // transmission buffer, which is unsafe across scissored grid cells.
+        // Environment, absorption and highlights all follow the authored body
+        // and core colours. Hardcoded teal/water terms made every palette read
+        // as the same glass of water. Keep in step with aqueous-color.js.
+        vec3 body = uBodyColor;
         float horizon = smoothstep(-0.82, 0.92, refracted.y + normal.y * 0.12);
         float sideLight = pow(max(dot(refracted, normalize(vec3(-0.62, 0.48, 0.62))), 0.0), 6.0);
-        vec3 deepTeal = mix(vec3(0.004, 0.022, 0.026), uBodyColor * vec3(0.07, 0.18, 0.20), 0.72);
-        vec3 midTeal = uBodyColor * vec3(0.22, 0.42, 0.40);
-        vec3 clearTeal = mix(uBodyColor * 0.42, vec3(0.16, 0.58, 0.60), 0.18);
-        vec3 environment = mix(deepTeal, clearTeal, horizon);
-        environment = mix(environment, midTeal, 0.18 + facing * 0.12);
-        environment += mix(uBodyColor, vec3(0.46, 0.90, 0.84), 0.28) * sideLight * 0.24;
+        vec3 deep = body * 0.09;
+        vec3 mid = body * 0.46;
+        vec3 clearLift = mix(body * 0.72, body + (vec3(1.0) - body) * 0.18, 0.35);
+        vec3 environment = mix(deep, clearLift, horizon);
+        environment = mix(environment, mid, 0.18 + facing * 0.12);
+        environment += mix(body, uCoreColor, 0.22) * sideLight * 0.28;
 
         float travel = uThickness * mix(0.42, 1.18, 1.0 - facing);
-        vec3 absorption = exp(-vec3(0.78, 0.15, 0.08) * travel);
+        vec3 absorption = exp(-(vec3(1.0) - body) * travel * 0.92);
         vec3 softenedEnvironment = mix(
           environment,
-          mix(deepTeal, midTeal, 0.58),
+          mix(deep, mid, 0.58),
           clamp(uRoughness, 0.0, 1.0) * 0.62
         );
         vec3 refractedColor = softenedEnvironment * absorption;
@@ -249,19 +250,19 @@ export function createAqueousEngine({ scene, params }) {
         );
         innerVeil = smoothstep(0.28, 0.82, innerVeil) * (0.35 + innerLens * 0.65);
 
-        vec3 surfaceColor = uBodyColor * (0.16 + facing * 0.20 + vSurfaceNoise * 0.035);
+        vec3 surfaceColor = body * (0.22 + facing * 0.28 + vSurfaceNoise * 0.04);
         vec3 bodyColor = mix(surfaceColor, refractedColor, clamp(uTransmission, 0.0, 1.0));
-        bodyColor += mix(uBodyColor, uCoreColor, innerLens * 0.62) * caustics * uCoreIntensity * 0.045;
-        bodyColor += uCoreColor * innerLens * uCoreIntensity * uTransmission * 0.018;
-        bodyColor += mix(deepTeal, uBodyColor, 0.48) * innerVeil * uTransmission * 0.075;
+        bodyColor += mix(body, uCoreColor, innerLens * 0.62) * caustics * uCoreIntensity * 0.12;
+        bodyColor += uCoreColor * innerLens * uCoreIntensity * uTransmission * 0.12;
+        bodyColor += mix(deep, body, 0.48) * innerVeil * uTransmission * 0.10;
 
         float specularPower = mix(96.0, 10.0, clamp(uRoughness, 0.0, 1.0));
         vec3 halfVector = normalize(viewDirection + normalize(vec3(-0.45, 0.72, 0.53)));
         float specular = pow(max(dot(normal, halfVector), 0.0), specularPower);
-        bodyColor += mix(vec3(0.52, 0.94, 0.86), uBodyColor, uRoughness * 0.55) * specular * 0.48;
+        bodyColor += mix(vec3(1.0), mix(body, uCoreColor, 0.4), 0.22) * specular * 0.42;
 
-        vec3 rimColor = mix(uBodyColor * 0.72, vec3(0.24, 0.68, 0.62), 0.22);
-        bodyColor += rimColor * fresnel * (0.18 + uTransmission * 0.24);
+        vec3 rimColor = mix(body, uCoreColor, 0.28);
+        bodyColor += rimColor * fresnel * (0.22 + uTransmission * 0.28);
 
         float opaqueAlpha = clamp(0.86 + uThickness * 0.035, 0.86, 0.96);
         float glassAlpha = clamp(0.43 + uThickness * 0.075, 0.43, 0.68);
@@ -273,6 +274,7 @@ export function createAqueousEngine({ scene, params }) {
     transparent: true,
     depthWrite: false,
     side: THREE.FrontSide,
+    toneMapped: false,
   });
 
   function createBodyGeometry() {
@@ -332,11 +334,10 @@ export function createAqueousEngine({ scene, params }) {
         float moltenBand = 0.5 + 0.5 * sin(vLocalPosition.y * 5.4 + vLocalPosition.x * 2.2 - uTime * 0.31);
         moltenBand = smoothstep(0.18, 0.86, moltenBand) * 0.12;
         float hotPool = exp(-dot(vLocalPosition.xy - vec2(-0.22, 0.24), vLocalPosition.xy - vec2(-0.22, 0.24)) * 5.5);
-        vec3 amberEdge = mix(uColor, vec3(1.0, 0.16, 0.025), 0.68);
-        vec3 honeyCenter = mix(uColor, vec3(1.0, 0.52, 0.08), 0.64);
-        vec3 color = mix(amberEdge * 0.25, honeyCenter, 0.16 + facing * 0.64 + hotPool * 0.12);
-        color *= (0.68 + uIntensity * 0.31) * (0.72 + keyLight * 0.28 + moltenBand) * livingLight;
-        color += vec3(1.0, 0.52, 0.12) * (highlight * 0.34 + hotPool * 0.15);
+        vec3 hot = mix(uColor, vec3(1.0), 0.4);
+        vec3 color = mix(uColor * 0.28, hot, 0.16 + facing * 0.64 + hotPool * 0.12);
+        color *= (0.72 + uIntensity * 0.38) * (0.72 + keyLight * 0.28 + moltenBand) * livingLight;
+        color += hot * (highlight * 0.28 + hotPool * 0.12);
         float alpha = smoothstep(0.02, 0.68, facing) * clamp(0.28 + uIntensity * 0.12, 0.28, 0.62);
         gl_FragColor = vec4(color, alpha);
       }
@@ -344,6 +345,7 @@ export function createAqueousEngine({ scene, params }) {
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    toneMapped: false,
   });
   const coreMesh = new THREE.Mesh(coreGeometry, coreMaterial);
   // The core is emissive rather than an opaque object; compositing it after
@@ -358,7 +360,7 @@ export function createAqueousEngine({ scene, params }) {
   function updateCoreScale(pulse = 0) {
     const radius = Math.max(0.01, Number(currentParams.radius) || DEFAULT_PARAMS.radius);
     const pulseLift = 1 + Math.abs(pulse) * Math.max(0, currentParams.pulseDeform) * 0.16;
-    coreMesh.scale.setScalar(radius * 0.19 * pulseLift);
+    coreMesh.scale.setScalar(radius * 0.26 * pulseLift);
   }
   updateCoreScale();
 

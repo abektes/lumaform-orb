@@ -1,3 +1,11 @@
+import {
+  resolveShellShape,
+  shellBoundRadius,
+  shellNormal,
+  shellSdf,
+  spawnOnShell,
+} from './murmuration-shell.js';
+
 const SEED = 0x6d75726d;
 const MAX_FRAME_DELTA = 1 / 30;
 const MAX_SUBSTEP = 1 / 60;
@@ -22,10 +30,12 @@ export function createMurmurationSimulation({
   agentCount = 256,
   shellRadius = 1.7,
   agentSpeed = 1,
+  shellShape = 'sphere',
 } = {}) {
   const count = Math.max(1, Math.floor(finitePositive(Number(agentCount), 256)));
   const radius = finitePositive(Number(shellRadius), 1.7);
   const speed = finitePositive(Number(agentSpeed), 1);
+  const shape = resolveShellShape(shellShape);
   const random = mulberry32(SEED);
   const positions = new Float32Array(count * 3);
   const velocities = new Float32Array(count * 3);
@@ -33,19 +43,13 @@ export function createMurmurationSimulation({
   const phases = new Float32Array(count * 2);
 
   for (let i = 0; i < count; i++) {
-    const z = random() * 2 - 1;
-    const theta = random() * Math.PI * 2;
-    const radial = radius * (0.9 + random() * 0.13);
-    const planar = Math.sqrt(Math.max(0, 1 - z * z));
-    const nx = Math.cos(theta) * planar;
-    const ny = z;
-    const nz = Math.sin(theta) * planar;
     const p = i * 3;
+    const [px, py, pz] = spawnOnShell(random, radius, shape);
+    positions[p] = px;
+    positions[p + 1] = py;
+    positions[p + 2] = pz;
 
-    positions[p] = nx * radial;
-    positions[p + 1] = ny * radial;
-    positions[p + 2] = nz * radial;
-
+    const [nx, ny, nz] = shellNormal(px, py, pz, radius, shape);
     let tx = -nz;
     let ty = 0;
     let tz = nx;
@@ -95,6 +99,7 @@ function integrateSubstep(simulation, params, dt) {
   const alignmentGain = Math.max(0, Number(params.alignment) || 0) * 2 * motionScale;
   const shellGain = Math.max(0, Number(params.shellBinding) || 0) * 2.2;
   const attractorGain = Math.max(0, Number(params.attractorPull) || 0) * 1.45;
+  const shape = resolveShellShape(params.shellShape);
 
   for (let i = 0; i < count; i++) {
     const p = i * 3;
@@ -156,14 +161,12 @@ function integrateSubstep(simulation, params, dt) {
       az += separateZ * inverseCount * separationGain;
     }
 
-    const radius = Math.max(1e-5, Math.hypot(px, py, pz));
-    const nx = px / radius;
-    const ny = py / radius;
-    const nz = pz / radius;
-    const radialForce = (shellRadius - radius) * shellGain - attractorGain;
-    ax += nx * radialForce;
-    ay += ny * radialForce;
-    az += nz * radialForce;
+    const signedDistance = shellSdf(px, py, pz, shellRadius, shape);
+    const [nx, ny, nz] = shellNormal(px, py, pz, shellRadius, shape);
+    const shellForce = -signedDistance * shellGain - attractorGain;
+    ax += nx * shellForce;
+    ay += ny * shellForce;
+    az += nz * shellForce;
 
     // A weak, slowly turning tangential field keeps a settled flock circulating
     // without prescribing a path to any individual agent.
@@ -199,7 +202,8 @@ function integrateSubstep(simulation, params, dt) {
   const damping = Math.min(0.9999, Math.max(0, Number(params.damping) || 0));
   const dampingFactor = Math.pow(damping, dt * 60);
   const maxSpeed = agentSpeed * (1.05 + simulation.speedBoost * 2.4) + 0.05;
-  const maxRadius = shellRadius * 1.995;
+  const maxSdf = shellRadius * 0.995;
+  const maxRadius = shellBoundRadius(shape, shellRadius) * 1.995;
 
   for (let i = 0; i < count; i++) {
     const p = i * 3;
@@ -217,21 +221,26 @@ function integrateSubstep(simulation, params, dt) {
     let px = positions[p] + vx * dt;
     let py = positions[p + 1] + vy * dt;
     let pz = positions[p + 2] + vz * dt;
-    const radius = Math.hypot(px, py, pz);
-    if (radius > maxRadius) {
-      const scale = maxRadius / radius;
-      px *= scale;
-      py *= scale;
-      pz *= scale;
-      const nx = px / maxRadius;
-      const ny = py / maxRadius;
-      const nz = pz / maxRadius;
+    const signedDistance = shellSdf(px, py, pz, shellRadius, shape);
+    if (signedDistance > maxSdf) {
+      const [nx, ny, nz] = shellNormal(px, py, pz, shellRadius, shape);
+      const extra = signedDistance - maxSdf;
+      px -= nx * extra;
+      py -= ny * extra;
+      pz -= nz * extra;
       const outwardSpeed = vx * nx + vy * ny + vz * nz;
       if (outwardSpeed > 0) {
         vx -= nx * outwardSpeed * 1.15;
         vy -= ny * outwardSpeed * 1.15;
         vz -= nz * outwardSpeed * 1.15;
       }
+    }
+    const radius = Math.hypot(px, py, pz);
+    if (radius > maxRadius) {
+      const scale = maxRadius / radius;
+      px *= scale;
+      py *= scale;
+      pz *= scale;
     }
 
     positions[p] = px;

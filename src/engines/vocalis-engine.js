@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { resolveRingLayout, ringRest, sampleRingPoint } from './vocalis-layout.js';
 
 const FRAME_RADIUS = 2.25;
 const SEGMENTS_PER_RING = 128;
@@ -9,6 +10,7 @@ const SEGMENTS_PER_RING = 128;
 export function createVocalisEngine({ scene, camera, renderer, params }) {
   const currentParams = {
     ringCount: 6,
+    ringLayout: 'circle',
     baseRadius: 1.45,
     lineWidth: 2.4,
     diaphragmDepth: 0.6,
@@ -70,13 +72,12 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
     const count = parseInt(currentParams.ringCount, 10) || 6;
     const baseR = Number(currentParams.baseRadius) || 1.45;
     const depth = Number(currentParams.diaphragmDepth) || 0.6;
+    const layout = resolveRingLayout(currentParams.ringLayout);
     const size = renderer?.getSize ? renderer.getSize(new THREE.Vector2()) : new THREE.Vector2(1024, 768);
 
     for (let i = 0; i < count; i++) {
-      const ringNorm = i / Math.max(1, count - 1); // 0 (inner) to 1 (outer)
-      const ringRadius = baseR * (0.35 + ringNorm * 0.75);
-      // Diaphragm curvature: inner rings recessed slightly in Z like a speaker cone
-      const ringZ = (Math.pow(ringNorm, 1.5) - 0.5) * depth;
+      const ringNorm = i / Math.max(1, count - 1);
+      const rest = ringRest(layout, ringNorm, baseR, depth);
 
       const posArr = new Float32Array((SEGMENTS_PER_RING + 1) * 3);
       const colArr = new Float32Array((SEGMENTS_PER_RING + 1) * 3);
@@ -106,8 +107,9 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
         material,
         posArr,
         colArr,
-        baseR: ringRadius,
-        zOffset: ringZ,
+        rest,
+        baseR: rest.radius,
+        zOffset: rest.zOffset,
         index: i,
         norm: ringNorm,
       });
@@ -164,6 +166,7 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
       const formantGain = Number(currentParams.formantGain) || 1.2;
       const breathe = 1.0 + Math.sin(time * 1.5) * (Number(currentParams.breatheAmp) || 0.04);
       const glow = Number(currentParams.glowIntensity) || 1.8;
+      const layout = resolveRingLayout(currentParams.ringLayout);
 
       // Update concentric vocal diaphragm rings
       for (let r = 0; r < rings.length; r++) {
@@ -187,13 +190,15 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
           const combinedRipple = (primaryWave * 0.75 + secondaryHarmonic * 0.25) * rippleAmp * (0.8 + ringNorm * 0.5);
 
           const rEff = currentR + combinedRipple;
-          const x = Math.cos(theta) * rEff;
-          const y = Math.sin(theta) * rEff;
-          const z = ring.zOffset + Math.sin(theta * 2.0 + articulationPhase) * rippleAmp * 0.3;
+          const radiusScale = ring.rest.radius > 1e-8 ? rEff / ring.rest.radius : 1;
+          const point = sampleRingPoint(layout, theta, ring.rest, radiusScale);
+          const zRipple = layout === 'globe'
+            ? 0
+            : Math.sin(theta * 2.0 + articulationPhase) * rippleAmp * 0.3;
 
-          posArr[p * 3] = x;
-          posArr[p * 3 + 1] = y;
-          posArr[p * 3 + 2] = z;
+          posArr[p * 3] = point[0];
+          posArr[p * 3 + 1] = point[1];
+          posArr[p * 3 + 2] = point[2] + zRipple;
 
           // Color articulation: inner rings mix toward coreRGB, outer toward formantRGB
           const formantMix = Math.pow(ringNorm, 0.8);
@@ -228,6 +233,10 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
       let needsRebuild = false;
       if (patch.ringCount !== undefined && patch.ringCount !== currentParams.ringCount) {
         currentParams.ringCount = patch.ringCount;
+        needsRebuild = true;
+      }
+      if (patch.ringLayout !== undefined && patch.ringLayout !== currentParams.ringLayout) {
+        currentParams.ringLayout = patch.ringLayout;
         needsRebuild = true;
       }
       if (patch.baseRadius !== undefined && patch.baseRadius !== currentParams.baseRadius) {

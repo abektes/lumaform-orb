@@ -21,8 +21,27 @@ export function renderPresetsTab() {
         ${matchingPresets
           .map((preset) => {
             const isSelected = this.state.activePresetName === preset.name;
-            const colorDot1 = preset.params.color1 || preset.params.particleColor || '#00f0ff';
-            const colorDot2 = preset.params.color2 || preset.params.glowColor || '#7c3aed';
+            const colorDot1 = preset.params.innerColor
+              || preset.params.activeColor
+              || preset.params.bodyColor
+              || preset.params.headColor
+              || preset.params.veilColor
+              || preset.params.echoColor
+              || preset.params.metalTint
+              || preset.params.coreColor
+              || preset.params.color1
+              || preset.params.particleColor
+              || '#00f0ff';
+            const colorDot2 = preset.params.outerColor
+              || preset.params.edgeColor
+              || preset.params.nodeColor
+              || preset.params.tailColor
+              || preset.params.accentColor
+              || preset.params.barColor
+              || preset.params.coreColor
+              || preset.params.color2
+              || preset.params.glowColor
+              || '#7c3aed';
             return `
               <div class="preset-card ${isSelected ? 'active' : ''}" data-preset-name="${preset.name}">
                 <div class="preset-card-head">

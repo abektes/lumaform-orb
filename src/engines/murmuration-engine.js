@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import {
+  resolveShellShape,
+  shellBoundRadius,
+} from './murmuration-shell.js';
+import {
   createMurmurationSimulation,
   scatterMurmuration,
   stepMurmuration,
@@ -115,6 +119,7 @@ export function createMurmurationEngine({ scene, renderer, params }) {
   const currentParams = {
     agentCount: 256,
     shellRadius: 1.7,
+    shellShape: 'sphere',
     pointSize: 2,
     trailLength: 8,
     cohesion: 0.4,
@@ -257,13 +262,20 @@ export function createMurmurationEngine({ scene, renderer, params }) {
     const count = Math.max(1, Math.floor(numeric(currentParams.agentCount, 256)));
     const trailLength = Math.max(0, Math.floor(numeric(currentParams.trailLength, 8)));
     const shellRadius = Math.max(0.1, numeric(currentParams.shellRadius, 1.7));
+    const shellShape = resolveShellShape(currentParams.shellShape);
     simulation = createMurmurationSimulation({
       agentCount: count,
       shellRadius,
       agentSpeed: currentParams.agentSpeed,
+      shellShape,
     });
-    frame.radius = shellRadius * 1.4;
-    aura.scale.setScalar(shellRadius * 2.22);
+    frame.radius = shellBoundRadius(shellShape, shellRadius) * 1.4;
+    const auraScale = shellRadius * 2.22;
+    aura.scale.set(
+      auraScale,
+      auraScale * (shellShape === 'disk' ? 0.42 : shellShape === 'torus' ? 0.62 : 1),
+      1
+    );
 
     radiusMixes = new Float32Array(count);
     pointGeometry = new THREE.BufferGeometry();
@@ -334,7 +346,7 @@ export function createMurmurationEngine({ scene, renderer, params }) {
     },
 
     setParams(patch = {}) {
-      const needsRebuild = ['agentCount', 'trailLength', 'shellRadius'].some(
+      const needsRebuild = ['agentCount', 'trailLength', 'shellRadius', 'shellShape'].some(
         (key) => patch[key] !== undefined && patch[key] !== currentParams[key]
       );
       Object.assign(currentParams, patch);
