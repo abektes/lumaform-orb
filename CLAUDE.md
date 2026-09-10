@@ -10,10 +10,13 @@ A WebGL exploration tool for designing animated AI-assistant orbs. Twenty-two en
 
 Vanilla JS (ES modules), Vite 5, Three.js 0.160. **No framework** — the UI is HTML strings and DOM nodes. Runtime deps are `three` and `shiki`, nothing else.
 
+Two npm workspaces: `packages/orb` (`@lumaform/orb`, the runtime — engines, catalog, modulation, framing, config I/O, the frame loop) and `packages/studio` (the instrument — UI, grid, capture, rehearsal, presets). `three` is a peer dependency of the runtime.
+
 ```bash
 npm run dev        # http://localhost:5173
-npx vite build     # must pass
-node tests/<name>.test.mjs   # plain Node scripts, no test framework
+npm run build      # must pass
+npm test           # every packages/*/tests/*.test.mjs
+node packages/orb/tests/<name>.test.mjs      # one suite; plain Node, no framework
 ```
 
 ## The point of the project
@@ -28,10 +31,12 @@ We do not yet know what movement reads as "thinking" for an AI orb. This tool ex
 - **Only touch the active engine's parameter bag** (`state.engines[state.engine]`). Writing all eight silently rewrites engines the user never opened.
 - **Engines self-dispose.** A factory returns `{ update, setParams, dispose, onPulse?, onResize? }`. The studio dispatches only those names through `notifyEngine`. Dispose every geometry and material the factory created.
 - **Grid cells have no bloom on purpose.** It is a full-screen pass and bleeds across scissored cells.
-- **Chrome layering beats z-index.** `.studio-ui-root` forms a stacking context. Session chrome mounts on `ui.root` (overlay tokens below panel tokens). `render()` rewrites inspector tab content only. Full-screen dialogs go on `ui.container`. Take values from the `--z-*` scale in `:root`; `tests/layering.test.mjs` rejects raw literals.
+- **Chrome layering beats z-index.** `.studio-ui-root` forms a stacking context. Session chrome mounts on `ui.root` (overlay tokens below panel tokens). `render()` rewrites inspector tab content only. Full-screen dialogs go on `ui.container`. Take values from the `--z-*` scale in `:root`; `layering.test.mjs` rejects raw literals.
 - **Controls must declare their own `background` and `color`**, disabled states included. The UI is dark and browser defaults are light — a button with no fill renders as a light-grey slab, and a disabled one becomes illegible. `opacity` alone is not a disabled state.
-- **Every `e.code` binding needs an entry in `src/core/shortcuts.js`.** `tests/shortcuts.test.mjs` scans both files and fails in either direction.
-- **User-typed text must be escaped before it reaches `innerHTML`.** Custom preset names and finding notes are typed by the user and persisted; interpolating them raw is both self-XSS and a plain break — a name containing `"` closes the `data-` attribute early and the preset becomes unloadable. Use `escapeHtml` from `src/ui/studio-format.js`; `tests/markup-escaping.test.mjs` covers the preset paths.
+- **Every `e.code` binding needs an entry in `packages/studio/src/core/shortcuts.js`.** `shortcuts.test.mjs` scans both files and fails in either direction.
+- **User-typed text must be escaped before it reaches `innerHTML`.** Custom preset names and finding notes are typed by the user and persisted; interpolating them raw is both self-XSS and a plain break — a name containing `"` closes the `data-` attribute early and the preset becomes unloadable. Use `escapeHtml` from `packages/studio/src/ui/studio-format.js`; `markup-escaping.test.mjs` covers the preset paths.
+- **The runtime never calls a studio method directly.** `OrbRuntime` (`packages/orb/src/core/runtime.js`) declares five hooks with inert defaults — `onEngineWillChange`, `onEngineDidChange`, `advanceTimeline`, `renderOverride`, `onDispose` — and `OrbStudio` overrides them. Reaching for `this.grid`, `this.paramTween` or `this.sequencePlayer` from a runtime method breaks the package for every consumer who is not the studio, and it breaks inside `requestAnimationFrame` where it is miserable to trace. `runtime-hooks.test.mjs` checks both directions. `onEngineWillChange` returns the pre-teardown context that `onEngineDidChange` consumes — that is how the grid gets `wasGridMode` without the runtime knowing a grid exists.
+- **Nothing in `packages/orb` may import from `packages/studio`.** The dependency runs one way. If a runtime module seems to need something from the studio, the seam is drawn wrong — add a hook.
 
 ## Verification
 
