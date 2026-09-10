@@ -49,7 +49,7 @@ Check with `ls src/core/param-format.js` before starting.
 
 ## Background you need (you have no prior context)
 
-Repo root: `/Users/ahmetbektes/WDesignspace/orb-animation`. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
+Repo root: the repository root. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
 
 Read `docs/VISION.md` first — §5 and §10.
 

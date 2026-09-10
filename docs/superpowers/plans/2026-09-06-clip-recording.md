@@ -21,7 +21,7 @@
 
 ## Background you need (you have no prior context)
 
-Repo root: `/Users/ahmetbektes/WDesignspace/orb-animation`. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
+Repo root: the repository root. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
 
 Read `docs/VISION.md` §4 (capture) and §8 (why *export* video is deferred). **This sprint is capture, not export.** It exists so you can review and share a candidate during exploration. It is not the "rendered loop per state" delivery format §8 defers — do not build state selection, looping, or transparent backgrounds into it.
 

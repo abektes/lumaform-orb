@@ -129,7 +129,7 @@ properly schema-gated (`config-io.js`) — a malicious `.json` cannot inject sta
 
 3. **`scratch/test_shots.sh`** — tracked despite the gitignore rule (committed
    before the rule existed) and contains
-   `/Users/ahmetbektes/.gemini/antigravity/brain/<uuid>`. No credentials, but it
+   an absolute home-directory path from another tool's session. No credentials, but it
    is noise that should not be public. `git rm` it. History retains it; that is
    acceptable given the content is a home-directory path, so no history rewrite.
 
