@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { aqueousAbsorption, aqueousCoreColor } from '../../orb/src/engines/aqueous-color.js';
+import { aqueousAbsorption, aqueousCoreColor } from '../src/engines/aqueous-color.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -31,7 +31,7 @@ ok('a yellow core is not pulled into orange-red',
 ok('red and yellow cores remain distinguishable',
   Math.abs(redCore[1] - yellowCore[1]) > 0.25);
 
-const engine = readFileSync(new URL('../../orb/src/engines/aqueous-engine.js', import.meta.url), 'utf8');
+const engine = readFileSync(new URL('../src/engines/aqueous-engine.js', import.meta.url), 'utf8');
 ok('volume absorption is not hardcoded as water (red-killing)',
   !engine.includes('vec3(0.78, 0.15, 0.08)'));
 ok('the core does not hard-mix toward amber',

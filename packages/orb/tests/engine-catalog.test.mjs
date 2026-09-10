@@ -1,3 +1,15 @@
+// Catalog integrity, checked inside the package that ships it.
+//
+// The catalog is the single list: types, display info, parameter schema and
+// factory all derive from one entry per engine. When those drifted apart the
+// failures were silent — the Colors tab did nothing on 9 of 17 engines because
+// a private UI map had gone stale while the schema stayed fine.
+//
+// Assertions that need the studio (main.js wiring, the initial state bag, the
+// preset library) live in packages/studio/tests/catalog-wiring.test.mjs. This
+// file must not import anything outside packages/orb, or the runtime package
+// grows a dependency on the studio.
+
 import { readdirSync, readFileSync } from 'node:fs';
 import {
   ENGINE_CATALOG,
@@ -6,10 +18,8 @@ import {
   ENGINE_TYPES,
   getDefaultEngineParams,
   getDefaultPresetName,
-} from '../../orb/src/engine-catalog.js';
-import { createInitialState } from '../src/core/state.js';
-import { listModulationTargets } from '../../orb/src/core/modulation.js';
-import { PRESET_LIBRARY } from '../src/presets/preset-library.js';
+} from '../src/engine-catalog.js';
+import { listModulationTargets } from '../src/core/modulation.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -18,25 +28,18 @@ function ok(name, condition, extra = '') {
 }
 
 const root = new URL('../', import.meta.url);
-// Engines live in the runtime package now; main.js and state.js stay here.
-const orbRoot = new URL('../../orb/', import.meta.url);
-const main = readFileSync(new URL('src/main.js', root), 'utf8');
-const state = createInitialState();
 const sections = new Set(['geometry', 'motion', 'colors']);
 const colorPattern = /^#[0-9a-f]{6}$/i;
 
+// Shared maths that lives beside the engines but is not an engine.
 const HELPER_ENGINE_FILES = new Set([
   'curl-drift-field.js',
   'murmuration-simulation.js',
   'tesseract-projection.js',
 ]);
 
-const liveEngineFiles = readdirSync(new URL('src/engines', orbRoot))
+const liveEngineFiles = readdirSync(new URL('src/engines', root))
   .filter((name) => name.endsWith('-engine.js'));
-
-ok('main.js registers from the catalog, not a hand-written factory list',
-  main.includes('registerAllEngines(studio)')
-    && !main.includes('studio.registerEngine('));
 
 ok('every catalog id is unique',
   new Set(ENGINE_CATALOG.map((entry) => entry.id)).size === ENGINE_CATALOG.length);
@@ -47,6 +50,7 @@ ok('ENGINE_TYPES is derived from the catalog',
 
 for (const entry of ENGINE_CATALOG) {
   const { id } = entry;
+
   ok(`${id} catalog entry is complete`,
     !!entry.key
       && !!entry.name
@@ -63,13 +67,9 @@ for (const entry of ENGINE_CATALOG) {
     ENGINE_INFO[id]?.name === entry.name
       && ENGINE_PARAM_DEFINITIONS[id] === entry.params);
 
-  const bag = state.engines[id];
   const defs = entry.params;
-  ok(`${id} initial bag is derived from schema defaults`,
-    !!bag
-      && Object.keys(defs).every((key) => bag[key] === defs[key].default)
-      && Object.keys(bag).every((key) => key in defs)
-      && JSON.stringify(getDefaultEngineParams(id)) === JSON.stringify(bag));
+  ok(`${id} defaults are derived from the schema`,
+    Object.keys(defs).every((key) => getDefaultEngineParams(id)[key] === defs[key].default));
 
   ok(`${id} default preset name comes from the catalog`,
     getDefaultPresetName(id) === entry.defaultPreset);
@@ -96,13 +96,12 @@ for (const entry of ENGINE_CATALOG) {
     }
   }
   ok(`${id} schema fields are complete and bounded`, schemaValid);
-  ok(`${id} exposes a safe modulation target`,
-    listModulationTargets(defs).length > 0);
 
-  const source = readFileSync(new URL(`src/engines/${entry.file}`, orbRoot), 'utf8');
+  ok(`${id} exposes a safe modulation target`, listModulationTargets(defs).length > 0);
+
+  const source = readFileSync(new URL(`src/engines/${entry.file}`, root), 'utf8');
   ok(`${id} factory file exports ${entry.factoryName}`,
     source.includes(`export function ${entry.factoryName}`));
-
 }
 
 ok('every live engine file is in the catalog or an explicit helper',
@@ -114,8 +113,13 @@ ok('every live engine file is in the catalog or an explicit helper',
 ok('the catalog does not point at a missing engine file',
   ENGINE_CATALOG.every((entry) => liveEngineFiles.includes(entry.file)));
 
-ok('every preset targets a catalogued engine',
-  PRESET_LIBRARY.every((preset) => ENGINE_CATALOG.some((entry) => entry.id === preset.engine)));
+// The generated barrel drifts the moment an engine is added without
+// regenerating it, and a missing export fails only at a consumer's build.
+const barrel = readFileSync(new URL('src/engines/index.js', root), 'utf8');
+for (const entry of ENGINE_CATALOG) {
+  ok(`${entry.id} is exported from engines/index.js`,
+    barrel.includes(`export { ${entry.factoryName} as ${entry.id} }`));
+}
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

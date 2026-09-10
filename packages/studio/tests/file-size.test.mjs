@@ -5,7 +5,14 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const LIMIT = 1000;
-const srcRoot = fileURLToPath(new URL('../src/', import.meta.url));
+
+// Two package trees now. The cliff applies to both — a runtime file that grows
+// past it hides seams just as well as a studio file does, and the runtime is
+// the half other people will read.
+const ROOTS = [
+  { label: 'studio', dir: fileURLToPath(new URL('../src/', import.meta.url)) },
+  { label: 'orb', dir: fileURLToPath(new URL('../../orb/src/', import.meta.url)) },
+];
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -13,25 +20,30 @@ function ok(name, condition, extra = '') {
   if (!condition) failures++;
 }
 
-function walk(dir, acc = []) {
+function walk(dir, root, label, acc = []) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) {
       if (name === 'archive') continue;
-      walk(path, acc);
+      walk(path, root, label, acc);
       continue;
     }
     if (!/\.(js|css)$/.test(name)) continue;
     acc.push({
-      path: join('src', relative(srcRoot, path)),
+      path: join(label, 'src', relative(root, path)),
       text: readFileSync(path, 'utf8'),
     });
   }
   return acc;
 }
 
-const files = walk(srcRoot);
-ok('scanned the src tree', files.length > 10, `${files.length} files`);
+const files = ROOTS.flatMap(({ dir, label }) => walk(dir, dir, label));
+ok('scanned both package trees', files.length > 10, `${files.length} files`);
+// Guards against a root silently resolving to nothing — the whole check would
+// pass vacuously while measuring half the codebase.
+for (const { label } of ROOTS) {
+  ok(`${label} tree contributed files`, files.some((f) => f.path.startsWith(`${label}/`)));
+}
 
 const oversized = files
   .map((file) => ({ ...file, lines: file.text.split('\n').length }))

@@ -5,7 +5,7 @@ import {
   cameraDistanceForRadius,
   frameFill,
   engineFrameRadius,
-} from '../../orb/src/core/framing.js';
+} from '../src/core/framing.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
