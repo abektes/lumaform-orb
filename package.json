@@ -1,17 +1,12 @@
 {
-  "name": "orb-animation",
+  "name": "lumaform-orb-monorepo",
   "private": true,
   "type": "module",
+  "workspaces": ["packages/*"],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "shiki": "^4.4.3",
-    "three": "^0.160.1"
-  },
-  "devDependencies": {
-    "vite": "^5.4.19"
+    "dev": "npm run dev -w @lumaform/studio",
+    "build": "npm run build -w @lumaform/studio",
+    "preview": "npm run preview -w @lumaform/studio",
+    "test": "node scripts/run-tests.mjs"
   }
 }
