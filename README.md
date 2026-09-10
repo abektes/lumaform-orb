@@ -2,7 +2,9 @@
 
 A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Twenty-two shader engines, one parameter schema, one render loop.
 
-It is **not** a component library, not an embeddable runtime, and not a design system. It is an instrument for finding out what is possible.
+It is **not** a component library and not a design system. It is an instrument for finding out what is possible.
+
+The repo is two workspaces: `packages/studio` is that instrument, and `packages/orb` is the runtime it renders through. The runtime is not published yet and its API is not stable — see [Status](#status).
 
 ---
 
@@ -27,14 +29,14 @@ npm run dev
 Then open http://localhost:5173.
 
 ```bash
-npx vite build
+npm run build
 ```
 
 ```bash
-for t in tests/*.test.mjs; do node "$t" || echo "FAILED: $t"; done
+npm test
 ```
 
-Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 35 of them.
+Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 38 of them, 15 covering the runtime and 23 the studio.
 
 ## Stack
 
@@ -113,34 +115,52 @@ Motion Lab → **Mic** (or **Test Tone** if you just want to see it work). Enabl
 
 ## Project layout
 
+Two npm workspaces. **`packages/orb`** is the runtime — everything needed to
+render a config. **`packages/studio`** is the instrument built on top of it.
+
 ```
-src/
-  main.js                  composition root; constructs exploration sessions
-  core/
-    studio.js              the render loop — the single place time advances
-    studio-grid.js         variation grid and parameter sweep
-    studio-capture.js      clip recording and snapshots
-    studio-sequence.js     rehearsal playback
-    engine-catalog.js      the one engine list; types, info, schema, factories
-    catalog/               grouped catalog entries
-    state.js               initial state, randomize, custom presets
-    store.js               single owner of the live state object
-    engine-notify.js       setParams / onPulse / onResize dispatch
-    modulation.js          LFO / noise / envelope / audio → parameters and tempo
-    variation-grid.js      nine independent engine instances, one renderer
-    framing.js             derives camera distance from each engine's declared radius
-    palette.js             schema-driven colour harmonies
-    …                      sweep, sequence, findings, config I/O, clip recording
-  engines/                 one file per engine
-  ui/                      studio-ui.js, tab modules, exploration sessions
-  styles/                  CSS surfaces; style.css is the barrel
-  presets/                 curated looks; preset-library.js is the barrel
-tests/                     plain Node scripts, no framework
+packages/
+  orb/                     the runtime
+    src/
+      core/runtime.js      OrbRuntime — the frame loop, the single place time advances
+      core/modulation.js   LFO / noise / envelope / audio → parameters and tempo
+      core/framing.js      derives camera distance from each engine's declared radius
+      core/config-io.js    versioned config parse, migrate, sanitize
+      core/engine-notify.js  setParams / onPulse / onResize dispatch
+      engine-catalog.js    the one engine list; types, info, schema, factories
+      catalog/             grouped catalog entries
+      engines/             one file per engine; index.js is the generated barrel
+      audio/               microphone capture, behind the ./audio subpath
+      shared/              pointer tracking, fps
+  studio/                  the exploration tool
+    src/
+      main.js              composition root; constructs exploration sessions
+      core/studio.js       OrbStudio — extends OrbRuntime, adds the instrument
+      core/studio-grid.js  variation grid and parameter sweep
+      core/studio-capture.js   clip recording and snapshots
+      core/studio-sequence.js  rehearsal playback
+      core/state.js        initial state, randomize, custom presets
+      core/store.js        single owner of the live state object
+      core/variation-grid.js   nine independent engine instances, one renderer
+      core/palette.js      schema-driven colour harmonies
+      …                    sweep, sequence, findings, param tween, clip recording
+      ui/                  studio-ui.js, tab modules, exploration sessions
+      styles/              CSS surfaces; style.css is the barrel
+      presets/             curated looks; preset-library.js is the barrel
+  */tests/                 plain Node scripts, no framework
 docs/
   VISION.md                why this exists and why several decisions are not arbitrary
   ENGINE-AUTHORING.md      the engine contract
   engine-briefs/           proposed engines
 ```
+
+**The runtime never calls a studio method directly.** `OrbRuntime` declares five
+hooks — `onEngineWillChange`, `onEngineDidChange`, `advanceTimeline`,
+`renderOverride`, `onDispose` — with inert defaults, and `OrbStudio` overrides
+them. Reaching into `this.grid` or `this.paramTween` from a runtime method
+breaks the package for anyone who is not the studio, and it breaks at frame time
+inside `requestAnimationFrame`. `packages/studio/tests/runtime-hooks.test.mjs`
+checks this in both directions.
 
 ## Adding an engine
 

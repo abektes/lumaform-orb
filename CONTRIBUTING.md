@@ -13,11 +13,11 @@ npm run dev
 ## Before opening a pull request
 
 ```bash
-for t in tests/*.test.mjs; do node "$t" || echo "FAILED: $t"; done
+npm test
 ```
 
 ```bash
-npx vite build
+npm run build
 ```
 
 Both must pass. CI runs exactly these.
