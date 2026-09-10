@@ -30,6 +30,41 @@ export function bindGridPointer(studio) {
 }
 
 export const gridMethods = {
+  // --- runtime hook overrides ----------------------------------------------
+
+  // The grid owns engine instances built from the factory that was active when
+  // it was created, and renderFrame returns early whenever a grid exists.
+  // Switching engine without rebuilding therefore left nine stale cells of the
+  // previous engine on screen while the new one rendered nowhere — the change
+  // looked like it had simply not happened.
+  onEngineDidChange(state, { wasGridMode = false, wasSweep = null } = {}) {
+    if (wasGridMode) this.rebuildGridForEngine(state, wasSweep);
+  },
+
+  // Grid mode bypasses the composer: bloom is a full-screen pass and would
+  // bleed across cell boundaries, so cells render straight to the framebuffer.
+  renderOverride(delta) {
+    if (!this.grid) return false;
+    if (this.audioSource?.isActive) this.grid.setAudioLevel(this.modulation.audioLevel);
+    this.grid.render(
+      this.virtualTime,
+      this.isPaused ? 0 : delta * this.timeScale,
+      window.innerWidth,
+      window.innerHeight
+    );
+    return true;
+  },
+
+  // Teardown the runtime knows nothing about. Runs before the runtime releases
+  // the renderer, so the grid still has a live context to dispose cells from.
+  onDispose() {
+    this.stopSequence();
+    this.clipRecorder?.dispose();
+    this.audioInput?.dispose();
+    this.renderer.domElement.removeEventListener('pointerdown', this.handleGridPointer);
+    this.exitGridMode();
+  },
+
   // Re-creates the grid or sweep for whatever engine is now active. Split out of
   // setEngine so the recursion is obvious: neither enterGridMode nor
   // enterSweepMode calls setEngine, so this cannot loop.

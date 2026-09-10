@@ -84,6 +84,11 @@ export class OrbStudio {
     // Created lazily: constructing an AudioContext before a user gesture is
     // wasteful and some browsers start it suspended anyway.
     this.audioInput = null;
+    // Anything with .read() → 0..1 and .isActive. The studio points this at its
+    // microphone input; a consumer of the bare runtime can supply their own
+    // analyser, or nothing, in which case audio routes stay inert rather than
+    // broken.
+    this.audioSource = options.audioSource ?? null;
     // Sessions that never record should never create a canvas capture stream.
     this.clipRecorder = null;
     // Tweens move baseParams, so the modulation rack keeps layering on top of a
@@ -146,19 +151,15 @@ export class OrbStudio {
   }
 
   setEngine(type, state) {
-    if (this.currentSequence && !this.applyingSequenceStep) {
-      // The caller already wrote the requested engine into state.
-      this.stopSequence({ reconcile: false });
-    }
+    // Whatever the override captures here is handed back to onEngineDidChange
+    // after the swap. It has to be captured before teardown — exitGridMode
+    // clears the state the studio needs to rebuild from.
+    const context = this.onEngineWillChange() ?? {};
 
     if (this.activeEngineType === type && this.activeEngine) {
       this.updateParameters(state);
       return;
     }
-
-    // Captured before anything is torn down: exitGridMode clears both.
-    const wasGridMode = !!this.grid;
-    const wasSweep = this.sweepInfo ? { ...this.sweepInfo } : null;
 
     // Cleanup existing engine
     if (this.activeEngine) {
@@ -197,32 +198,19 @@ export class OrbStudio {
     this.baseParams = { ...state.engines[type] };
     this.paramDefs = ENGINE_PARAM_DEFINITIONS[type] || {};
     this.lastModulated = {};
-    // A tween in flight targets the previous engine's parameters.
-    this.paramTween.cancel();
 
     this.syncModulation(state);
     this.updateGlobalSettings(state.global);
     notifyParams(this.activeEngine, state.engines[type]);
     this.onWindowResize();
 
-    // The grid owns its own engine instances, built from the factory that was
-    // active when it was created, and renderFrame returns early whenever a grid
-    // exists. Switching engine without rebuilding it therefore left nine stale
-    // cells of the previous engine on screen while the new one rendered
-    // nowhere — the change looked like it had simply not happened.
-    if (wasGridMode) this.rebuildGridForEngine(state, wasSweep);
+    this.onEngineDidChange(state, context);
   }
 
   updateParameters(state) {
     // A direct edit, import or preset selection supersedes an in-flight A/B
     // transition. Otherwise the old target would overwrite the edit next frame.
-    if (this.currentSequence && !this.applyingSequenceStep) {
-      // A slider, preset or import has already written its desired value into
-      // state, so stopping rehearsal must not replace that edit with the
-      // intermediate visual value.
-      this.stopSequence({ reconcile: false });
-    }
-    this.paramTween.cancel();
+    this.onEngineWillChange();
     this.syncModulation(state);
     this.updateGlobalSettings(state.global);
     if (this.activeEngine && this.activeEngineType) {
@@ -398,52 +386,53 @@ export class OrbStudio {
     return this.isPaused;
   }
 
+  // --- runtime/studio seam -------------------------------------------------
+  //
+  // These four are no-ops here so the runtime half runs standalone, and the
+  // studio overrides them in studio-sequence.js and studio-grid.js. Without
+  // them the frame loop and setEngine reach directly into the variation grid
+  // and the rehearsal player, neither of which exists in a bare runtime.
+  //
+  // Keep them inert, not merely empty: a bare runtime should do less than the
+  // studio, never something different.
+
+  // A direct edit, import or preset selection supersedes an in-flight
+  // rehearsal transition. Returns context to hand to onEngineDidChange, which
+  // runs after teardown has already discarded it.
+  onEngineWillChange() {
+    return null;
+  }
+
+  // The grid owns engine instances built from the factory that was active when
+  // it was created.
+  onEngineDidChange(_state, _context) {}
+
+  // Returns the milliseconds a param tween should advance this frame. A
+  // throttled frame can skip step boundaries, so the studio returns only the
+  // elapsed portion of the current step rather than the whole frame delta.
+  advanceTimeline(delta) {
+    return delta * 1000;
+  }
+
+  // Return true to claim the frame. The grid renders N scissored viewports
+  // straight to the framebuffer, bypassing the bloom composer.
+  renderOverride(_delta) {
+    return false;
+  }
+
+  // Runs before the runtime tears down its own renderer and engine, so an
+  // override still has a live scene to release things from.
+  onDispose() {}
+
   renderFrame() {
     this.rafId = requestAnimationFrame(this.animate);
 
     const delta = this.clock.getDelta();
     this.fpsTracker.tick();
 
-    let tweenDeltaMs = delta * 1000;
-    let sequenceCompleted = false;
-    if (this.sequencePlayer.isPlaying) {
-      const at = this.sequencePlayer.advance(tweenDeltaMs);
-      sequenceCompleted = !!at?.completed;
-      if (at?.entered) {
-        const step = this.currentSequence?.[at.index];
-        if (step && this.applySequenceStep(step)) {
-          // A throttled frame can skip boundaries. Advance a newly started
-          // tween only by the elapsed portion of its own step, not by the whole
-          // frame delta that may include earlier steps.
-          tweenDeltaMs = at.phase === 'transition'
-            ? at.stepElapsedMs
-            : Math.max(0, Number(step.transitionMs) || 0);
-          this.onSequenceStep?.({ index: at.index, step });
-        }
-      }
-    }
-
-    // Advance before evaluating the rack so modulation reads this frame's base.
-    // Real milliseconds, not virtualTime: a transition's duration should not
-    // change when playback speed does.
-    // Pausing a rehearsal freezes both its clock and the transition already in
-    // flight; stop instead cancels that transition and resets the clock.
-    const sequencePaused = this.currentSequence
-      && !this.sequencePlayer.isPlaying
-      && !sequenceCompleted;
-    if (this.paramTween.isRunning && !sequencePaused) {
-      const tweened = this.paramTween.advance(tweenDeltaMs);
-      if (tweened) {
-        const patch = {};
-        for (const [key, value] of Object.entries(tweened)) {
-          if (!Object.is(this.baseParams[key], value)) patch[key] = value;
-        }
-        Object.assign(this.baseParams, tweened);
-        this.applyModulatedParams({});
-        if (Object.keys(patch).length) notifyParams(this.activeEngine, patch);
-      }
-    }
-    if (sequenceCompleted) this.stopSequence();
+    // Rehearsal playback and param tweening advance here, before the rack is
+    // evaluated, so modulation reads this frame's base.
+    this.advanceTimeline(delta);
 
     // Modulation is evaluated against the *previous* virtualTime, then its tempo
     // multiplier is integrated into the next step. Integrating (rather than
@@ -451,10 +440,8 @@ export class OrbStudio {
     // geometry jumping — engines compute angle as `time * rate`, so a rate that
     // changes mid-flight would retroactively rewrite the accumulated angle.
     // Sample first so audio routes see this frame's level, not the previous one.
-    if (this.audioInput?.isActive) {
-      const audioLevel = this.audioInput.read();
-      this.modulation.setAudioLevel(audioLevel);
-      this.grid?.setAudioLevel(audioLevel);
+    if (this.audioSource?.isActive) {
+      this.modulation.setAudioLevel(this.audioSource.read());
     }
     const mod = this.modulation.apply(this.baseParams, this.paramDefs, this.virtualTime);
 
@@ -466,10 +453,7 @@ export class OrbStudio {
 
     // Grid mode bypasses the composer: bloom is a full-screen pass and would
     // bleed across cell boundaries, so cells render straight to the framebuffer.
-    if (this.grid) {
-      this.grid.render(this.virtualTime, this.isPaused ? 0 : delta * this.timeScale, window.innerWidth, window.innerHeight);
-      return;
-    }
+    if (this.renderOverride(delta)) return;
 
     // Smooth pointer motion
     this.smoothedPointer.lerp(this.pointerTracker.pointer, 0.08);
@@ -502,6 +486,9 @@ export class OrbStudio {
         attack: audio.attack ?? 0.5,
         release: audio.release ?? 0.12,
       });
+      // The frame loop reads audioSource, not audioInput — the runtime accepts
+      // any level source and knows nothing about microphones.
+      this.audioSource = this.audioInput;
     } else {
       this.audioInput.setOptions({
         attack: audio.attack ?? 0.5,
@@ -531,15 +518,11 @@ export class OrbStudio {
   }
 
   dispose() {
-    this.stopSequence();
+    this.onDispose();
     cancelAnimationFrame(this.rafId);
     window.removeEventListener('resize', this.handleResize);
     this.clickPulseTracker?.dispose();
     this.pointerTracker?.dispose();
-    this.audioInput?.dispose();
-    this.renderer.domElement.removeEventListener('pointerdown', this.handleGridPointer);
-    this.clipRecorder?.dispose();
-    this.exitGridMode();
     this.controls.dispose();
     this.activeEngine?.dispose();
     this.composer?.dispose();

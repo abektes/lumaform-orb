@@ -1,6 +1,74 @@
+import { notifyParams } from '@lumaform/orb';
+
 export const sequenceMethods = {
   get isPlayingSequence() {
     return this.sequencePlayer.isPlaying;
+  },
+
+  // --- runtime hook overrides ----------------------------------------------
+
+  // A direct edit, import or preset selection supersedes an in-flight
+  // transition. The caller has already written its desired value into state,
+  // so stopping the rehearsal must not replace that edit with the intermediate
+  // visual value — hence reconcile: false.
+  onEngineWillChange() {
+    if (this.currentSequence && !this.applyingSequenceStep) {
+      this.stopSequence({ reconcile: false });
+    }
+    // A tween in flight targets the outgoing engine's parameters.
+    this.paramTween.cancel();
+
+    // Captured before anything is torn down: exitGridMode clears both.
+    return {
+      wasGridMode: !!this.grid,
+      wasSweep: this.sweepInfo ? { ...this.sweepInfo } : null,
+    };
+  },
+
+  // Real milliseconds, not virtualTime: a transition's duration should not
+  // change when playback speed does.
+  advanceTimeline(delta) {
+    let tweenDeltaMs = delta * 1000;
+    let sequenceCompleted = false;
+
+    if (this.sequencePlayer.isPlaying) {
+      const at = this.sequencePlayer.advance(tweenDeltaMs);
+      sequenceCompleted = !!at?.completed;
+      if (at?.entered) {
+        const step = this.currentSequence?.[at.index];
+        if (step && this.applySequenceStep(step)) {
+          // A throttled frame can skip boundaries. Advance a newly started
+          // tween only by the elapsed portion of its own step, not by the whole
+          // frame delta that may include earlier steps.
+          tweenDeltaMs = at.phase === 'transition'
+            ? at.stepElapsedMs
+            : Math.max(0, Number(step.transitionMs) || 0);
+          this.onSequenceStep?.({ index: at.index, step });
+        }
+      }
+    }
+
+    // Pausing a rehearsal freezes both its clock and the transition already in
+    // flight; stop instead cancels that transition and resets the clock.
+    const sequencePaused = this.currentSequence
+      && !this.sequencePlayer.isPlaying
+      && !sequenceCompleted;
+
+    if (this.paramTween.isRunning && !sequencePaused) {
+      const tweened = this.paramTween.advance(tweenDeltaMs);
+      if (tweened) {
+        const patch = {};
+        for (const [key, value] of Object.entries(tweened)) {
+          if (!Object.is(this.baseParams[key], value)) patch[key] = value;
+        }
+        Object.assign(this.baseParams, tweened);
+        this.applyModulatedParams({});
+        if (Object.keys(patch).length) notifyParams(this.activeEngine, patch);
+      }
+    }
+
+    if (sequenceCompleted) this.stopSequence();
+    return tweenDeltaMs;
   },
 
   playSequence(sequence, state, { loop = true } = {}) {
