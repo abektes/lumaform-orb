@@ -6,7 +6,7 @@ import {
   mapPoint,
   pickSparkles,
   colorRamp,
-} from '../../orb/src/core/flow-field.js';
+} from '../src/core/flow-field.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {

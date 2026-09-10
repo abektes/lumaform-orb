@@ -4,7 +4,7 @@ import {
   normalizeLevel,
   smoothLevel,
   createLevelFollower,
-} from '../../orb/src/audio/audio-level.js';
+} from '../src/audio/audio-level.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -26,7 +26,7 @@ ok('empty buffer is zero', rmsFromTimeDomain(new Uint8Array(0)) === 0);
 ok('a zero-filled buffer reads as full deflection, not silence',
   rmsFromTimeDomain(new Uint8Array(256)) === 1);
 ok('the input buffer is allocated at the silence midpoint', (() => {
-  const source = readFileSync(new URL('../../orb/src/audio/audio-input.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/audio/audio-input.js', import.meta.url), 'utf8');
   return /new Uint8Array\(analyser\.fftSize\)\.fill\(128\)/.test(source);
 })());
 
@@ -104,7 +104,7 @@ follower.setOptions({ gain: 0 });
 ok('live options affect following', follower.push(0.35) === 0);
 
 // --- the audio source inside the rack ---
-const { createModulationRack, createDefaultModulation } = await import('../../orb/src/core/modulation.js');
+const { createModulationRack, createDefaultModulation } = await import('../src/core/modulation.js');
 
 const defs = { edgeGlow: { type: 'number', section: 'colors', min: 0, max: 3, step: 0.05 } };
 const config = createDefaultModulation();
