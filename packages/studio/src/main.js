@@ -1,7 +1,7 @@
 import { OrbStudio } from './core/studio.js';
 import { createInitialState } from './core/state.js';
 import { createStudioStore } from './core/store.js';
-import { registerAllEngines } from './core/engine-catalog.js';
+import { registerAllEngines } from '@lumaform/orb';
 import { StudioUI } from './ui/studio-ui.js';
 import { createShortcutsOverlay } from './ui/shortcuts-overlay.js';
 import { createClipSession } from './ui/clip-session.js';

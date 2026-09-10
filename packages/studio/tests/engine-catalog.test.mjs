@@ -6,9 +6,9 @@ import {
   ENGINE_TYPES,
   getDefaultEngineParams,
   getDefaultPresetName,
-} from '../src/core/engine-catalog.js';
+} from '../../orb/src/engine-catalog.js';
 import { createInitialState } from '../src/core/state.js';
-import { listModulationTargets } from '../src/core/modulation.js';
+import { listModulationTargets } from '../../orb/src/core/modulation.js';
 import { PRESET_LIBRARY } from '../src/presets/preset-library.js';
 
 let failures = 0;
@@ -18,6 +18,8 @@ function ok(name, condition, extra = '') {
 }
 
 const root = new URL('../', import.meta.url);
+// Engines live in the runtime package now; main.js and state.js stay here.
+const orbRoot = new URL('../../orb/', import.meta.url);
 const main = readFileSync(new URL('src/main.js', root), 'utf8');
 const state = createInitialState();
 const sections = new Set(['geometry', 'motion', 'colors']);
@@ -29,7 +31,7 @@ const HELPER_ENGINE_FILES = new Set([
   'tesseract-projection.js',
 ]);
 
-const liveEngineFiles = readdirSync(new URL('src/engines', root))
+const liveEngineFiles = readdirSync(new URL('src/engines', orbRoot))
   .filter((name) => name.endsWith('-engine.js'));
 
 ok('main.js registers from the catalog, not a hand-written factory list',
@@ -97,7 +99,7 @@ for (const entry of ENGINE_CATALOG) {
   ok(`${id} exposes a safe modulation target`,
     listModulationTargets(defs).length > 0);
 
-  const source = readFileSync(new URL(`src/engines/${entry.file}`, root), 'utf8');
+  const source = readFileSync(new URL(`src/engines/${entry.file}`, orbRoot), 'utf8');
   ok(`${id} factory file exports ${entry.factoryName}`,
     source.includes(`export function ${entry.factoryName}`));
 

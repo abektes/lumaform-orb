@@ -1,11 +1,11 @@
-import { createTesseractEngine } from '../../engines/tesseract-engine.js';
-import { createMoireEngine } from '../../engines/moire-engine.js';
-import { createAurisEngine } from '../../engines/auris-engine.js';
-import { createHopfEngine } from '../../engines/hopf-engine.js';
-import { createPolytopeEngine } from '../../engines/polytope-engine.js';
-import { createNebulaEngine } from '../../engines/nebula-engine.js';
-import { createQuantumEngine } from '../../engines/quantum-engine.js';
-import { createSingularityEngine } from '../../engines/singularity-engine.js';
+import { createTesseractEngine } from '../engines/tesseract-engine.js';
+import { createMoireEngine } from '../engines/moire-engine.js';
+import { createAurisEngine } from '../engines/auris-engine.js';
+import { createHopfEngine } from '../engines/hopf-engine.js';
+import { createPolytopeEngine } from '../engines/polytope-engine.js';
+import { createNebulaEngine } from '../engines/nebula-engine.js';
+import { createQuantumEngine } from '../engines/quantum-engine.js';
+import { createSingularityEngine } from '../engines/singularity-engine.js';
 
 export const ANALYTIC_ENGINES = [
   {

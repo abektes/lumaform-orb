@@ -1,6 +1,6 @@
 import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS, loadSavedPresets, saveCustomPreset, deleteCustomPreset } from '../core/state.js';
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
-import { parseConfigFile, applyConfig } from '../core/config-io.js';
+import { parseConfigFile, applyConfig } from '@lumaform/orb';
 import { makeFinding } from '../core/findings.js';
 import { makeStep, totalDuration } from '../core/sequence.js';
 import { EASING_NAMES } from '../core/easing.js';

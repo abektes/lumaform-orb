@@ -5,7 +5,7 @@ import {
   shellSegmentCount,
   buildShell,
   resolveShells,
-} from '../src/core/moire-sphere.js';
+} from '../../orb/src/core/moire-sphere.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {

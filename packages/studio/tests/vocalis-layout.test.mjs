@@ -3,7 +3,7 @@ import {
   RING_LAYOUTS,
   ringRest,
   sampleRingPoint,
-} from '../src/engines/vocalis-layout.js';
+} from '../../orb/src/engines/vocalis-layout.js';
 
 const R = 1.45;
 const DEPTH = 0.6;

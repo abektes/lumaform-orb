@@ -4,7 +4,7 @@ import {
   measureMurmuration,
   scatterMurmuration,
   stepMurmuration,
-} from '../src/engines/murmuration-simulation.js';
+} from '../../orb/src/engines/murmuration-simulation.js';
 
 const defaults = {
   shellRadius: 1.7,

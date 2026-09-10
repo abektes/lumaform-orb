@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lumaform/orb": "*",
     "shiki": "^4.4.3",
     "three": "^0.160.1"
   },

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createClipRecorder } from './clip-recorder.js';
-import { notifyResize } from './engine-notify.js';
+import { notifyResize } from '@lumaform/orb';
 
 export const captureMethods = {
   ensureClipRecorder() {

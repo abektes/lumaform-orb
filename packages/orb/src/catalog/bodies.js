@@ -1,12 +1,12 @@
-import { createPrismBloomEngine } from '../../engines/prism-bloom-engine.js';
-import { createCoronaVeilEngine } from '../../engines/corona-veil-engine.js';
-import { createEchoRingsEngine } from '../../engines/echo-rings-engine.js';
-import { createChromasphereEngine } from '../../engines/chromasphere-engine.js';
-import { createVocalisEngine } from '../../engines/vocalis-engine.js';
-import { createAetheriaEngine } from '../../engines/aetheria-engine.js';
-import { createSuperpositionEngine } from '../../engines/superposition-engine.js';
-import { createSynthesisEngine } from '../../engines/synthesis-engine.js';
-import { createFerroTrailsEngine } from '../../engines/ferro-trails-engine.js';
+import { createPrismBloomEngine } from '../engines/prism-bloom-engine.js';
+import { createCoronaVeilEngine } from '../engines/corona-veil-engine.js';
+import { createEchoRingsEngine } from '../engines/echo-rings-engine.js';
+import { createChromasphereEngine } from '../engines/chromasphere-engine.js';
+import { createVocalisEngine } from '../engines/vocalis-engine.js';
+import { createAetheriaEngine } from '../engines/aetheria-engine.js';
+import { createSuperpositionEngine } from '../engines/superposition-engine.js';
+import { createSynthesisEngine } from '../engines/synthesis-engine.js';
+import { createFerroTrailsEngine } from '../engines/ferro-trails-engine.js';
 
 export const BODIES_ENGINES = [
   {

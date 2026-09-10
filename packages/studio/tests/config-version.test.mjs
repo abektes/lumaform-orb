@@ -17,7 +17,7 @@ import {
   stampVersion,
   parseConfigFile,
   applyConfig,
-} from '../src/core/config-io.js';
+} from '../../orb/src/core/config-io.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {

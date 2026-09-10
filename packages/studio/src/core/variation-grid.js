@@ -14,16 +14,16 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { stampVersion } from './config-io.js';
+import { stampVersion } from '@lumaform/orb';
 import {
   LFO_SHAPES,
   TIME_SCALE_DEST,
   createModulationRack,
   createDefaultModulation,
   listModulationTargets,
-} from './modulation.js';
-import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from './framing.js';
-import { notifyParams } from './engine-notify.js';
+} from '@lumaform/orb';
+import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from '@lumaform/orb';
+import { notifyParams } from '@lumaform/orb';
 
 // --- colour jitter ---------------------------------------------------------
 

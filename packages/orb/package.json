@@ -1,0 +1,15 @@
+{
+  "name": "@lumaform/orb",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./engines": "./src/engines/index.js"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "three": ">=0.160 <1"
+  }
+}

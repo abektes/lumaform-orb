@@ -10,7 +10,7 @@ import {
   orientationBasis,
   projectVertex,
   tesseractVertices,
-} from '../src/engines/tesseract-projection.js';
+} from '../../orb/src/engines/tesseract-projection.js';
 
 const CUBE = [
   [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],

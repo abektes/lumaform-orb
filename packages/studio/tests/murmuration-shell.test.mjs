@@ -4,12 +4,12 @@ import {
   shellBoundRadius,
   shellSdf,
   spawnOnShell,
-} from '../src/engines/murmuration-shell.js';
+} from '../../orb/src/engines/murmuration-shell.js';
 import {
   createMurmurationSimulation,
   measureMurmuration,
   stepMurmuration,
-} from '../src/engines/murmuration-simulation.js';
+} from '../../orb/src/engines/murmuration-simulation.js';
 
 const R = 1.7;
 const EPS = 0.04;
