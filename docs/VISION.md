@@ -77,13 +77,25 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 ## 6. What the export format is — and is not
 
-Export currently emits `{ engine, global, params, modulation }`, and the grid emits an array of those.
+Export emits `{ version, engine, global, params, modulation }`, and the grid emits an array of those.
 
-**It is a lab notebook.** Its job is to stop good accidents from evaporating. It has no version field, no state vocabulary, and no guaranteed stability.
+**It is a lab notebook.** Its job is to stop good accidents from evaporating. It has no state vocabulary and no guaranteed stability.
 
-**It is not an interop contract.** Do not build anything that depends on its shape staying fixed, and do not add versioning or a published schema until §3's exploration phase has actually produced a vocabulary. When that happens the format will be redesigned around states and transitions, and the notebook files will be migrated or discarded.
+**It is not an interop contract.** Do not build anything that depends on its shape staying fixed, and do not publish a schema until §3's exploration phase has actually produced a vocabulary. When that happens the format will be redesigned around states and transitions.
 
 **But it must round-trip.** A capture format you cannot load back is not a capture format. Import must restore everything export writes.
+
+### The version field is an exception, and here is why
+
+This section previously said to add no versioning until exploration had produced a vocabulary. That was reversed deliberately in September 2026, and the reasoning matters more than the conclusion.
+
+The instruction conflated two different things. A **published schema** is a promise about shape, and promising a shape before you know the vocabulary is exactly the premature specification §3 exists to prevent — so that stays forbidden. A **version field** is the opposite: it is a promise that the shape is *allowed to change*. It costs one integer and it is what turns the redesign this section promises into a migration instead of a break.
+
+It also cannot be added later at the same price. Once unversioned files exist in the wild — on other people's disks, in forks, in anything built on `@lumaform/orb` — a loader has to guess at their shape from their contents. Adding the field while the only files are your own is nearly free; adding it afterwards is archaeology.
+
+So: `CONFIG_VERSION` and an ordered migration chain live in `src/core/config-io.js`. The v0→v1 migration is a no-op, because files written before the field are already v1-shaped. The no-op is the point — the mechanism exists and is exercised, so the first real migration is a one-line addition rather than a redesign of how loading works. A file from a *newer* version is refused with an error naming both versions, because silently half-loading a document you do not understand renders something subtly wrong with nothing to explain why.
+
+None of this makes the format stable. It makes it changeable on purpose rather than by accident.
 
 ## 7. Decision log
 

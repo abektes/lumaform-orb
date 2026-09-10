@@ -162,7 +162,7 @@ One trap worth knowing before you debug anything visual: **if the browser pane i
 
 ## Status
 
-This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips, but it has no version field and no stability guarantee, and it will be redesigned around named states once exploration has actually produced a vocabulary. Don't build anything on its shape yet.
+This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips and it carries a `version` field, but it has no stability guarantee, and it will be redesigned around named states once exploration has actually produced a vocabulary. Don't build anything on its shape yet — the version field exists so that redesign can migrate your files rather than break them, not to promise the shape will hold. See [docs/VISION.md](docs/VISION.md) §6.
 
 ## Privacy
 

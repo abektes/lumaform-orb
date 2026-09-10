@@ -1,9 +1,9 @@
 // Loading exported configurations back in.
 //
-// Export writes { engine, global, params, modulation }, and the grid writes an
-// array of those — that array is the notebook format, the thing you actually
-// keep. Import has to accept both, restore the motion design as well as the
-// look, and refuse to write junk into state.
+// Export writes { version, engine, global, params, modulation }, and the grid
+// writes an array of those — that array is the notebook format, the thing you
+// actually keep. Import has to accept both, restore the motion design as well as
+// the look, and refuse to write junk into state.
 //
 // Pure: takes the engine list and the parameter schema as arguments rather than
 // importing state.js, so it stays a leaf module and tests need no fixtures.
@@ -12,6 +12,64 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+// --- versioning ------------------------------------------------------------
+//
+// VISION §3 says this format will be redesigned around named states once
+// exploration has produced a vocabulary. Without a version field that redesign
+// breaks every file already on disk; with one it is a migration. The mechanism
+// has to land before anything is published, because afterwards there are
+// unversioned files in the wild whose shape can only be guessed at.
+
+export const CONFIG_VERSION = 1;
+
+// Ordered: MIGRATIONS[n] takes a config at version n and returns version n+1.
+const MIGRATIONS = [
+  // v0 → v1. No shape change — files written before versioning are already
+  // v1-shaped, and this only makes that explicit. The no-op is the point: the
+  // chain exists and is exercised, so the first real migration is a one-line
+  // addition rather than a redesign of how loading works.
+  (config) => ({ ...config, version: 1 }),
+];
+
+// Absent means "written before versioning existed", which is v0. Anything else
+// that is not a non-negative integer is corrupt, not old.
+function readVersion(config) {
+  if (config?.version === undefined) return 0;
+  const raw = config.version;
+  return Number.isInteger(raw) && raw >= 0 ? raw : NaN;
+}
+
+export function stampVersion(config) {
+  return { ...config, version: CONFIG_VERSION };
+}
+
+export function migrateConfig(config) {
+  const from = readVersion(config);
+
+  if (Number.isNaN(from)) {
+    return {
+      ok: false,
+      error: `Invalid config version ${JSON.stringify(config.version)}. Expected a whole number, or no version field at all for a file exported before versioning.`,
+    };
+  }
+
+  // Refusing is the whole point. A newer file may carry keys this build reads
+  // with different meaning, so loading it anyway would render something subtly
+  // wrong with nothing to explain why.
+  if (from > CONFIG_VERSION) {
+    return {
+      ok: false,
+      error: `This file was written by a newer version of Lumaform Orb (config version ${from}; this build understands up to ${CONFIG_VERSION}). Update, or re-export from the version that wrote it.`,
+    };
+  }
+
+  let migrated = config;
+  for (let version = from; version < CONFIG_VERSION; version++) {
+    migrated = MIGRATIONS[version](migrated);
+  }
+  return { ok: true, config: migrated };
 }
 
 function validateConfig(config, validEngines) {
@@ -31,12 +89,26 @@ export function parseConfigFile(text, validEngines) {
     return { ok: false, error: 'That is not valid JSON.' };
   }
 
-  const configs = Array.isArray(parsed) ? parsed : [parsed];
-  if (!configs.length) return { ok: false, error: 'The file contains no configs.' };
+  const raw = Array.isArray(parsed) ? parsed : [parsed];
+  if (!raw.length) return { ok: false, error: 'The file contains no configs.' };
 
-  for (const config of configs) {
-    const problem = validateConfig(config, validEngines);
+  // Migrate before validating. A future migration may well be what turns an old
+  // file into something the schema recognises, so validating first would reject
+  // files this build is capable of reading.
+  //
+  // Versions are per entry: a hand-kept notebook can legitimately hold one cell
+  // re-exported after an upgrade alongside older ones.
+  const configs = [];
+  for (const entry of raw) {
+    if (!isPlainObject(entry)) return { ok: false, error: 'Each config must be a JSON object.' };
+
+    const migration = migrateConfig(entry);
+    if (!migration.ok) return { ok: false, error: migration.error };
+
+    const problem = validateConfig(migration.config, validEngines);
     if (problem) return { ok: false, error: problem };
+
+    configs.push(migration.config);
   }
   return { ok: true, configs };
 }

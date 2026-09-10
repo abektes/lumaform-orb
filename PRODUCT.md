@@ -59,7 +59,7 @@ Sessions are exploratory and fast. The tool is operated by keyboard as much as b
 **Technical constraints that are product decisions, not accidents:**
 
 - **No framework.** Vanilla JS, ES modules, Vite. Runtime dependencies are `three` and `shiki` and nothing else. Most component libraries are therefore unavailable; that cost is known and accepted.
-- **The export format is a lab notebook.** It must round-trip, but it has no version field, no state vocabulary, and no stability guarantee. Nothing should be built that depends on its shape holding.
+- **The export format is a lab notebook.** It must round-trip. It carries a `version` field so a future redesign can migrate old files, but it has no state vocabulary and no stability guarantee. Nothing should be built that depends on its shape holding. See [docs/VISION.md](docs/VISION.md) §6.
 - **Rate parameters are never modulated** (engines compute `angle = time × rate`, so changing a rate mid-flight rewrites the accumulated angle), and **geometry-section parameters are never modulated** (several engines rebuild geometry on change).
 - **Grid cells render without bloom** deliberately; it is a full-screen pass that bleeds across scissored cells.
 

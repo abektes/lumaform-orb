@@ -3,18 +3,19 @@ import {
   ENGINE_PARAM_DEFINITIONS,
 } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
+import { stampVersion } from '../core/config-io.js';
 import { SHORTCUT_GROUPS, formatKey, shortcutsInGroup } from '../core/shortcuts.js';
 import { applyPalette } from '../core/palette.js';
 import { highlightJs } from './highlight.js';
 import { ICONS } from './icons.js';
 
 export function exportConfig() {
-  return {
+  return stampVersion({
     engine: this.state.engine,
     global: this.state.global,
     params: this.state.engines[this.state.engine],
     modulation: this.state.modulation,
-  };
+  });
 }
 
 export function renderExportTab() {
@@ -477,31 +478,24 @@ export function closeModal() {
   this.modalOverlay.classList.add('hidden');
 }
 
+// Emits exactly what the JSON tab writes, rather than a second shape.
+//
+// This used to flatten global settings into `bloom` and `exposure` keys and
+// import THREE without using it, so the snippet and the .json export described
+// the same orb two different ways — and only one of them could be imported
+// back. One format, one version field, one thing to migrate.
 export function generateEmbedSnippet() {
   const engine = this.state.engine;
-  const params = this.state.engines[engine];
-  const global = this.state.global;
 
   return `// ===============================================
-// Generated with Orb Studio
+// Generated with Lumaform Orb Studio
 // Engine: ${ENGINE_INFO[engine].name} (${ENGINE_INFO[engine].badge})
 // ===============================================
 
-import * as THREE from 'three';
+export const ORB_CONFIG = ${JSON.stringify(this.exportConfig(), null, 2)};
 
-export const ORB_CONFIG = {
-engine: '${engine}',
-bloom: {
-  strength: ${global.bloomStrength},
-  radius: ${global.bloomRadius},
-  threshold: ${global.bloomThreshold},
-},
-exposure: ${global.exposure},
-params: ${JSON.stringify(params, null, 2)},
-modulation: ${JSON.stringify(this.state.modulation, null, 2)}
-};
-
-// Usage Example:
-// Pass ORB_CONFIG into your Three.js engine loader.
+// This is the same document the Export tab's JSON tab writes, and it loads back
+// into the studio unchanged. \`version\` identifies the format so a future
+// redesign can migrate this file rather than break it.
 `;
 }
