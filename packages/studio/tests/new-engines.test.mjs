@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { createVocalisEngine } from '../src/engines/vocalis-engine.js';
-import { createAetheriaEngine } from '../src/engines/aetheria-engine.js';
-import { createSuperpositionEngine } from '../src/engines/superposition-engine.js';
-import { createSynthesisEngine } from '../src/engines/synthesis-engine.js';
-import { createFerroTrailsEngine } from '../src/engines/ferro-trails-engine.js';
+import { createVocalisEngine } from '../../orb/src/engines/vocalis-engine.js';
+import { createAetheriaEngine } from '../../orb/src/engines/aetheria-engine.js';
+import { createSuperpositionEngine } from '../../orb/src/engines/superposition-engine.js';
+import { createSynthesisEngine } from '../../orb/src/engines/synthesis-engine.js';
+import { createFerroTrailsEngine } from '../../orb/src/engines/ferro-trails-engine.js';
 import { ENGINE_PARAM_DEFINITIONS, ENGINE_TYPES, getDefaultEngineParams } from '../src/core/state.js';
 
 function mockRenderer() {

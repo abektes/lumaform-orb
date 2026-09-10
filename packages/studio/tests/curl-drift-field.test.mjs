@@ -10,7 +10,7 @@ import {
   sampleCurlField,
   sampleShellFlow,
   writeOrderedTrail,
-} from '../src/engines/curl-drift-field.js';
+} from '../../orb/src/engines/curl-drift-field.js';
 
 const a = sampleCurlField(0.37, -1.2, 2.4, 0.6);
 const b = sampleCurlField(0.37, -1.2, 2.4, 0.6);

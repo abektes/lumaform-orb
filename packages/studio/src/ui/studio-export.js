@@ -3,7 +3,7 @@ import {
   ENGINE_PARAM_DEFINITIONS,
 } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
-import { stampVersion } from '../core/config-io.js';
+import { stampVersion } from '@lumaform/orb';
 import { SHORTCUT_GROUPS, formatKey, shortcutsInGroup } from '../core/shortcuts.js';
 import { applyPalette } from '../core/palette.js';
 import { highlightJs } from './highlight.js';

@@ -1,13 +1,13 @@
 // App state, randomize, and custom-preset storage.
 // Engine ids, schemas, and factories live in engine-catalog.js.
 
-import { createDefaultModulation } from './modulation.js';
+import { createDefaultModulation } from '@lumaform/orb';
 import {
   ENGINE_TYPES,
   ENGINE_PARAM_DEFINITIONS,
   defaultEngineBags,
   getDefaultPresetName,
-} from './engine-catalog.js';
+} from '@lumaform/orb';
 import { generateHarmoniousPalette } from './palette.js';
 import { randomizeParams } from './randomize.js';
 
@@ -16,7 +16,7 @@ export {
   ENGINE_INFO,
   ENGINE_PARAM_DEFINITIONS,
   getDefaultEngineParams,
-} from './engine-catalog.js';
+} from '@lumaform/orb';
 export { generateHarmoniousPalette } from './palette.js';
 
 export const DEFAULT_GLOBAL_SETTINGS = {

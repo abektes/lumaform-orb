@@ -1,4 +1,4 @@
-import { parseConfigFile, sanitizeParams, applyConfig } from '../src/core/config-io.js';
+import { parseConfigFile, sanitizeParams, applyConfig } from '../../orb/src/core/config-io.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {

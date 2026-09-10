@@ -20,7 +20,7 @@ import {
   getDefaultEngineParams,
 } from '../src/core/state.js';
 import { PALETTES, PALETTE_KEYS, applyPalette, paletteTargets, isPaletteTarget } from '../src/core/palette.js';
-import { listModulationTargets } from '../src/core/modulation.js';
+import { listModulationTargets } from '../../orb/src/core/modulation.js';
 import { listSweepableParams } from '../src/core/sweep.js';
 import { inspectorLeaves } from '../src/ui/inspector-nav.js';
 

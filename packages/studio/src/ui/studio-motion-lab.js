@@ -3,7 +3,7 @@ import {
   TIME_SCALE_DEST,
   listModulationTargets,
   createDefaultModulation,
-} from '../core/modulation.js';
+} from '@lumaform/orb';
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
 import { displayFileName } from '../core/audio-transport.js';

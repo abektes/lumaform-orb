@@ -104,7 +104,7 @@ follower.setOptions({ gain: 0 });
 ok('live options affect following', follower.push(0.35) === 0);
 
 // --- the audio source inside the rack ---
-const { createModulationRack, createDefaultModulation } = await import('../src/core/modulation.js');
+const { createModulationRack, createDefaultModulation } = await import('../../orb/src/core/modulation.js');
 
 const defs = { edgeGlow: { type: 'number', section: 'colors', min: 0, max: 3, step: 0.05 } };
 const config = createDefaultModulation();

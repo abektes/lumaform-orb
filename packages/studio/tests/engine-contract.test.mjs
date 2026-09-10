@@ -8,7 +8,7 @@ import {
   notifyParams,
   notifyPulse,
   notifyResize,
-} from '../src/core/engine-notify.js';
+} from '../../orb/src/core/engine-notify.js';
 import { createStudioStore } from '../src/core/store.js';
 import { createInitialState, ENGINE_TYPES } from '../src/core/state.js';
 
@@ -19,11 +19,14 @@ function ok(name, condition, extra = '') {
 }
 
 const root = new URL('../', import.meta.url);
-const liveEngineFiles = readdirSync(new URL('src/engines', root))
+// Engine sources moved to the runtime package; studio.js and variation-grid.js
+// did not, which is why this test stays on the studio side.
+const orbRoot = new URL('../../orb/', import.meta.url);
+const liveEngineFiles = readdirSync(new URL('src/engines', orbRoot))
   .filter((name) => name.endsWith('-engine.js'));
 
 for (const file of liveEngineFiles) {
-  const src = readFileSync(new URL(`src/engines/${file}`, root), 'utf8');
+  const src = readFileSync(new URL(`src/engines/${file}`, orbRoot), 'utf8');
   ok(`${file} has no onParamsChange`, !/\bonParamsChange\b/.test(src));
   ok(`${file} has no onPointerClick`, !/\bonPointerClick\b/.test(src));
   ok(`${file} has no resize alias`, !/^\s*resize\s*\(/m.test(src));

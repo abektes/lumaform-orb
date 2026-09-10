@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { fluxStrandColor } from '../src/engines/flux-color.js';
+import { fluxStrandColor } from '../../orb/src/engines/flux-color.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -32,7 +32,7 @@ ok('crests still go HDR so additive knots can form',
 ok('crests keep the ramp hue instead of mixing toward white',
   crestGreen[1] > crestGreen[0] && crestGreen[1] > crestGreen[2]);
 
-const engine = readFileSync(new URL('../src/engines/flux-engine.js', import.meta.url), 'utf8');
+const engine = readFileSync(new URL('../../orb/src/engines/flux-engine.js', import.meta.url), 'utf8');
 ok('the fragment shader uses the in-hue restGain, not mix-to-white times glow',
   engine.includes('restGain')
     && !engine.includes('mix(ramp, vec3(1.0), hot * 0.34)'));

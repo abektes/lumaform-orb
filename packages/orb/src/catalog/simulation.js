@@ -1,8 +1,8 @@
-import { createFluxEngine } from '../../engines/flux-engine.js';
-import { createAqueousEngine } from '../../engines/aqueous-engine.js';
-import { createCurlDriftEngine } from '../../engines/curl-drift-engine.js';
-import { createMurmurationEngine } from '../../engines/murmuration-engine.js';
-import { createFilamentEngine } from '../../engines/filament-engine.js';
+import { createFluxEngine } from '../engines/flux-engine.js';
+import { createAqueousEngine } from '../engines/aqueous-engine.js';
+import { createCurlDriftEngine } from '../engines/curl-drift-engine.js';
+import { createMurmurationEngine } from '../engines/murmuration-engine.js';
+import { createFilamentEngine } from '../engines/filament-engine.js';
 
 export const SIMULATION_ENGINES = [
   {
