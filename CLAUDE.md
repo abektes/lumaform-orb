@@ -1,6 +1,6 @@
 # Lumaform Orb
 
-A WebGL exploration tool for designing animated AI-assistant orbs. Seventeen engines, one parameter schema, one render loop.
+A WebGL exploration tool for designing animated AI-assistant orbs. Twenty-two engines, one parameter schema, one render loop.
 
 **Read [docs/VISION.md](docs/VISION.md) before non-trivial work** — it explains what this is for and why several decisions that look arbitrary are not. Implementation plans live in `docs/superpowers/plans/`.
 
@@ -31,6 +31,7 @@ We do not yet know what movement reads as "thinking" for an AI orb. This tool ex
 - **Chrome layering beats z-index.** `.studio-ui-root` forms a stacking context. Session chrome mounts on `ui.root` (overlay tokens below panel tokens). `render()` rewrites inspector tab content only. Full-screen dialogs go on `ui.container`. Take values from the `--z-*` scale in `:root`; `tests/layering.test.mjs` rejects raw literals.
 - **Controls must declare their own `background` and `color`**, disabled states included. The UI is dark and browser defaults are light — a button with no fill renders as a light-grey slab, and a disabled one becomes illegible. `opacity` alone is not a disabled state.
 - **Every `e.code` binding needs an entry in `src/core/shortcuts.js`.** `tests/shortcuts.test.mjs` scans both files and fails in either direction.
+- **User-typed text must be escaped before it reaches `innerHTML`.** Custom preset names and finding notes are typed by the user and persisted; interpolating them raw is both self-XSS and a plain break — a name containing `"` closes the `data-` attribute early and the preset becomes unloadable. Use `escapeHtml` from `src/ui/studio-format.js`; `tests/markup-escaping.test.mjs` covers the preset paths.
 
 ## Verification
 

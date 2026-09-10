@@ -8,6 +8,9 @@ import { createClipSession } from './ui/clip-session.js';
 import { createAbSession } from './ui/ab-session.js';
 import { createGridSession } from './ui/grid-session.js';
 import { PRESET_LIBRARY } from './presets/preset-library.js';
+import { initAnalytics } from './analytics.js';
+
+initAnalytics();
 
 const container = document.getElementById('container');
 const store = createStudioStore(createInitialState());
