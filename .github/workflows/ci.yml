@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Plain Node scripts, no test framework. Run all of them and fail on the
+      # first non-zero exit rather than letting a later pass mask an earlier
+      # failure.
+      - name: Run tests
+        run: |
+          failed=0
+          for test in tests/*.test.mjs; do
+            echo "── $test"
+            node "$test" || failed=1
+          done
+          exit $failed
+
+      - run: npx vite build

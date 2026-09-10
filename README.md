@@ -1,6 +1,6 @@
 # Lumaform Orb
 
-A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Twenty-one shader engines, one parameter schema, one render loop.
+A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Twenty-two shader engines, one parameter schema, one render loop.
 
 It is **not** a component library, not an embeddable runtime, and not a design system. It is an instrument for finding out what is possible.
 
@@ -34,7 +34,7 @@ npx vite build
 for t in tests/*.test.mjs; do node "$t" || echo "FAILED: $t"; done
 ```
 
-Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 22 of them.
+Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 35 of them.
 
 ## Stack
 
@@ -62,6 +62,7 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `prismbloom` — Prism Bloom | Crystalline flora | 14 |
 | `coronaveil` — Corona Veil | Aurora membrane | 14 |
 | `echorings` — Echo Rings | Signal memory | 14 |
+| `ferrotrails` — Ferro Trails | Magnetic fluid & arc trails | 18 |
 | `chromasphere` — Chromasphere | Liquid chrome | 20 |
 | `vocalis` — Vocalis | Vocal diaphragm | 16 |
 | `aetheria` — Aetheria | Iridescent luminescence | 14 |
@@ -102,11 +103,13 @@ Eleven tabs: Presets, Findings, Rehearsal, Colors, Geometry, Motion, Motion Lab,
 
 Colors, Geometry and Motion are generated entirely from each engine's schema — there is no per-engine control code. An engine's `section` assignment is a behavioural declaration, not a tab name: `geometry` means "may rebuild geometry, therefore never modulated". See [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) §3.
 
-54 curated presets ship across the engines.
+83 curated presets ship across the engines.
 
 ## Using the microphone
 
 Motion Lab → **Mic** (or **Test Tone** if you just want to see it work). Enabling either seeds one `audio1 → Tempo` route if you have no audio route yet, so the orb reacts immediately; retarget or delete it in the rack like any other route. Audio needs a user gesture, so the browser will not start it from a page load.
+
+**The audio never leaves the page.** The signal goes to a Web Audio `AnalyserNode`, is reduced to a single amplitude number per frame, and is never recorded, stored or transmitted. There is no backend to send it to. Denying the permission is handled as a normal outcome, not an error — the orb keeps running and audio routes stay inert. See [SECURITY.md](SECURITY.md).
 
 ## Project layout
 
@@ -160,3 +163,15 @@ One trap worth knowing before you debug anything visual: **if the browser pane i
 ## Status
 
 This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips, but it has no version field and no stability guarantee, and it will be redesigned around named states once exploration has actually produced a vocabulary. Don't build anything on its shape yet.
+
+## Privacy
+
+No backend, no accounts, no telemetry by default. Configurations, findings and custom presets live in `localStorage` on your machine. Microphone audio never leaves the page. Analytics load only when `VITE_GA_ID` is set at build time — unset in this repository, so a clone or fork makes no analytics requests at all. See [.env.example](.env.example) and [SECURITY.md](SECURITY.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Read [docs/VISION.md](docs/VISION.md) first for anything non-trivial — the most common way a well-intentioned change gets rejected is that it optimises for a goal this project does not have.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

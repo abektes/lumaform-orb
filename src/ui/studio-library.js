@@ -43,16 +43,16 @@ export function renderPresetsTab() {
               || preset.params.glowColor
               || '#7c3aed';
             return `
-              <div class="preset-card ${isSelected ? 'active' : ''}" data-preset-name="${preset.name}">
+              <div class="preset-card ${isSelected ? 'active' : ''}" data-preset-name="${escapeHtml(preset.name)}">
                 <div class="preset-card-head">
                   <div class="preset-dots">
                     <span class="color-dot" style="background: ${colorDot1}"></span>
                     <span class="color-dot" style="background: ${colorDot2}"></span>
                   </div>
-                  <span class="preset-badge">${preset.badge}</span>
+                  <span class="preset-badge">${escapeHtml(preset.badge)}</span>
                 </div>
-                <div class="preset-name">${preset.name}</div>
-                <div class="preset-desc">${preset.description}</div>
+                <div class="preset-name">${escapeHtml(preset.name)}</div>
+                <div class="preset-desc">${escapeHtml(preset.description)}</div>
               </div>
             `;
           })
@@ -80,8 +80,8 @@ export function renderPresetsTab() {
             .map(
               (cp) => `
             <div class="custom-preset-item">
-              <span class="cp-name" data-load-custom="${cp.name}">${cp.name}</span>
-              <button class="cp-delete-btn" data-delete-custom="${cp.name}" title="Delete">✕</button>
+              <span class="cp-name" data-load-custom="${escapeHtml(cp.name)}">${escapeHtml(cp.name)}</span>
+              <button class="cp-delete-btn" data-delete-custom="${escapeHtml(cp.name)}" title="Delete">✕</button>
             </div>
           `
             )
