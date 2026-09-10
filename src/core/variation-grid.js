@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { stampVersion } from './config-io.js';
 import {
   LFO_SHAPES,
   TIME_SCALE_DEST,
@@ -498,7 +499,7 @@ export function createVariationGrid({
     exportSelected() {
       const selected = cells.filter((c) => c.selected);
       const chosen = selected.length ? selected : cells;
-      return chosen.map((c) => ({
+      return chosen.map((c) => stampVersion({
         engine: engineType,
         global: { ...globalSettings },
         params: { ...c.params },
