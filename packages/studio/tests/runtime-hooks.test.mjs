@@ -17,12 +17,17 @@ function ok(name, condition, extra = '') {
   if (!condition) failures++;
 }
 
-// The runtime half currently lives in studio.js; Task 4 of the split moves it
-// to packages/orb/src/core/runtime.js and repoints this one line. The
-// assertions below are what makes that move safe, so they land first.
-const runtime = readFileSync(new URL('../src/core/studio.js', import.meta.url), 'utf8');
+// The runtime half lives in packages/orb; the studio's overrides are checked
+// at the bottom of this file.
+const runtime = readFileSync(new URL('../../orb/src/core/runtime.js', import.meta.url), 'utf8');
 
-const HOOKS = ['onEngineWillChange', 'onEngineDidChange', 'advanceTimeline', 'renderOverride'];
+const HOOKS = [
+  'onEngineWillChange',
+  'onEngineDidChange',
+  'advanceTimeline',
+  'renderOverride',
+  'onDispose',
+];
 for (const hook of HOOKS) {
   ok(`${hook} is declared on the runtime`, new RegExp(`\\n  ${hook}\\(`).test(runtime));
 }

@@ -9,6 +9,8 @@
 // runtime flag cannot be tree-shaken and nobody should pay for getUserMedia
 // they never asked for.
 
+export { OrbRuntime } from './core/runtime.js';
+
 export {
   ENGINE_CATALOG,
   ENGINE_TYPES,

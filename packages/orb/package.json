@@ -6,7 +6,8 @@
   "main": "./src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./engines": "./src/engines/index.js"
+    "./engines": "./src/engines/index.js",
+    "./audio": "./src/audio/index.js"
   },
   "sideEffects": false,
   "peerDependencies": {
