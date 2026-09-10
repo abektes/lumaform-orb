@@ -4,7 +4,7 @@ import {
   normalizeLevel,
   smoothLevel,
   createLevelFollower,
-} from '../src/core/audio-level.js';
+} from '../../orb/src/audio/audio-level.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -26,7 +26,7 @@ ok('empty buffer is zero', rmsFromTimeDomain(new Uint8Array(0)) === 0);
 ok('a zero-filled buffer reads as full deflection, not silence',
   rmsFromTimeDomain(new Uint8Array(256)) === 1);
 ok('the input buffer is allocated at the silence midpoint', (() => {
-  const source = readFileSync(new URL('../src/core/audio-input.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../orb/src/audio/audio-input.js', import.meta.url), 'utf8');
   return /new Uint8Array\(analyser\.fftSize\)\.fill\(128\)/.test(source);
 })());
 

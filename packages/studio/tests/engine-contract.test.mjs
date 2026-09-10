@@ -33,11 +33,18 @@ for (const file of liveEngineFiles) {
   ok(`${file} implements setParams`, /\bsetParams\s*[\(:]/.test(src));
 }
 
+// Dispatch lives in the runtime now; the studio subclass adds the grid,
+// capture and rehearsal on top and dispatches only through advanceTimeline.
+const runtime = readFileSync(new URL('src/core/runtime.js', orbRoot), 'utf8');
 const studio = readFileSync(new URL('src/core/studio.js', root), 'utf8');
+const sequence = readFileSync(new URL('src/core/studio-sequence.js', root), 'utf8');
 const grid = readFileSync(new URL('src/core/variation-grid.js', root), 'utf8');
-ok('studio dispatches params through notifyParams', /notifyParams\(/.test(studio));
-ok('studio dispatches pulse through notifyPulse', /notifyPulse\(/.test(studio));
-ok('studio dispatches resize through notifyResize', /notifyResize\(/.test(studio));
+ok('runtime dispatches params through notifyParams', /notifyParams\(/.test(runtime));
+ok('runtime dispatches pulse through notifyPulse', /notifyPulse\(/.test(runtime));
+ok('runtime dispatches resize through notifyResize', /notifyResize\(/.test(runtime));
+ok('the rehearsal tween dispatches through notifyParams', /notifyParams\(/.test(sequence));
+ok('runtime no longer mentions onParamsChange', !/\bonParamsChange\b/.test(runtime));
+ok('runtime no longer mentions onPointerClick', !/\bonPointerClick\b/.test(runtime));
 ok('studio no longer mentions onParamsChange', !/\bonParamsChange\b/.test(studio));
 ok('studio no longer mentions onPointerClick', !/\bonPointerClick\b/.test(studio));
 ok('grid dispatches through notifyParams', /notifyParams\(/.test(grid));
