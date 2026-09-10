@@ -22,7 +22,7 @@
 
 ## Background you need (you have no prior context)
 
-Repo root: `/Users/ahmetbektes/WDesignspace/orb-animation`. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
+Repo root: the repository root. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
 
 **The app state object** (`src/core/state.js`, `createInitialState()`):
 

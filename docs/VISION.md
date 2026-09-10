@@ -9,9 +9,11 @@ Read this before writing code. The implementation plans in `docs/superpowers/pla
 
 ## 1. What this is
 
-Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs seventeen independent engines spanning wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations, all driven through one parameter schema and one render loop.
+Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs twenty-two independent engines spanning wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations, all driven through one parameter schema and one render loop.
 
-It is **not** a component library, not a runtime you embed, and not (yet) a design system. It is an instrument for finding out what's possible.
+It is **not** a component library and not (yet) a design system. It is an instrument for finding out what's possible.
+
+The repo is two workspaces. `packages/orb` holds the runtime — engines, catalog, modulation, framing, config I/O and the frame loop. `packages/studio` holds the instrument built on it. That split is a consequence of §6, not a departure from §3: the runtime exists so a finding can be played back, and its config format is versioned precisely so specifying it stays reversible. It is unpublished and its API is not stable.
 
 ## 2. The question we are trying to answer
 
@@ -67,7 +69,7 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 **Only the active engine's parameter bag is meaningful.** State holds a bag per engine. Snapshot, export and import must touch only `state.engines[state.engine]` — writing every bag would silently rewrite engines the user never opened.
 
-**Chrome is layered, and the layer decides before the z-index does.** `.studio-ui-root` is positioned with a z-index and so forms a stacking context — a `z-index: 1000` inside it cannot outrank a `200` outside it. Overlay tokens (`--z-overlay-*`) sit below panel tokens (`--z-panel-*`) so the grid HUD cannot cover the engine dropdown. Mounting an overlay on `document.body` puts it above the entire panel. Only a full-screen dialog belongs at body level. `tests/layering.test.mjs` fails on any raw `z-index` literal.
+**Chrome is layered, and the layer decides before the z-index does.** `.studio-ui-root` is positioned with a z-index and so forms a stacking context — a `z-index: 1000` inside it cannot outrank a `200` outside it. Overlay tokens (`--z-overlay-*`) sit below panel tokens (`--z-panel-*`) so the grid HUD cannot cover the engine dropdown. Mounting an overlay on `document.body` puts it above the entire panel. Only a full-screen dialog belongs at body level. `layering.test.mjs` fails on any raw `z-index` literal.
 
 **The shell is persistent.** `render()` rewrites inspector tab content only. Top bar, dock, tabs, and session chrome (clip / A/B / sweep / grid HUD) are mounted once on `ui.root`.
 
@@ -93,7 +95,7 @@ The instruction conflated two different things. A **published schema** is a prom
 
 It also cannot be added later at the same price. Once unversioned files exist in the wild — on other people's disks, in forks, in anything built on `@lumaform/orb` — a loader has to guess at their shape from their contents. Adding the field while the only files are your own is nearly free; adding it afterwards is archaeology.
 
-So: `CONFIG_VERSION` and an ordered migration chain live in `src/core/config-io.js`. The v0→v1 migration is a no-op, because files written before the field are already v1-shaped. The no-op is the point — the mechanism exists and is exercised, so the first real migration is a one-line addition rather than a redesign of how loading works. A file from a *newer* version is refused with an error naming both versions, because silently half-loading a document you do not understand renders something subtly wrong with nothing to explain why.
+So: `CONFIG_VERSION` and an ordered migration chain live in `packages/orb/src/core/config-io.js`. The v0→v1 migration is a no-op, because files written before the field are already v1-shaped. The no-op is the point — the mechanism exists and is exercised, so the first real migration is a one-line addition rather than a redesign of how loading works. A file from a *newer* version is refused with an error naming both versions, because silently half-loading a document you do not understand renders something subtly wrong with nothing to explain why.
 
 None of this makes the format stable. It makes it changeable on purpose rather than by accident.
 
@@ -136,13 +138,13 @@ These are genuinely unresolved. If your work bears on one, say so.
 - **CSS transitions are frozen too.** A hidden page produces no frames, so a transitioning property never advances and `getComputedStyle()` keeps returning the *starting* value indefinitely. Asserting on an animated property in a hidden pane produces confident, repeatable, wrong answers. Set `element.style.transition = 'none'` before measuring, or assert on the matching rule rather than the computed value.
 - **`setTimeout` is clamped to ~1000 ms in a hidden pane**, so you cannot step frames in real time there. `await new Promise(r => setTimeout(r, 25))` between `studio.renderFrame()` calls actually advances a *full second* of `clock.getDelta()` per frame. Anything that integrates real milliseconds — the param tween, the rehearsal player — then races through whole cycles per frame and produces plausible-looking nonsense (a step-entered event on literally every frame). Inject the delta instead: `studio.clock.getDelta = () => 0.025`, step, then restore. This is the third form of the hidden-pane trap; assume there is a fourth.
 - **Measure the fixture before believing the finding.** Two "bugs" in the review of the rehearsal sprint were bad fixtures: a param written directly to state below its schema `min` (import correctly clamped it), and a sequence whose first step targeted the value already on screen (so nothing moved). When a result looks wrong, instrument the thing you are measuring before reporting it.
-- **Tests are plain Node scripts** in `tests/`, run with `node tests/<name>.test.mjs`. No framework. Pure logic (mutation, modulation maths, config parsing) is extracted into DOM-free modules specifically so it can be tested this way. Keep doing that.
-- **The build must pass:** `npx vite build`.
+- **Tests are plain Node scripts** in `packages/*/tests/`, run with `npm test` or `node packages/<pkg>/tests/<name>.test.mjs`. No framework. Pure logic (mutation, modulation maths, config parsing) is extracted into DOM-free modules specifically so it can be tested this way. Keep doing that.
+- **The build must pass:** `npm run build`.
 - **Commit in coherent slices** with messages that explain *why*, not just what changed.
 - **Comments explain why.** The codebase is full of non-obvious constraints; a comment that restates the code is worse than none.
 - **Placement comments move with the thing they describe.** Re-rooting or repositioning chrome means rewriting its placement comment in the same change; stale placement guidance can recreate the bug the move fixed.
-- **Keyboard bindings and the map move together.** Every `e.code` shortcut in `main.js`, `studio-ui.js`, or a `src/ui/*-session.js` file needs a matching entry in `src/core/shortcuts.js`; `tests/shortcuts.test.mjs` scans both directions so hidden or stale bindings fail validation.
-- **CSS guards check existence, not appearance.** `tests/css-hygiene.test.mjs` proves every emitted class has a rule and no rule is unreachable; `tests/layering.test.mjs` proves z-index values come from the `--z-*` scale. Neither proves a rule is *right* — a rule can be present, reachable and wrong. Screenshot comparison against the previous look is still the reviewer's job for any stylesheet change.
+- **Keyboard bindings and the map move together.** Every `e.code` shortcut in `main.js`, `studio-ui.js`, or a `packages/studio/src/ui/*-session.js` file needs a matching entry in `packages/studio/src/core/shortcuts.js`; `shortcuts.test.mjs` scans both directions so hidden or stale bindings fail validation.
+- **CSS guards check existence, not appearance.** `css-hygiene.test.mjs` proves every emitted class has a rule and no rule is unreachable; `layering.test.mjs` proves z-index values come from the `--z-*` scale. Neither proves a rule is *right* — a rule can be present, reachable and wrong. Screenshot comparison against the previous look is still the reviewer's job for any stylesheet change.
 
 ---
 
@@ -152,7 +154,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 | --- | --- |
 | Engines | 17 registered vocabularies: analytic wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations |
 | Stateful motion | Murmuration, Curl Drift, Filament Lattice and Echo Rings carry bounded history so settle and propagation emerge from motion |
-| Parameter schema | Derived from `src/core/engine-catalog.js` — drives the entire UI |
+| Parameter schema | Derived from `packages/orb/src/engine-catalog.js` — drives the entire UI |
 | Parameter controls | Shared numeric rows with formatted and typed exact values, visible ranges, and one-click reset |
 | Modulation | LFO / fbm noise / envelope / live mic or test tone → parameters and tempo; Motion Lab tab |
 | Variation grid | 3×3, per-cell patch + clock, promote, mark, export |
@@ -163,7 +165,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 | Parameter sweep | Built — `K` ladders one parameter across 5 cells |
 | Section-locked mutation | Built — chips in the grid HUD |
 | Mutation breadth | Built — attributable 1 / 3 / 6 / everything parameter breeding, independent patch breeding, and changed-key export metadata |
-| Chrome layering | Two layers inside the root, named `--z-*` scale, guarded by `tests/layering.test.mjs` |
+| Chrome layering | Two layers inside the root, named `--z-*` scale, guarded by `layering.test.mjs` |
 | Responsive | Breakpoints at 1280px (laptop) and 900px (phone) |
 | Keyboard map | Built — `?` or the top-bar button opens the complete, source-scan-guarded shortcut inventory |
-| Markup/CSS hygiene | Guarded — every emitted class carries a rule, no rule is unreachable (`tests/css-hygiene.test.mjs`); existence, not appearance, so visual review stays manual |
+| Markup/CSS hygiene | Guarded — every emitted class carries a rule, no rule is unreachable (`css-hygiene.test.mjs`); existence, not appearance, so visual review stays manual |

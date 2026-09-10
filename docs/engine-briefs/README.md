@@ -55,7 +55,7 @@ Aqueous is the deliberate exception: no simulation, easiest of the four, and it 
 
 Give the agent this, substituting the brief:
 
-> Build a new engine for the Lumaform Orb project at `/Users/ahmetbektes/WDesignspace/orb-animation`.
+> Build a new engine for the Lumaform Orb project at the repository root.
 >
 > Read these three files first, in order, and follow them:
 > 1. `docs/VISION.md` — why this project exists and what it is not

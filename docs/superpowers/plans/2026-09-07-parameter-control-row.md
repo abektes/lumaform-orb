@@ -28,7 +28,7 @@ None of this is about aesthetics. `docs/VISION.md` §4 asks the tool to raise th
 
 ## Background you need (you have no prior context)
 
-Repo root: `/Users/ahmetbektes/WDesignspace/orb-animation`. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
+Repo root: the repository root. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
 
 Read `docs/VISION.md` first — §4 and §5.
 

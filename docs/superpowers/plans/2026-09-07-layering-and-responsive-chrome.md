@@ -26,7 +26,7 @@ This is maintenance work, not an instrument, and it is worth a sprint precisely 
 
 ## Background you need (you have no prior context)
 
-Repo root: `/Users/ahmetbektes/WDesignspace/orb-animation`. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
+Repo root: the repository root. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
 
 Read `docs/VISION.md` first — §5 (invariants) and §10 (working agreements).
 

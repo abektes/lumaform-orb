@@ -69,7 +69,7 @@ export function createFooEngine({ studio, scene, camera, renderer, composer, poi
 - It must be cheap. The modulation rack calls it at 60fps with only the keys it changed.
 - **Guard every side effect with `if (patch.key !== undefined)`.** Rebuilding geometry because a color arrived is the most common way to make an engine stutter.
 
-**`frame: { radius: N }`** — the world-space radius your engine occupies. The studio derives camera distance from it so every engine fills the same fraction of the frame ([framing.js](../src/core/framing.js)). Omit it and you get `DEFAULT_FRAME_RADIUS = 2.5`, which is almost certainly wrong for you. Measure it: bounding sphere of everything you render at default parameters.
+**`frame: { radius: N }`** — the world-space radius your engine occupies. The studio derives camera distance from it so every engine fills the same fraction of the frame ([framing.js](../packages/orb/src/core/framing.js)). Omit it and you get `DEFAULT_FRAME_RADIUS = 2.5`, which is almost certainly wrong for you. Measure it: bounding sphere of everything you render at default parameters.
 
 **`onPulse()`** — a click. Implement this one method. `onPointerClick` is not called. Decay the value in `update`; do not restore it on a timer from captured initial params — that silently discards edits the user made in between.
 
@@ -81,13 +81,13 @@ export function createFooEngine({ studio, scene, camera, renderer, composer, poi
 
 ## 2. The two registration touch points
 
-`ENGINE_TYPES`, `ENGINE_INFO`, `ENGINE_PARAM_DEFINITIONS`, default bags, the default preset name, and `studio.registerEngine` are all **derived** from `src/core/engine-catalog.js`. Do not add a parallel copy in `state.js` or `main.js`.
+`ENGINE_TYPES`, `ENGINE_INFO`, `ENGINE_PARAM_DEFINITIONS`, default bags, the default preset name, and `studio.registerEngine` are all **derived** from `packages/orb/src/engine-catalog.js`. Do not add a parallel copy in `state.js` or `main.js`.
 
-### 2a. `src/engines/<name>-engine.js`
+### 2a. `packages/orb/src/engines/<name>-engine.js`
 
 The engine itself. One file. Named export `create<Name>Engine`.
 
-### 2b. One entry in `src/core/catalog/`
+### 2b. One entry in `packages/orb/src/catalog/`
 
 Add the object to the group file that matches the substrate (`analytic.js`, `simulation.js`, or `bodies.js`):
 
@@ -108,9 +108,9 @@ import { createFooEngine } from '../../engines/foo-engine.js';
 }
 ```
 
-`tests/engine-catalog.test.mjs` fails if the factory file is missing from the catalog, or if the catalog points at a file that does not exist.
+`engine-catalog.test.mjs` fails if the factory file is missing from the catalog, or if the catalog points at a file that does not exist.
 
-Randomize (`R`) reads this schema. There is no per-engine branch to add. Colours follow `paletteTargets`; motion numbers jump within `min`/`max`. An engine with neither is a no-op — `tests/randomize.test.mjs` fails if that happens.
+Randomize (`R`) reads this schema. There is no per-engine branch to add. Colours follow `paletteTargets`; motion numbers jump within `min`/`max`. An engine with neither is a no-op — `randomize.test.mjs` fails if that happens.
 
 ### 2c. `src/presets/` *(optional)*
 
@@ -136,13 +136,13 @@ Choosing the wrong section is the single most consequential schema mistake.
 
 | `section` | What it means operationally |
 |---|---|
-| `geometry` | **Changing this may dispose and rebuild geometry.** Excluded from modulation entirely ([modulation.js:30](../src/core/modulation.js:30)) because rebuilding at 60fps thrashes the GPU. |
+| `geometry` | **Changing this may dispose and rebuild geometry.** Excluded from modulation entirely ([modulation.js:30](../packages/orb/src/core/modulation.js:30)) because rebuilding at 60fps thrashes the GPU. |
 | `motion` | Safe to modulate. Anything that is a cheap transform or uniform write belongs here — **even if it is conceptually "shape".** |
 | `colors` | Safe to modulate. Colors themselves aren't (only `type: 'number'` is modulatable), but numeric glow/opacity parameters here are. |
 
 Two consequences worth internalising:
 
-1. **A cheap parameter must not live in `geometry`**, or you lock it out of the modulation rack for no reason. See `shellGap` in the Moiré schema ([catalog/analytic.js](../src/core/catalog/analytic.js)) — it is conceptually geometry, but it is applied as a scale on an existing object, so it lives in `motion` and stays modulatable. Prefer designing parameters to be transforms/uniforms precisely so they can escape `geometry`.
+1. **A cheap parameter must not live in `geometry`**, or you lock it out of the modulation rack for no reason. See `shellGap` in the Moiré schema ([catalog/analytic.js](../packages/orb/src/catalog/analytic.js)) — it is conceptually geometry, but it is applied as a scale on an existing object, so it lives in `motion` and stays modulatable. Prefer designing parameters to be transforms/uniforms precisely so they can escape `geometry`.
 2. **An expensive parameter must live in `geometry`**, or the rack will rebuild your buffers sixty times a second.
 
 ### Rate parameters
@@ -172,7 +172,7 @@ Everything else should stay writable.
 This used to be a map in `studio-ui.js` keyed by literal parameter name (`color1`,
 `color2`, `colorShell`…), guarded with `if (params[k] !== undefined)`. Any engine that
 named its colours anything else got a silent no-op — nine of seventeen engines did, and
-nobody noticed because nothing errored. `tests/panel-coverage.test.mjs` now fails if any
+nobody noticed because nothing errored. `panel-coverage.test.mjs` now fails if any
 engine has no palette-writable colour.
 
 ### Randomize
@@ -227,7 +227,7 @@ Nine instances at once is the real constraint, not one.
 
 - **60fps with nine cells** on integrated graphics is the target. If your engine can only manage that at reduced quality, scale on `marchQuality`.
 - Allocate in the factory, mutate in `update`. Building a `new THREE.Color()` per frame per fiber is tolerable (Hopf does it); allocating geometry is not.
-- Prefer updating existing buffer attributes and setting `needsUpdate = true` over creating new geometry. `Line2.setPositions()` per frame is a proven-acceptable pattern here ([hopf-engine.js:234](../src/engines/hopf-engine.js:234)).
+- Prefer updating existing buffer attributes and setting `needsUpdate = true` over creating new geometry. `Line2.setPositions()` per frame is a proven-acceptable pattern here ([hopf-engine.js:234](../packages/orb/src/engines/hopf-engine.js:234)).
 - If you use `InstancedMesh`, size it for the maximum of your count parameter at construction and vary the visible count, rather than rebuilding on change.
 
 ---
@@ -237,11 +237,11 @@ Nine instances at once is the real constraint, not one.
 Claims need evidence. Run the commands, paste the output.
 
 ```bash
-npx vite build
+npm run build
 ```
 
 ```bash
-for t in tests/*.test.mjs; do node "$t" || echo "FAILED: $t"; done
+npm test
 ```
 
 Then in the browser (`npm run dev`), with `window.__orb = { studio, state, ui, ab }`:
@@ -273,14 +273,14 @@ Check your fixture. Writing a parameter straight to state can put it outside its
 
 ## 8. Definition of done
 
-- [ ] `src/engines/<name>-engine.js` exists, exports `create<Name>Engine`, disposes everything it creates
+- [ ] `packages/orb/src/engines/<name>-engine.js` exists, exports `create<Name>Engine`, disposes everything it creates
 - [ ] `frame.radius` declared and measured, not guessed
-- [ ] One catalog entry in `src/core/catalog/` (id, info, schema, factory, defaultPreset)
-- [ ] `tests/engine-catalog.test.mjs` passes — the catalog, not `main.js`, is what registers the engine
+- [ ] One catalog entry in `packages/orb/src/catalog/` (id, info, schema, factory, defaultPreset)
+- [ ] `engine-catalog.test.mjs` passes — the catalog, not `main.js`, is what registers the engine
 - [ ] Every parameter has a correct `section`, a `label` a designer would understand, and a usable range
 - [ ] At least one numeric `motion` parameter is modulatable (verify with `listModulationTargets()`)
-- [ ] `npx vite build` passes — output pasted
-- [ ] All `tests/*.test.mjs` pass — output pasted
+- [ ] `npm run build` passes — output pasted
+- [ ] All suites pass (`npm test`) — output pasted
 - [ ] Verified in main view, grid, and sweep — screenshot of the grid attached
 - [ ] Ten engine switches leave `renderer.info.memory` stable — numbers pasted
 - [ ] Optional: 2–3 presets in the matching `src/presets/` group file
@@ -294,10 +294,10 @@ Copy the closest one rather than starting blank.
 
 | If you are building… | Read |
 |---|---|
-| Lines / wireframes / analytic curves | [hopf-engine.js](../src/engines/hopf-engine.js) — cleanest example: Line2 rebuilt per frame, particles, correct `onResize` and `dispose` |
-| A full-screen raymarched SDF | [nebula-engine.js](../src/engines/nebula-engine.js) — fullscreen quad, `marchQuality` scaling, uniform-driven `setParams` |
-| Lit meshes with real geometry rebuilds | [auris-engine.js](../src/engines/auris-engine.js) — `buildGeometry` gated on `geometry`-section keys only |
-| Two counter-rotating structures | [moire-engine.js](../src/engines/moire-engine.js) — plus a good example of a `motion`-section parameter that could have been `geometry` and deliberately isn't |
+| Lines / wireframes / analytic curves | [hopf-engine.js](../packages/orb/src/engines/hopf-engine.js) — cleanest example: Line2 rebuilt per frame, particles, correct `onResize` and `dispose` |
+| A full-screen raymarched SDF | [nebula-engine.js](../packages/orb/src/engines/nebula-engine.js) — fullscreen quad, `marchQuality` scaling, uniform-driven `setParams` |
+| Lit meshes with real geometry rebuilds | [auris-engine.js](../packages/orb/src/engines/auris-engine.js) — `buildGeometry` gated on `geometry`-section keys only |
+| Two counter-rotating structures | [moire-engine.js](../packages/orb/src/engines/moire-engine.js) — plus a good example of a `motion`-section parameter that could have been `geometry` and deliberately isn't |
 
 ---
 

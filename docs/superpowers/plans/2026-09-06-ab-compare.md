@@ -20,7 +20,7 @@
 
 ## Background you need (you have no prior context)
 
-Repo root: `/Users/ahmetbektes/WDesignspace/orb-animation`. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
+Repo root: the repository root. Dev server: `npm run dev` → http://localhost:5173. Build: `npx vite build`.
 
 This is a WebGL shader studio. A single `OrbStudio` owns the renderer, camera, clock and one active "engine" (a visual generator — there are 8: tesseract, moire, auris, hopf, polytope, nebula, quantum, singularity).
 
