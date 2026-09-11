@@ -341,6 +341,16 @@
   /* This readout should report the signal, not ease behind it. */
 }
 
+/* The loaded track's name. Truncates rather than wrapping, because a long
+   filename would otherwise push the transport buttons onto a second line. */
+.audio-file-name {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 /* ---------------------------------------------------------------------------
    Recording indicator. Top-right, clear of the top bar and grid HUD.
    --------------------------------------------------------------------------- */

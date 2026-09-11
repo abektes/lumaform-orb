@@ -6,6 +6,8 @@ import {
 } from '../core/modulation.js';
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
+import { displayFileName } from '../core/audio-transport.js';
+import { escapeHtml } from './studio-format.js';
 import { highlightJs, ensureHighlighter } from './highlight.js';
 
 // --- Motion Lab -----------------------------------------------------------
@@ -119,9 +121,20 @@ export function renderMotionLabTab() {
           <div class="audio-input-row">
             <button class="btn-sm ${this.studio.audioInput?.mode === 'mic' ? 'btn-accent' : ''}" id="btn-audio-mic">Mic</button>
             <button class="btn-sm ${this.studio.audioInput?.mode === 'tone' ? 'btn-accent' : ''}" id="btn-audio-tone">Test Tone</button>
+            <button class="btn-sm ${this.studio.audioInput?.mode === 'file' ? 'btn-accent' : ''}" id="btn-audio-file">File</button>
             <button class="btn-sm" id="btn-audio-off">Off</button>
           </div>
         </div>
+        ${this.studio.audioInput?.mode === 'file' && this.studio.audioInput?.fileName ? `
+        <div class="control-row">
+          <label class="ctrl-label audio-file-name" title="${escapeHtml(this.studio.audioInput.fileName)}">${escapeHtml(displayFileName(this.studio.audioInput.fileName))}</label>
+          <div class="audio-input-row">
+            <button class="btn-sm ${this.studio.audioInput.isPlaying ? 'btn-accent' : ''}" id="btn-audio-play">Play</button>
+            <button class="btn-sm" id="btn-audio-stop">Stop</button>
+            <button class="btn-sm ${this.studio.audioInput.loop ? 'btn-accent' : ''}" id="btn-audio-loop">Loop</button>
+            <button class="btn-sm ${this.studio.audioInput.muted ? 'btn-accent' : ''}" id="btn-audio-mute">Mute</button>
+          </div>
+        </div>` : ''}
         <div class="control-row">
           <label class="ctrl-label">Audio Level</label>
           <div class="audio-meter"><div class="audio-meter-fill" id="audio-meter-fill"></div></div>
@@ -215,6 +228,58 @@ export function attachMotionLabListeners() {
     commit(true);
   });
 
+  this.root.querySelector('#btn-audio-file')?.addEventListener('click', () => {
+    // Created per click and discarded. render() rewrites the inspector's inner
+    // HTML, which would destroy a persistent input and silently drop the
+    // user's selection, so no file input lives in the markup.
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'audio/*,video/mp4,.wav,.mp3,.m4a,.mp4,.ogg,.flac,.aac';
+    picker.addEventListener('change', async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      const started = await this.studio.enableAudio('file', file);
+      if (!started) {
+        alert('Could not load that audio file. The browser could not decode it.');
+        this.render();
+        return;
+      }
+      ensureAudibleRoute();
+      mod.enabled = true;
+      commit(true);
+    });
+    picker.click();
+  });
+
+  this.root.querySelector('#btn-audio-play')?.addEventListener('click', async () => {
+    // The context is resumed inside this click rather than at file-select time,
+    // because a file picker can outlive the gesture that opened it.
+    const ok = await this.studio.audioInput?.playFile();
+    if (!ok) {
+      alert('The browser blocked playback. Click Play again to allow audio.');
+    }
+    this.render();
+  });
+
+  this.root.querySelector('#btn-audio-stop')?.addEventListener('click', () => {
+    this.studio.audioInput?.stopFilePlayback();
+    this.render();
+  });
+
+  this.root.querySelector('#btn-audio-loop')?.addEventListener('click', () => {
+    const audio = this.studio.audioInput;
+    if (!audio) return;
+    audio.setLoop(!audio.loop);
+    this.render();
+  });
+
+  this.root.querySelector('#btn-audio-mute')?.addEventListener('click', () => {
+    const audio = this.studio.audioInput;
+    if (!audio) return;
+    audio.setMuted(!audio.muted);
+    this.render();
+  });
+
   this.root.querySelector('#btn-audio-off')?.addEventListener('click', () => {
     this.studio.disableAudio();
     commit(true);
@@ -231,6 +296,15 @@ export function attachMotionLabListeners() {
         return;
       }
       fill.style.width = `${Math.round((this.studio.modulation.audioLevel ?? 0) * 100)}%`;
+      // A track that reaches its end with loop off leaves the Play button lit.
+      // Re-render only on a transition, never on every tick.
+      const playing = !!this.studio.audioInput?.isPlaying;
+      if (this._audioWasPlaying !== undefined && this._audioWasPlaying !== playing) {
+        this._audioWasPlaying = playing;
+        this.render();
+        return;
+      }
+      this._audioWasPlaying = playing;
     }, 100);
   }
 
