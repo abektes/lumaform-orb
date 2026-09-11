@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { createPhaseTracker } from '../core/phase.js';
 
 const PHI = (1 + Math.sqrt(5)) / 2; // Golden ratio 1.6180339887
 
@@ -132,7 +133,8 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
       uniforms: {
         baseColor: { value: new THREE.Color(colorHex) },
         dispersion: { value: currentParams.facetDispersion },
-        uTime: { value: 0.0 },
+        // Accumulated, not `time * 0.5` — see the note in src/core/phase.js.
+        uPrismPhase: { value: 0.0 },
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -149,7 +151,7 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
       fragmentShader: `
         uniform vec3 baseColor;
         uniform float dispersion;
-        uniform float uTime;
+        uniform float uPrismPhase;
         varying vec3 vNormal;
         varying vec3 vViewPosition;
         varying vec3 vWorldPosition;
@@ -162,7 +164,7 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
           float spec = pow(max(dot(reflect(-v, n), vec3(0.577)), 0.0), 24.0) * 0.55;
 
           // Prismatic chromatic dispersion across facets
-          float phi = dot(vWorldPosition, vec3(1.2, 2.1, 0.8)) + uTime * 0.5;
+          float phi = dot(vWorldPosition, vec3(1.2, 2.1, 0.8)) + uPrismPhase;
           vec3 prism = vec3(
             sin(phi + dispersion * 2.0) * 0.5 + 0.5,
             sin(phi) * 0.5 + 0.5,
@@ -248,7 +250,8 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
   const coreMat = new THREE.ShaderMaterial({
     uniforms: {
       color: { value: new THREE.Color(currentParams.coreColor) },
-      uTime: { value: 0.0 },
+      // Accumulated, not `time * 3.5` — see the note in src/core/phase.js.
+      uPulsePhase: { value: 0.0 },
     },
     vertexShader: `
       varying vec3 vNormal;
@@ -259,11 +262,11 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
     `,
     fragmentShader: `
       uniform vec3 color;
-      uniform float uTime;
+      uniform float uPulsePhase;
       varying vec3 vNormal;
       void main() {
         float f = pow(1.0 - abs(vNormal.z), 2.5);
-        float pulse = 0.85 + 0.15 * sin(uTime * 3.5);
+        float pulse = 0.85 + 0.15 * sin(uPulsePhase);
         gl_FragColor = vec4(color, f * 0.55 * pulse);
       }
     `,
@@ -276,6 +279,7 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
   group.add(coreMesh);
 
   let pulseVal = 0;
+  const phaseTracker = createPhaseTracker();
 
   return {
     // World radius this engine occupies, so OrbStudio can frame every engine at
@@ -284,9 +288,11 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
     frame: { radius: 2.24 },
     update({ time, delta }) {
       pulseVal *= 0.93;
-      matA.uniforms.uTime.value = time;
-      matB.uniforms.uTime.value = time;
-      coreMat.uniforms.uTime.value = time;
+      phaseTracker.advance(time);
+      const prismPhase = phaseTracker.phase('prism', 0.5);
+      matA.uniforms.uPrismPhase.value = prismPhase;
+      matB.uniforms.uPrismPhase.value = prismPhase;
+      coreMat.uniforms.uPulsePhase.value = phaseTracker.phase('pulse', 3.5);
 
       // Dual counter-rotations
       groupStarA.rotation.y += delta * (currentParams.rotRateA + pulseVal * 2.0);

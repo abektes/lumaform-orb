@@ -75,7 +75,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
         uLightIntensity: { value: currentParams.lightIntensity },
         uHatchDensity: { value: currentParams.hatchDensity },
         uHatchStrength: { value: currentParams.hatchStrength },
-        uTime: { value: 0.0 },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -96,7 +95,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
         uniform float uLightIntensity;
         uniform float uHatchDensity;
         uniform float uHatchStrength;
-        uniform float uTime;
 
         varying vec3 vWorldPosition;
         varying vec3 vLocalPos;
@@ -469,7 +467,6 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
 
       // Update Facet Shader Uniforms
       if (facetMaterial) {
-        facetMaterial.uniforms.uTime.value = time;
         facetMaterial.uniforms.uLightDir.value.copy(lightDir);
       }
     },

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createPhaseTracker } from '../core/phase.js';
 
 const DEFAULT_PARAMS = {
   detail: 5,
@@ -49,7 +50,13 @@ export function createAqueousEngine({ scene, params }) {
       DISPLACE_OCTAVES: clampInteger(currentParams.displaceOctaves, 1, 4, 3),
     },
     uniforms: {
+      // uTime remains only for the fbm surface drift, whose noise domain is
+      // aperiodic and so has no seamless wrap. Everything periodic accumulates.
       uTime: { value: 0 },
+      uBreathePhase: { value: 0 },
+      uCausticAPhase: { value: 0 },
+      uCausticBPhase: { value: 0 },
+      uVeilPhase: { value: 0 },
       uDisplaceAmount: { value: currentParams.displaceAmount },
       uDisplaceScale: { value: currentParams.displaceScale },
       uBreatheSpeed: { value: currentParams.breatheSpeed },
@@ -68,6 +75,7 @@ export function createAqueousEngine({ scene, params }) {
     },
     vertexShader: `
       uniform float uTime;
+      uniform float uBreathePhase;
       uniform float uDisplaceAmount;
       uniform float uDisplaceScale;
       uniform float uBreatheSpeed;
@@ -140,7 +148,7 @@ export function createAqueousEngine({ scene, params }) {
         vec3 pulseDrift = vec3(-0.31, 0.67, 0.44) * uTime * uDriftSpeed;
         float pulseNoise = valueNoise(direction * (uDisplaceScale * 2.35 + 1.2) + pulseDrift);
 
-        float breathe = 1.0 + sin(uTime * uBreatheSpeed) * uBreatheAmp;
+        float breathe = 1.0 + sin(uBreathePhase) * uBreatheAmp;
         float pulseOffset = uPulse * uPulseDeform * (0.12 + pulseNoise * 0.72);
         float displacedRadius = (baseRadius + surfaceNoise * uDisplaceAmount + pulseOffset) * breathe;
         return direction * max(displacedRadius, baseRadius * 0.2);
@@ -188,7 +196,9 @@ export function createAqueousEngine({ scene, params }) {
       }
     `,
     fragmentShader: `
-      uniform float uTime;
+      uniform float uCausticAPhase;
+      uniform float uCausticBPhase;
+      uniform float uVeilPhase;
       uniform float uTransmission;
       uniform float uThickness;
       uniform float uIor;
@@ -237,8 +247,8 @@ export function createAqueousEngine({ scene, params }) {
         vec2 lensUv = normal.xy + refracted.xy * 0.075;
         lensUv += vec2(vSurfaceNoise, -vSurfaceNoise) * 0.025;
         float innerLens = exp(-dot(lensUv, lensUv) * 8.5);
-        float causticA = sin(dot(refracted.xz, vec2(12.0, -9.0)) + vLocalPosition.y * 6.0 - uTime * 0.28);
-        float causticB = sin(dot(refracted.zy, vec2(8.0, 11.0)) - vLocalPosition.x * 5.0 + uTime * 0.17);
+        float causticA = sin(dot(refracted.xz, vec2(12.0, -9.0)) + vLocalPosition.y * 6.0 - uCausticAPhase);
+        float causticB = sin(dot(refracted.zy, vec2(8.0, 11.0)) - vLocalPosition.x * 5.0 + uCausticBPhase);
         float caustics = pow(clamp(1.0 - abs(causticA + causticB) * 0.52, 0.0, 1.0), 5.0);
         caustics *= (1.0 - clamp(uRoughness, 0.0, 1.0)) * (0.16 + innerLens * 0.34);
         float innerVeil = smoothstep(0.34, 0.88, facing);
@@ -246,7 +256,7 @@ export function createAqueousEngine({ scene, params }) {
           vLocalPosition.y * 5.2 +
           vLocalPosition.x * 2.1 +
           vSurfaceNoise * 5.0 -
-          uTime * 0.19
+          uVeilPhase
         );
         innerVeil = smoothstep(0.28, 0.82, innerVeil) * (0.35 + innerLens * 0.65);
 
@@ -295,18 +305,22 @@ export function createAqueousEngine({ scene, params }) {
     uniforms: {
       uColor: { value: new THREE.Color(currentParams.coreColor) },
       uIntensity: { value: currentParams.coreIntensity },
-      uTime: { value: 0 },
+      uWobbleAPhase: { value: 0 },
+      uWobbleBPhase: { value: 0 },
+      uLivingPhase: { value: 0 },
+      uMoltenPhase: { value: 0 },
     },
     vertexShader: `
-      uniform float uTime;
+      uniform float uWobbleAPhase;
+      uniform float uWobbleBPhase;
 
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec3 vLocalPosition;
 
       void main() {
-        float softWobble = sin(position.y * 3.8 + uTime * 0.33);
-        softWobble *= sin(position.x * 3.1 - position.z * 2.4 - uTime * 0.21);
+        float softWobble = sin(position.y * 3.8 + uWobbleAPhase);
+        softWobble *= sin(position.x * 3.1 - position.z * 2.4 - uWobbleBPhase);
         vec3 displaced = position * (1.0 + softWobble * 0.045);
         vec4 viewPosition = modelViewMatrix * vec4(displaced, 1.0);
         vNormal = normalize(normalMatrix * normal);
@@ -318,7 +332,8 @@ export function createAqueousEngine({ scene, params }) {
     fragmentShader: `
       uniform vec3 uColor;
       uniform float uIntensity;
-      uniform float uTime;
+      uniform float uLivingPhase;
+      uniform float uMoltenPhase;
 
       varying vec3 vNormal;
       varying vec3 vViewPosition;
@@ -330,8 +345,8 @@ export function createAqueousEngine({ scene, params }) {
         float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
         float keyLight = max(dot(normal, normalize(vec3(-0.48, 0.66, 0.57))), 0.0);
         float highlight = pow(max(dot(normalize(normal + viewDirection), normalize(vec3(-0.42, 0.72, 0.55))), 0.0), 24.0);
-        float livingLight = 0.96 + sin(uTime * 0.47) * 0.04;
-        float moltenBand = 0.5 + 0.5 * sin(vLocalPosition.y * 5.4 + vLocalPosition.x * 2.2 - uTime * 0.31);
+        float livingLight = 0.96 + sin(uLivingPhase) * 0.04;
+        float moltenBand = 0.5 + 0.5 * sin(vLocalPosition.y * 5.4 + vLocalPosition.x * 2.2 - uMoltenPhase);
         moltenBand = smoothstep(0.18, 0.86, moltenBand) * 0.12;
         float hotPool = exp(-dot(vLocalPosition.xy - vec2(-0.22, 0.24), vLocalPosition.xy - vec2(-0.22, 0.24)) * 5.5);
         vec3 hot = mix(uColor, vec3(1.0), 0.4);
@@ -356,6 +371,7 @@ export function createAqueousEngine({ scene, params }) {
   const frame = { radius: frameRadiusFor(currentParams) };
   let pulseEnergy = 0;
   let pulsePhase = Math.PI * 0.5;
+  const phaseTracker = createPhaseTracker();
 
   function updateCoreScale(pulse = 0) {
     const radius = Math.max(0.01, Number(currentParams.radius) || DEFAULT_PARAMS.radius);
@@ -387,8 +403,18 @@ export function createAqueousEngine({ scene, params }) {
       const pulse = pulseEnergy * Math.sin(pulsePhase);
 
       bodyMaterial.uniforms.uTime.value = time;
+      phaseTracker.advance(time);
+      const bu = bodyMaterial.uniforms;
+      bu.uBreathePhase.value = phaseTracker.phase('breathe', currentParams.breatheSpeed);
+      bu.uCausticAPhase.value = phaseTracker.phase('causticA', 0.28);
+      bu.uCausticBPhase.value = phaseTracker.phase('causticB', 0.17);
+      bu.uVeilPhase.value = phaseTracker.phase('veil', 0.19);
+      const cu = coreMaterial.uniforms;
+      cu.uWobbleAPhase.value = phaseTracker.phase('wobbleA', 0.33);
+      cu.uWobbleBPhase.value = phaseTracker.phase('wobbleB', 0.21);
+      cu.uLivingPhase.value = phaseTracker.phase('living', 0.47);
+      cu.uMoltenPhase.value = phaseTracker.phase('molten', 0.31);
       bodyMaterial.uniforms.uPulse.value = pulse;
-      coreMaterial.uniforms.uTime.value = time;
       updateCoreScale(pulse);
     },
 

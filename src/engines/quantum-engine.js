@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createPhaseTracker } from '../core/phase.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -37,12 +38,27 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
   const MAX_ORBIT_POINTS = 160;
   const orbitNodes = [];
   let pulseTime = 0;
+  const phaseTracker = createPhaseTracker();
 
   const shapeInt = SHAPE_MAP[currentParams.shape] ?? 0;
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
-      uTime: { value: 0.0 },
+      // One accumulated phase per distinct rate, never `time * rate`. Scaling a
+      // wrapped phase does not commute with the wrap (0.8 * (x mod TAU) is not
+      // (0.8x) mod TAU), so a term at -uRotX*0.8 needs its own accumulator
+      // rather than a scaled reuse of uRotXPhase. See src/core/phase.js.
+      uRotXPhase: { value: 0.0 },
+      uRotYPhase: { value: 0.0 },
+      uRotXBackPhase: { value: 0.0 },
+      uRotYBackPhase: { value: 0.0 },
+      uFracXZPhase: { value: 0.0 },
+      uFracYZPhase: { value: 0.0 },
+      uMorphOffsetPhase: { value: 0.0 },
+      uMorphXYPhase: { value: 0.0 },
+      uMorphXZPhase: { value: 0.0 },
+      uSparkPhase: { value: 0.0 },
+      uScanPhase: { value: 0.0 },
       uResolution: {
         value: new THREE.Vector2(
           window.innerWidth * (window.devicePixelRatio || 1),
@@ -54,10 +70,6 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
         value: camera.projectionMatrixInverse,
       },
       uAutoRotate: { value: currentParams.autoRotate },
-      uRotX: { value: currentParams.rotSpeedX },
-      uRotY: { value: currentParams.rotSpeedY },
-      uFractalSpeed: { value: currentParams.fractalSpeed },
-      uMorphSpeed: { value: currentParams.morphSpeed },
       uScaleFactor: { value: currentParams.scaleFactor },
       uCubeSize: { value: currentParams.cubeSize },
       uEdgeGlow: { value: currentParams.edgeGlow },
@@ -77,14 +89,20 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
     `,
     fragmentShader: `
       uniform vec2 uResolution;
-      uniform float uTime;
+      uniform float uRotXPhase;
+      uniform float uRotYPhase;
+      uniform float uRotXBackPhase;
+      uniform float uRotYBackPhase;
+      uniform float uFracXZPhase;
+      uniform float uFracYZPhase;
+      uniform float uMorphOffsetPhase;
+      uniform float uMorphXYPhase;
+      uniform float uMorphXZPhase;
+      uniform float uSparkPhase;
+      uniform float uScanPhase;
       uniform mat4 cameraWorldMatrix;
       uniform mat4 cameraProjectionMatrixInverse;
       uniform bool uAutoRotate;
-      uniform float uRotX;
-      uniform float uRotY;
-      uniform float uFractalSpeed;
-      uniform float uMorphSpeed;
       uniform float uScaleFactor;
       uniform float uCubeSize;
       uniform float uEdgeGlow;
@@ -119,8 +137,8 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
       float mapShape(vec3 p) {
         vec3 q = p;
         if (uAutoRotate) {
-          q.xy *= rot2d(uTime * uRotX);
-          q.yz *= rot2d(uTime * uRotY);
+          q.xy *= rot2d(uRotXPhase);
+          q.yz *= rot2d(uRotYPhase);
         }
         if (uShape == 0) {
           return sdSphere(q, uCubeSize);
@@ -154,27 +172,27 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
         vec3 q = (p / max(uCubeSize, 0.1)) * 0.08;
 
         if (uAutoRotate) {
-          q.yz *= rot2d(-uTime * uRotY * 0.8);
-          q.xy *= rot2d(-uTime * uRotX * 0.8);
+          q.yz *= rot2d(uRotYBackPhase);
+          q.xy *= rot2d(uRotXBackPhase);
         }
 
-        q.xz *= rot2d(uTime * 0.12 * uFractalSpeed);
-        q.yz *= rot2d(uTime * 0.08 * uFractalSpeed);
+        q.xz *= rot2d(uFracXZPhase);
+        q.yz *= rot2d(uFracYZPhase);
 
         float scaleAccum = 0.35;
         vec3 colorAccum = vec3(0.0);
         float morph = 1.0 + uPulse * 2.0;
 
         for (int i = 0; i < 7; i++) {
-          vec3 offset = vec3(0.14, 0.20, 0.14) + sin(uTime * 0.35 * uMorphSpeed * morph + float(i) * 1.4) * 0.004;
+          vec3 offset = vec3(0.14, 0.20, 0.14) + sin(uMorphOffsetPhase + float(i) * 1.4) * 0.004;
           q = abs(q) - offset;
 
           if (q.x < q.y) q.xy = q.yx;
           if (q.x < q.z) q.xz = q.zx;
           if (q.y < q.z) q.yz = q.zy;
 
-          float angleShiftXY = sin(uTime * 0.25 * uMorphSpeed + float(i)) * 0.02;
-          float angleShiftXZ = cos(uTime * 0.20 * uMorphSpeed - float(i)) * 0.02;
+          float angleShiftXY = sin(uMorphXYPhase + float(i)) * 0.02;
+          float angleShiftXZ = cos(uMorphXZPhase - float(i)) * 0.02;
 
           q.xy *= rot2d(0.785 + float(i) * 0.02 + angleShiftXY);
           q.xz *= rot2d(0.35 + angleShiftXZ);
@@ -190,7 +208,7 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
 
           if (filament > 0.0) {
             vec3 pal = (i % 3 == 0) ? uColor1 : (i % 3 == 1) ? uColor2 : uColor3;
-            float pulseSpark = smoothstep(0.7, 1.0, sin(q.y * -8.0 + uTime * 3.0));
+            float pulseSpark = smoothstep(0.7, 1.0, sin(q.y * -8.0 + uSparkPhase));
             pal += uColor3 * pulseSpark * 1.2;
             colorAccum += (pal * filament) / scaleAccum;
           }
@@ -202,7 +220,7 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
         vec3 coreColor = mix(uColor1, uColor3, 0.5) * coreGlow;
 
         // Subtle holographic quantum scanline interference
-        float scanline = step(0.55, fract(p.y * 18.0 + uTime * 0.5)) * -0.3 + 1.0;
+        float scanline = step(0.55, fract(p.y * 18.0 + uScanPhase)) * -0.3 + 1.0;
 
         return (colorAccum * 0.85 + coreColor) * scanline;
       }
@@ -272,8 +290,8 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
           // Edge detection
           vec3 qRot = hitPos;
           if (uAutoRotate) {
-            qRot.xy *= rot2d(uTime * uRotX);
-            qRot.yz *= rot2d(uTime * uRotY);
+            qRot.xy *= rot2d(uRotXPhase);
+            qRot.yz *= rot2d(uRotYPhase);
           }
 
           float edgeLuma = 0.0;
@@ -390,7 +408,26 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
   return {
     update({ time, pointer }) {
       pulseTime *= 0.94;
-      material.uniforms.uTime.value = time;
+
+      // `morph` scales the offset rate and itself follows the decaying pulse.
+      // Under the old `time * rate` form every pulse retroactively repriced the
+      // whole elapsed history and snapped the fractal; integrating cannot.
+      const morph = 1.0 + pulseTime * 2.0;
+      const p = currentParams;
+      phaseTracker.advance(time);
+      const u = material.uniforms;
+      u.uRotXPhase.value = phaseTracker.phase('rotX', p.rotSpeedX);
+      u.uRotYPhase.value = phaseTracker.phase('rotY', p.rotSpeedY);
+      u.uRotXBackPhase.value = phaseTracker.phase('rotXBack', -p.rotSpeedX * 0.8);
+      u.uRotYBackPhase.value = phaseTracker.phase('rotYBack', -p.rotSpeedY * 0.8);
+      u.uFracXZPhase.value = phaseTracker.phase('fracXZ', 0.12 * p.fractalSpeed);
+      u.uFracYZPhase.value = phaseTracker.phase('fracYZ', 0.08 * p.fractalSpeed);
+      u.uMorphOffsetPhase.value = phaseTracker.phase('morphOffset', 0.35 * p.morphSpeed * morph);
+      u.uMorphXYPhase.value = phaseTracker.phase('morphXY', 0.25 * p.morphSpeed);
+      u.uMorphXZPhase.value = phaseTracker.phase('morphXZ', 0.20 * p.morphSpeed);
+      u.uSparkPhase.value = phaseTracker.phase('spark', 3.0);
+      // fract(), not sin(): a unit lattice, so it wraps at 1.0 rather than TAU.
+      u.uScanPhase.value = phaseTracker.phase('scan', 0.5, 1.0);
       material.uniforms.uPointer.value.copy(pointer);
       material.uniforms.uPulse.value = pulseTime;
 
@@ -414,18 +451,6 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
       }
       if (newParams.edgeGlow !== undefined) {
         material.uniforms.uEdgeGlow.value = newParams.edgeGlow;
-      }
-      if (newParams.rotSpeedX !== undefined) {
-        material.uniforms.uRotX.value = newParams.rotSpeedX;
-      }
-      if (newParams.rotSpeedY !== undefined) {
-        material.uniforms.uRotY.value = newParams.rotSpeedY;
-      }
-      if (newParams.fractalSpeed !== undefined) {
-        material.uniforms.uFractalSpeed.value = newParams.fractalSpeed;
-      }
-      if (newParams.morphSpeed !== undefined) {
-        material.uniforms.uMorphSpeed.value = newParams.morphSpeed;
       }
       if (newParams.scaleFactor !== undefined) {
         material.uniforms.uScaleFactor.value = newParams.scaleFactor;

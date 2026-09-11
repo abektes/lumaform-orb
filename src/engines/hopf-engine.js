@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { createPhaseTracker } from '../core/phase.js';
 
 export function createHopfEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -112,7 +113,8 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
   const coreMat = new THREE.ShaderMaterial({
     uniforms: {
       color: { value: new THREE.Color(currentParams.color1) },
-      uTime: { value: 0.0 },
+      // Accumulated, not `time * 2.5` — see the note in src/core/phase.js.
+      uPulsePhase: { value: 0.0 },
     },
     vertexShader: `
       varying vec3 vNormal;
@@ -123,11 +125,11 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
     `,
     fragmentShader: `
       uniform vec3 color;
-      uniform float uTime;
+      uniform float uPulsePhase;
       varying vec3 vNormal;
       void main() {
         float f = pow(1.0 - abs(vNormal.z), 2.5);
-        float pulse = 0.85 + 0.15 * sin(uTime * 2.5);
+        float pulse = 0.85 + 0.15 * sin(uPulsePhase);
         gl_FragColor = vec4(color, f * 0.55 * pulse);
       }
     `,
@@ -140,6 +142,7 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
   group.add(coreMesh);
 
   let clickBoost = 0;
+  const phaseTracker = createPhaseTracker();
 
   // Compute a point on the Hopf fibration stereographic projection
   // eta: toroidal parameter [0, pi/2]
@@ -169,7 +172,8 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
     frame: { radius: 2.3 },
     update({ time }) {
       clickBoost *= 0.94;
-      coreMat.uniforms.uTime.value = time;
+      phaseTracker.advance(time);
+      coreMat.uniforms.uPulsePhase.value = phaseTracker.phase('pulse', 2.5);
 
       const R = currentParams.torusRadius;
       const r = currentParams.tubeRadius;

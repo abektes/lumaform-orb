@@ -45,6 +45,21 @@ export function createFooEngine({ studio, scene, camera, renderer, composer, poi
 
 - `time` is `virtualTime`, not wall clock. It already has `timeScale`, pause, and the modulation rack's `_timeScale` folded in. **Never call `clock.getElapsedTime()` or `performance.now()` yourself** — doing so makes the engine ignore pause, scrubbing, and every tempo route in the modulation rack.
 - `delta` is `0` when paused. If you integrate state (a simulation), integrate `delta`, not a constant.
+- **Never assign `time` straight to a shader uniform.** Uniform floats are float32, whose resolution is relative to magnitude, and `virtualTime` grows without bound. Ten hours in, a 16.67 ms frame advance can no longer be represented evenly (the step alternates 15.6/19.5 ms); a week in, only 17 frames in 60 advance at all. FPS never drops — the motion just stops flowing and starts lurching. Accumulate a wrapped phase instead:
+
+  ```js
+  import { createPhaseTracker } from '../core/phase.js';
+  const phaseTracker = createPhaseTracker();
+  // in update({ time }):
+  phaseTracker.advance(time);
+  mat.uniforms.uSpinPhase.value = phaseTracker.phase('spin', currentParams.spinSpeed);
+  ```
+
+  Then write `rot(uSpinPhase)` in GLSL rather than `rot(uTime * uSpinSpeed)`. The tracker differences successive `virtualTime` values, so it keeps `_timeScale`, and integrating the rate also makes a mid-flight rate change safe instead of a jump.
+
+  Two traps. **Match the period to the consumer** — `phase(key, rate)` wraps at TAU for `sin`/`cos`/`rot`, but a `fract()` or `floor()` lattice needs `phase(key, rate, 1.0)`, and a term like `palette(t)` defined as `sin(t * 1.4)` needs `TAU / 1.4`. **A wrapped phase cannot be rescaled** — `0.8 * (x mod TAU)` is not `(0.8x) mod TAU`, so a term running at `-rate * 0.8` needs its own accumulator, not a scaled reuse of another phase.
+
+  This only works for terms that are genuinely periodic in time. A time-varying noise domain (`fbm(p + time * speed)`) or a per-fragment rate (`time * (2.4 / sqrt(r))`) has no wrap period, so those still take raw `time` — see the remaining cases noted in [src/core/phase.js](../src/core/phase.js).
 - `marchQuality` is a 0–1 hint from the FPS tracker; raymarchers should scale their step count by it. Grid cells are pinned to `0.7`.
 - Everything in the argument object is optional to consume. Destructure only what you use.
 

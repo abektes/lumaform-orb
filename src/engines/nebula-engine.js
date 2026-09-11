@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createPhaseTracker, TAU } from '../core/phase.js';
 
 export function createNebulaEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -21,7 +22,13 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
+      // uTime survives only for the particle lattice below, which samples an
+      // aperiodic hash and so has no wrap period. The periodic terms take
+      // accumulated phases instead — see src/core/phase.js.
       uTime: { value: 0.0 },
+      uWarpPhaseA: { value: 0.0 },
+      uWarpPhaseB: { value: 0.0 },
+      uColorPhase: { value: 0.0 },
       uResolution: {
         value: new THREE.Vector2(
           window.innerWidth * (window.devicePixelRatio || 1),
@@ -56,6 +63,9 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
     `,
     fragmentShader: `
       uniform float uTime;
+      uniform float uWarpPhaseA;
+      uniform float uWarpPhaseB;
+      uniform float uColorPhase;
       uniform vec2 uResolution;
       uniform vec3 uColor1;
       uniform vec3 uColor2;
@@ -108,8 +118,8 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
         p += vec3(12.600, 4.400, 5.569);
 
         for (int i = 1; i < 4; i++) {
-          p.xy *= rot(uTime * uFractalWarpSpeed + 0.2);
-          p.yz *= rot(uTime * (uFractalWarpSpeed * 1.5) - 0.1);
+          p.xy *= rot(uWarpPhaseA + 0.2);
+          p.yz *= rot(uWarpPhaseB - 0.1);
           float dotp = dot(sin(p), cos(p.zxy));
           float gyroid = sqrt(dotp * dotp + 0.055) - 0.137;
           d = smin(d, gyroid / abs(scale), 0.15);
@@ -168,7 +178,7 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
           float foldGlow = exp(-abs(d) * 6.5);
           float intensity = (uGlowIntensity * 28.0 * foldGlow + 0.004) * fade;
 
-          float phase = length(p) * -0.4 - uTime * -0.1 + phaseOffset;
+          float phase = length(p) * -0.4 + uColorPhase + phaseOffset;
           vec3 holoColor;
           holoColor.r = palette(phase + pointerAberration * 0.1).r;
           holoColor.g = palette(phase).g;
@@ -253,6 +263,7 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
   scene.add(coronaMesh);
 
   let pulseValue = 0;
+  const phaseTracker = createPhaseTracker();
   let currentSpin = 0;
 
   function applyParams(newParams) {
@@ -306,6 +317,13 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
       currentSpin += delta * currentParams.sphereSpinSpeed;
 
       material.uniforms.uTime.value = time;
+      phaseTracker.advance(time);
+      const warpRate = currentParams.fractalWarpSpeed;
+      material.uniforms.uWarpPhaseA.value = phaseTracker.phase('warpA', warpRate);
+      material.uniforms.uWarpPhaseB.value = phaseTracker.phase('warpB', warpRate * 1.5);
+      // palette() is sin(t * 1.4), so this phase repeats every TAU/1.4, not TAU.
+      // Wrapping it at TAU would land mid-cycle and shift every colour at once.
+      material.uniforms.uColorPhase.value = phaseTracker.phase('color', 0.1, TAU / 1.4);
       material.uniforms.uSphereSpin.value = currentSpin;
       material.uniforms.uPointer.value.copy(pointer);
       material.uniforms.uPulse.value = pulseValue;
