@@ -299,6 +299,12 @@ export function createAudioInput(options = {}) {
     get muted() {
       return muted;
     },
+    // The gain actually applied to the speakers, read from the live node rather
+    // than recomputed. Makes the one safety-critical property — a microphone is
+    // never audible — observable at runtime instead of inferred.
+    get outputLevel() {
+      return outputGain ? outputGain.gain.value : 0;
+    },
     get level() {
       return follower.value;
     },
