@@ -495,7 +495,7 @@ export class OrbStudio {
   }
 
   // A refused microphone is a normal outcome, not an error.
-  async enableAudio(mode = 'mic') {
+  async enableAudio(mode = 'mic', file = null) {
     const audio = this.modulation.config.sources?.audio1 || {};
     if (!this.audioInput) {
       this.audioInput = createAudioInput({
@@ -513,7 +513,9 @@ export class OrbStudio {
     // every failure as a success.
     const started = mode === 'tone'
       ? await this.audioInput.startTestTone()
-      : await this.audioInput.startMic();
+      : mode === 'file'
+        ? await this.audioInput.startFile(file)
+        : await this.audioInput.startMic();
     if (!started) {
       this.modulation.setAudioLevel(0);
       this.grid?.setAudioLevel(0);

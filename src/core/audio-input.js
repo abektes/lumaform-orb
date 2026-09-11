@@ -5,19 +5,28 @@
 // a microphone is denied or unavailable.
 
 import { createLevelFollower, rmsFromTimeDomain } from './audio-level.js';
+import { gainForMode, isSupportedAudioFile } from './audio-transport.js';
 
 const FFT_SIZE = 1024;
 
 export function createAudioInput(options = {}) {
   let context = null;
   let analyser = null;
-  let silentOutput = null;
+  let outputGain = null;
   let buffer = null;
   let stream = null;
   let streamSource = null;
   let oscillator = null;
   let mode = null;
   let requestGeneration = 0;
+  let mediaEl = null;
+  let mediaSource = null;
+  let objectUrl = null;
+  let fileName = '';
+  // Loop and mute are user preferences, so they survive loading a new file.
+  // Everything else about a file session is cleared by stop().
+  let loop = false;
+  let muted = false;
   const follower = createLevelFollower(options);
 
   function ensureContext() {
@@ -37,12 +46,19 @@ export function createAudioInput(options = {}) {
       // parameter to its extreme and then decayed back over ~20 frames.
       buffer = new Uint8Array(analyser.fftSize).fill(128);
 
-      // Keep the graph pullable while making the test oscillator inaudible.
-      silentOutput = context.createGain();
-      silentOutput.gain.value = 0;
-      analyser.connect(silentOutput).connect(context.destination);
+      // Was hardcoded to 0 so the test tone stayed inaudible. It is now resolved
+      // per mode: a file the user chose should be heard, a microphone must never
+      // be, and mute lowers this rather than pausing so the analyser stays fed
+      // and the orb keeps reacting silently.
+      outputGain = context.createGain();
+      outputGain.gain.value = gainForMode(mode, { muted });
+      analyser.connect(outputGain).connect(context.destination);
     }
     return context;
+  }
+
+  function applyOutputGain() {
+    if (outputGain) outputGain.gain.value = gainForMode(mode, { muted });
   }
 
   async function startMic() {
@@ -122,6 +138,86 @@ export function createAudioInput(options = {}) {
     return true;
   }
 
+  async function startFile(file) {
+    stop();
+    const generation = requestGeneration;
+    if (!file) return false;
+    if (!isSupportedAudioFile(file.name, file.type)) {
+      console.warn('Unsupported audio file:', file?.name);
+      return false;
+    }
+    if (!ensureContext()) {
+      console.warn('Web Audio is not available in this browser.');
+      return false;
+    }
+
+    objectUrl = URL.createObjectURL(file);
+    mediaEl = new Audio();
+    mediaEl.src = objectUrl;
+    mediaEl.loop = loop;
+
+    // A file the browser cannot decode reports through the error event rather
+    // than by throwing, so both outcomes are awaited as one.
+    const ready = await new Promise((resolve) => {
+      mediaEl.addEventListener('loadedmetadata', () => resolve(true), { once: true });
+      mediaEl.addEventListener('error', () => resolve(false), { once: true });
+      mediaEl.load();
+    });
+
+    if (!ready || generation !== requestGeneration || !context || context.state === 'closed') {
+      if (generation === requestGeneration) stop();
+      return false;
+    }
+
+    mediaSource = context.createMediaElementSource(mediaEl);
+    mediaSource.connect(analyser);
+    fileName = file.name;
+    mode = 'file';
+    applyOutputGain();
+    return true;
+  }
+
+  // Separate from startFile because a file picker can outlive the gesture that
+  // opened it; resuming the context here keeps it inside a fresh click.
+  async function playFile() {
+    if (mode !== 'file' || !mediaEl || !context) return false;
+    try {
+      if (context.state === 'suspended') await context.resume();
+    } catch (error) {
+      console.warn('Could not start the audio context for playback.', error);
+      return false;
+    }
+    if (context.state !== 'running') {
+      console.warn('Audio context did not start; a user gesture may be required.');
+      return false;
+    }
+    try {
+      await mediaEl.play();
+    } catch (error) {
+      console.warn('Playback was refused by the browser.', error);
+      return false;
+    }
+    return true;
+  }
+
+  // Transport stop, not teardown: the graph stays built and mode stays 'file',
+  // so the level decays to 0 on its own because silence reads as rms 0.
+  function stopFilePlayback() {
+    if (!mediaEl) return;
+    mediaEl.pause();
+    mediaEl.currentTime = 0;
+  }
+
+  function setLoop(value) {
+    loop = !!value;
+    if (mediaEl) mediaEl.loop = loop;
+  }
+
+  function setMuted(value) {
+    muted = !!value;
+    applyOutputGain();
+  }
+
   function read() {
     if (!analyser || !mode) return 0;
     analyser.getByteTimeDomainData(buffer);
@@ -130,6 +226,20 @@ export function createAudioInput(options = {}) {
 
   function stop() {
     requestGeneration += 1;
+    if (mediaEl) {
+      mediaEl.pause();
+      mediaEl.removeAttribute('src');
+      mediaEl.load();
+    }
+    mediaSource?.disconnect();
+    mediaSource = null;
+    mediaEl = null;
+    if (objectUrl) {
+      // Without this the blob is pinned for the lifetime of the page.
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+    }
+    fileName = '';
     streamSource?.disconnect();
     streamSource = null;
     if (stream) {
@@ -146,9 +256,9 @@ export function createAudioInput(options = {}) {
       oscillator = null;
     }
     analyser?.disconnect();
-    silentOutput?.disconnect();
+    outputGain?.disconnect();
     analyser = null;
-    silentOutput = null;
+    outputGain = null;
     buffer = null;
     if (context) {
       context.close().catch(() => {});
@@ -161,6 +271,11 @@ export function createAudioInput(options = {}) {
   return {
     startMic,
     startTestTone,
+    startFile,
+    playFile,
+    stopFilePlayback,
+    setLoop,
+    setMuted,
     read,
     stop,
     setOptions(partial) {
@@ -171,6 +286,18 @@ export function createAudioInput(options = {}) {
     },
     get mode() {
       return mode;
+    },
+    get isPlaying() {
+      return mode === 'file' && !!mediaEl && !mediaEl.paused;
+    },
+    get fileName() {
+      return fileName;
+    },
+    get loop() {
+      return loop;
+    },
+    get muted() {
+      return muted;
     },
     get level() {
       return follower.value;
