@@ -2,7 +2,7 @@
 // Routing a microphone to the speakers is a feedback howl, so `mic` must
 // resolve to 0 under every combination of inputs — including a stale `muted`
 // flag left over from a previous file session.
-import { gainForMode, isSupportedAudioFile, displayFileName } from '../src/core/audio-transport.js';
+import { gainForMode, isSupportedAudioFile, displayFileName } from '../src/audio/audio-transport.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {

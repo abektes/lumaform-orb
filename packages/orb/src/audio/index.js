@@ -19,6 +19,14 @@
 // permission surface, nothing for a security review to flag.
 
 export { createAudioInput } from './audio-input.js';
+// Pure, browser-free helpers. A consumer rendering its own transport UI needs
+// these without pulling getUserMedia in, and they are what the studio's panel
+// uses to label a loaded track.
+export {
+  displayFileName,
+  gainForMode,
+  isSupportedAudioFile,
+} from './audio-transport.js';
 export {
   createLevelFollower,
   normalizeLevel,

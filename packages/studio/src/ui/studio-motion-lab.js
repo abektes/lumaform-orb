@@ -6,7 +6,7 @@ import {
 } from '@lumaform/orb';
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
-import { displayFileName } from '../core/audio-transport.js';
+import { displayFileName } from '@lumaform/orb/audio';
 import { escapeHtml } from './studio-format.js';
 import { highlightJs, ensureHighlighter } from './highlight.js';
 
