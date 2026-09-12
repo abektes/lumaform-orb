@@ -50,7 +50,7 @@ export {
   migrateConfig,
   parseConfigFile,
   sanitizeParams,
-  applyConfig,
+  readConfig,
 } from './core/config-io.js';
 
 export { createPointerTracker, createClickPulse } from './shared/pointer.js';

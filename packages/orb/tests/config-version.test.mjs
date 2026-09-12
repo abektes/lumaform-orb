@@ -16,7 +16,7 @@ import {
   migrateConfig,
   stampVersion,
   parseConfigFile,
-  applyConfig,
+  readConfig,
 } from '../src/core/config-io.js';
 
 let failures = 0;
@@ -114,17 +114,11 @@ ok('one future entry rejects the whole array', r.ok === false);
 
 // --- version does not leak into state --------------------------------------
 // It is file metadata, not a parameter. Same treatment as mutatedKeys.
-const state = {
-  engine: 'tesseract',
-  global: { bloomStrength: 0.5, exposure: 1 },
-  modulation: { enabled: false, sources: {}, routes: [] },
-  engines: { tesseract: {}, quantum: { edgeGlow: 1.2, color1: '#ffed00' } },
-};
 const applied = parseConfigFile(JSON.stringify(LEGACY), ENGINES);
-applyConfig(state, applied.configs[0], DEFS);
-ok('version is not written into the param bag', state.engines.quantum.version === undefined);
-ok('version is not written onto state', state.version === undefined);
-ok('the config still applied', state.engines.quantum.edgeGlow === 2.4);
+const record = readConfig(applied.configs[0], DEFS);
+ok('version is not carried into the params', record.params.version === undefined);
+ok('version is not carried onto the record', record.version === undefined);
+ok('the config still read', record.params.edgeGlow === 2.4);
 
 // --- round trip ------------------------------------------------------------
 const roundTripped = parseConfigFile(JSON.stringify(stampVersion(LEGACY)), ENGINES);

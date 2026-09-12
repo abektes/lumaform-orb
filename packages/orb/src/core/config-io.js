@@ -155,21 +155,30 @@ export function sanitizeParams(params, defs) {
 }
 
 // Writes in place into the store-owned containers. Callers pass store.state.
-export function applyConfig(state, config, defs) {
+// Reads a parsed config into a playback record. Pure: it returns what the file
+// asked for and touches nothing.
+//
+// This used to be applyConfig(state, ...), which wrote straight into the
+// studio's store — state.engine, state.global, state.engines[type]. That put
+// the shape of one application's state inside the library, so a consumer with a
+// config file had to reconstruct the studio's store before it could play
+// anything back. Deciding what a file means belongs here; deciding where to put
+// it belongs to whoever owns the state.
+//
+// `global` and `modulation` are null when the file omits them, which is not the
+// same as empty. Configs exported before modulation existed have no rack, and a
+// caller must keep its current one rather than wipe it — a distinction an empty
+// object would lose.
+export function readConfig(config, defs) {
   const { params, dropped } = sanitizeParams(config.params, defs);
 
-  state.engine = config.engine;
-  if (isPlainObject(config.global)) Object.assign(state.global, config.global);
-
-  if (!state.engines[config.engine]) state.engines[config.engine] = {};
-  // Merge, don't replace: a partial config must not blank the keys it omits.
-  Object.assign(state.engines[config.engine], params);
-
-  // Absent on configs exported before modulation existed — keep the current rack
-  // rather than wiping it.
-  if (isPlainObject(config.modulation)) {
-    state.modulation = structuredClone(config.modulation);
-  }
-
-  return { engine: config.engine, dropped };
+  return {
+    engine: config.engine,
+    params,
+    global: isPlainObject(config.global) ? { ...config.global } : null,
+    // Detached, so a later edit to the parsed file cannot reach into whatever
+    // the caller installs this in.
+    modulation: isPlainObject(config.modulation) ? structuredClone(config.modulation) : null,
+    dropped,
+  };
 }

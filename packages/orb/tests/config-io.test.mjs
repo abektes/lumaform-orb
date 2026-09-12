@@ -1,4 +1,4 @@
-import { parseConfigFile, sanitizeParams, applyConfig } from '../src/core/config-io.js';
+import { parseConfigFile, sanitizeParams, readConfig } from '../src/core/config-io.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -77,59 +77,47 @@ ok('drops invalid colours', s.params.color1 === undefined && s.dropped.includes(
 ok('handles empty params', eq(sanitizeParams({}, DEFS).params, {}));
 ok('handles undefined params', eq(sanitizeParams(undefined, DEFS).params, {}));
 
-// --- applyConfig ---
-function makeState() {
-  return {
-    engine: 'tesseract',
-    activePresetName: 'x',
-    global: { bloomStrength: 0.5, exposure: 1 },
-    modulation: { enabled: false, sources: {}, routes: [] },
-    engines: {
-      tesseract: { edgeGlow: 0.9 },
-      quantum: { edgeGlow: 1.2, cubeSize: 1.25, shape: 'sphere', color1: '#ffed00' },
-    },
-  };
-}
+// --- readConfig: pure, returns what the file asked for ---
+//
+// Where the record goes is the host's problem and is tested in
+// packages/studio/tests/config-apply.test.mjs. What it *means* is tested here.
 
-const st = makeState();
-const globalRef = st.global;
-const enginesRef = st.engines;
-const quantumRef = st.engines.quantum;
-
-const res = applyConfig(st, {
+const res = readConfig({
   engine: 'quantum',
   global: { bloomStrength: 0.9 },
   params: { edgeGlow: 2.5, bogus: 1 },
   modulation: { enabled: true, sources: {}, routes: [{ source: 'lfo1', dest: 'edgeGlow', amount: 0.5 }] },
 }, DEFS);
 
-ok('switches engine', st.engine === 'quantum');
-ok('merges params over the existing bag', st.engines.quantum.edgeGlow === 2.5);
-ok('does NOT blank omitted keys', st.engines.quantum.cubeSize === 1.25);
-ok('restores modulation', st.modulation.routes.length === 1);
-ok('applies global', st.global.bloomStrength === 0.9);
-ok('reports dropped keys', res.dropped.includes('bogus'));
-ok('keeps global object identity', st.global === globalRef);
-ok('keeps engines map identity', st.engines === enginesRef);
-ok('keeps the target param bag identity', st.engines.quantum === quantumRef);
+ok('reports the engine', res.engine === 'quantum');
+ok('sanitizes params', res.params.edgeGlow === 2.5);
+ok('drops keys outside the schema', res.dropped.includes('bogus') && res.params.bogus === undefined);
+ok('carries global', res.global.bloomStrength === 0.9);
+ok('carries modulation', res.modulation.routes.length === 1);
 
-// legacy config with no modulation must not wipe the current rack
-const st2 = makeState();
-st2.modulation = { enabled: true, sources: {}, routes: [{ source: 'lfo1', dest: 'edgeGlow', amount: 1 }] };
-applyConfig(st2, { engine: 'quantum', global: {}, params: { edgeGlow: 1 } }, DEFS);
-ok('legacy config leaves modulation untouched', st2.modulation.routes.length === 1);
+// null, not empty. A caller must be able to tell "this file has no rack" from
+// "this file has an empty rack" — the first must leave the current one alone.
+const legacy = readConfig({ engine: 'quantum', params: { edgeGlow: 1 } }, DEFS);
+ok('absent modulation reads as null', legacy.modulation === null);
+ok('absent global reads as null', legacy.global === null);
 
-const stMetadata = makeState();
-applyConfig(stMetadata, JSON.parse(attributed), DEFS);
-ok('apply ignores additive mutation attribution metadata',
-  stMetadata.engines.quantum.edgeGlow === 1 && stMetadata.mutatedKeys === undefined);
-
-// applied modulation must be detached from the source object
-const st3 = makeState();
+// The record must not alias the parsed file.
 const incoming = { enabled: true, sources: {}, routes: [{ source: 'lfo1', dest: 'edgeGlow', amount: 0.5 }] };
-applyConfig(st3, { engine: 'quantum', global: {}, params: {}, modulation: incoming }, DEFS);
+const detached = readConfig({ engine: 'quantum', params: {}, modulation: incoming }, DEFS);
 incoming.routes.push({ source: 'lfo1', dest: '_timeScale', amount: 1 });
-ok('restored modulation is a detached copy', st3.modulation.routes.length === 1);
+ok('modulation is detached from the source object', detached.modulation.routes.length === 1);
+
+const meta = readConfig(JSON.parse(attributed), DEFS);
+ok('additive mutation attribution metadata is ignored',
+  meta.params.edgeGlow === 1 && meta.mutatedKeys === undefined);
+
+// readConfig must not touch what it is given.
+const frozenInput = Object.freeze({
+  engine: 'quantum', global: Object.freeze({ bloomStrength: 0.3 }), params: Object.freeze({ edgeGlow: 2 }),
+});
+let threw = null;
+try { readConfig(frozenInput, DEFS); } catch (e) { threw = String(e); }
+ok('readConfig does not mutate its input', threw === null, threw || '');
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

@@ -1,6 +1,7 @@
 import { ENGINE_TYPES, ENGINE_PARAM_DEFINITIONS, loadSavedPresets, saveCustomPreset, deleteCustomPreset } from '../core/state.js';
 import { PRESET_LIBRARY } from '../presets/preset-library.js';
-import { parseConfigFile, applyConfig } from '@lumaform/orb';
+import { parseConfigFile, readConfig } from '@lumaform/orb';
+import { applyConfigToState } from '../core/config-apply.js';
 import { makeFinding } from '../core/findings.js';
 import { makeStep, totalDuration } from '../core/sequence.js';
 import { EASING_NAMES } from '../core/easing.js';
@@ -157,7 +158,7 @@ export function importConfigText(text) {
 
   const config = result.configs[0];
   const defs = ENGINE_PARAM_DEFINITIONS[config.engine] || {};
-  const { dropped } = applyConfig(this.state, config, defs);
+  const { dropped } = applyConfigToState(this.state, readConfig(config, defs));
 
   if (dropped.length) {
     console.warn(
