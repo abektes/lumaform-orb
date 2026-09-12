@@ -7,24 +7,6 @@ export const sequenceMethods = {
 
   // --- runtime hook overrides ----------------------------------------------
 
-  // A direct edit, import or preset selection supersedes an in-flight
-  // transition. The caller has already written its desired value into state,
-  // so stopping the rehearsal must not replace that edit with the intermediate
-  // visual value — hence reconcile: false.
-  onEngineWillChange() {
-    if (this.currentSequence && !this.applyingSequenceStep) {
-      this.stopSequence({ reconcile: false });
-    }
-    // A tween in flight targets the outgoing engine's parameters.
-    this.paramTween.cancel();
-
-    // Captured before anything is torn down: exitGridMode clears both.
-    return {
-      wasGridMode: !!this.grid,
-      wasSweep: this.sweepInfo ? { ...this.sweepInfo } : null,
-    };
-  },
-
   // Real milliseconds, not virtualTime: a transition's duration should not
   // change when playback speed does.
   advanceTimeline(delta) {

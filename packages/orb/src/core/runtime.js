@@ -1,12 +1,16 @@
-// The runtime: a renderer, a scene, one engine, a modulation rack and a frame
-// loop. Everything an orb needs to animate and nothing an instrument needs to
-// explore.
+// The runtime: a renderer, a scene, one engine, a modulation rack. Everything
+// an orb needs to animate and nothing an instrument needs to explore.
 //
-// It never calls a studio method directly. Five hooks — onEngineWillChange,
-// onEngineDidChange, advanceTimeline, renderOverride, onDispose — are the whole
-// contract with OrbStudio, and their defaults here are inert rather than merely
-// empty: a bare runtime should do less than the studio, never something
-// different. tests/runtime-hooks.test.mjs enforces that.
+// It does not own the frame loop and has no hooks. The host calls advance() and
+// render(), or tick() for both, and interleaves whatever it likes between them.
+//
+// This replaced five template-method hooks with inert defaults. That shape
+// inverted the dependency: the runtime called down into a subclass it was not
+// supposed to know about, one hook's default return value was dead code that
+// only the studio's override used, and two studio mixins ended up talking to
+// each other through the parent via a { wasGridMode, wasSweep } context object.
+// A host-driven loop deletes all of it — the studio simply does its own work
+// before calling advance(), and renders the grid instead of calling render().
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -117,8 +121,10 @@ export class OrbRuntime {
     this.resizeObserver = new ResizeObserver(() => this.handleResize());
     this.resizeObserver.observe(this.container);
 
-    this.animate = this.renderFrame.bind(this);
-    this.rafId = requestAnimationFrame(this.animate);
+    // No requestAnimationFrame here. The host drives the loop and calls
+    // tick(delta), which is what lets the studio interleave its own work —
+    // rehearsal, param tweening, grid rendering — without the runtime needing
+    // to know any of it exists.
   }
 
   initPostProcessing() {
@@ -146,15 +152,17 @@ export class OrbRuntime {
     this.engineConstructors.set(type, constructorFn);
   }
 
-  setEngine(type, state) {
-    // Whatever the override captures here is handed back to onEngineDidChange
-    // after the swap. It has to be captured before teardown — exitGridMode
-    // clears the state the studio needs to rebuild from.
-    const context = this.onEngineWillChange() ?? {};
-
+  // Mounts an engine. Takes that engine's own params, not a store keyed by
+  // every engine type: the runtime has no opinion about how a host organises
+  // state, and asking for `state.engines[type]` made the studio's store shape
+  // part of the published API.
+  //
+  // Returns true when an engine was actually constructed, so a caller that
+  // needs to rebuild something on a real swap can tell that from a no-op.
+  mountEngine(type, { params = {}, global = {}, modulation } = {}) {
     if (this.activeEngineType === type && this.activeEngine) {
-      this.updateParameters(state);
-      return;
+      this.applyParams({ params, global, modulation });
+      return false;
     }
 
     // Cleanup existing engine
@@ -183,34 +191,34 @@ export class OrbRuntime {
       renderer: this.renderer,
       composer: this.composer,
       pointerTracker: this.pointerTracker,
-      params: state.engines[type],
-      global: state.global,
+      params,
+      global,
     });
 
     // After construction, not before: the distance comes from the engine's own
     // `frame` hint, which does not exist until the factory has returned.
     this.frameActiveEngine();
 
-    this.baseParams = { ...state.engines[type] };
+    this.baseParams = { ...params };
     this.paramDefs = ENGINE_PARAM_DEFINITIONS[type] || {};
     this.lastModulated = {};
 
-    this.syncModulation(state);
-    this.updateGlobalSettings(state.global);
-    notifyParams(this.activeEngine, state.engines[type]);
+    if (modulation) this.syncModulation({ modulation });
+    this.updateGlobalSettings(global);
+    notifyParams(this.activeEngine, params);
     this.onWindowResize();
 
-    this.onEngineDidChange(state, context);
+    return true;
   }
 
-  updateParameters(state) {
-    // A direct edit, import or preset selection supersedes an in-flight A/B
-    // transition. Otherwise the old target would overwrite the edit next frame.
-    this.onEngineWillChange();
-    this.syncModulation(state);
-    this.updateGlobalSettings(state.global);
+  // Applies params to the already-mounted engine. Cancelling an in-flight tween
+  // because a direct edit supersedes it is a *host* policy, so it no longer
+  // happens here — the studio does it before calling this.
+  applyParams({ params = {}, global = {}, modulation } = {}) {
+    if (modulation) this.syncModulation({ modulation });
+    this.updateGlobalSettings(global);
     if (this.activeEngine && this.activeEngineType) {
-      const p = state.engines[this.activeEngineType];
+      const p = params;
       this.baseParams = { ...p };
       this.paramDefs = ENGINE_PARAM_DEFINITIONS[this.activeEngineType] || {};
       this.lastModulated = {};
@@ -377,54 +385,11 @@ export class OrbRuntime {
     return this.isPaused;
   }
 
-  // --- runtime/studio seam -------------------------------------------------
-  //
-  // These four are no-ops here so the runtime half runs standalone, and the
-  // studio overrides them in studio-sequence.js and studio-grid.js. Without
-  // them the frame loop and setEngine reach directly into the variation grid
-  // and the rehearsal player, neither of which exists in a bare runtime.
-  //
-  // Keep them inert, not merely empty: a bare runtime should do less than the
-  // studio, never something different.
 
-  // A direct edit, import or preset selection supersedes an in-flight
-  // rehearsal transition. Returns context to hand to onEngineDidChange, which
-  // runs after teardown has already discarded it.
-  onEngineWillChange() {
-    return null;
-  }
-
-  // The grid owns engine instances built from the factory that was active when
-  // it was created.
-  onEngineDidChange(_state, _context) {}
-
-  // Returns the milliseconds a param tween should advance this frame. A
-  // throttled frame can skip step boundaries, so the studio returns only the
-  // elapsed portion of the current step rather than the whole frame delta.
-  advanceTimeline(delta) {
-    return delta * 1000;
-  }
-
-  // Return true to claim the frame. The grid renders N scissored viewports
-  // straight to the framebuffer, bypassing the bloom composer.
-  renderOverride(_delta) {
-    return false;
-  }
-
-  // Runs before the runtime tears down its own renderer and engine, so an
-  // override still has a live scene to release things from.
-  onDispose() {}
-
-  renderFrame() {
-    this.rafId = requestAnimationFrame(this.animate);
-
-    const delta = this.clock.getDelta();
-    this.fpsTracker.tick();
-
-    // Rehearsal playback and param tweening advance here, before the rack is
-    // evaluated, so modulation reads this frame's base.
-    this.advanceTimeline(delta);
-
+  // Advances time and parameters by one step. Separate from render() because a
+  // host may advance state and then draw something else entirely — the studio's
+  // variation grid renders N scissored viewports and never touches the composer.
+  advance(delta) {
     // Modulation is evaluated against the *previous* virtualTime, then its tempo
     // multiplier is integrated into the next step. Integrating (rather than
     // assigning a rate) is what lets tempo hesitate and accelerate without the
@@ -436,17 +401,20 @@ export class OrbRuntime {
     }
     const mod = this.modulation.apply(this.baseParams, this.paramDefs, this.virtualTime);
 
+    // virtualTime stays the runtime's. A host passing raw delta still gets the
+    // rack's _timeScale folded in here, which is the only place it is applied —
+    // engines integrate the change in `time`, not `delta`, and would otherwise
+    // ignore every tempo route.
     if (!this.isPaused) {
       this.virtualTime += delta * this.timeScale * mod.timeScale;
     }
 
     this.applyModulatedParams(mod.params);
+    return mod;
+  }
 
-    // Grid mode bypasses the composer: bloom is a full-screen pass and would
-    // bleed across cell boundaries, so cells render straight to the framebuffer.
-    if (this.renderOverride(delta)) return;
-
-    // Smooth pointer motion
+  // Draws the active engine through the composer.
+  render(delta) {
     this.smoothedPointer.lerp(this.pointerTracker.pointer, 0.08);
 
     this.controls?.update();
@@ -465,8 +433,14 @@ export class OrbRuntime {
       });
     }
 
-    // Postprocessing Composer Render
     this.composer.render();
+  }
+
+  // One frame, for a host with nothing to interleave.
+  tick(delta) {
+    this.fpsTracker.tick();
+    this.advance(delta);
+    this.render(delta);
   }
 
   // A refused microphone is a normal outcome, not an error.
@@ -478,9 +452,8 @@ export class OrbRuntime {
     if (!this.audioSource) this.modulation.setAudioLevel(0);
   }
 
+  // The host stops its own loop; a runtime that never started one cannot end it.
   dispose() {
-    this.onDispose();
-    cancelAnimationFrame(this.rafId);
     this.resizeObserver?.disconnect();
     this.clickPulseTracker?.dispose();
     this.pointerTracker?.dispose();
