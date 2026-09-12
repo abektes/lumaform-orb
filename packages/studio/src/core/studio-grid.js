@@ -1,6 +1,6 @@
 import { ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createVariationGrid } from './variation-grid.js';
-import { engineFrameRadius } from '@lumaform/orb';
+import { engineFrameRadius } from '@lumaform/orb/internal';
 import { isSweepable, sweepValues, listSweepableParams } from './sweep.js';
 
 export function bindGridPointer(studio) {

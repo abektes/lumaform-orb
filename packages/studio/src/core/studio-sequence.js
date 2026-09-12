@@ -1,4 +1,4 @@
-import { notifyParams } from '@lumaform/orb';
+import { notifyParams } from '@lumaform/orb/internal';
 
 export const sequenceMethods = {
   get isPlayingSequence() {

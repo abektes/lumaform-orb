@@ -7,10 +7,12 @@
   "exports": {
     ".": "./src/index.js",
     "./engines": "./src/engines/index.js",
-    "./audio": "./src/audio/index.js"
+    "./audio": "./src/audio/index.js",
+    "./internal": "./src/internal/index.js"
   },
   "sideEffects": false,
   "peerDependencies": {
     "three": ">=0.160 <1"
-  }
+  },
+  "types": "./index.d.ts"
 }

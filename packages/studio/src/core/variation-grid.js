@@ -15,15 +15,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { stampVersion } from '@lumaform/orb';
-import {
-  LFO_SHAPES,
-  TIME_SCALE_DEST,
-  createModulationRack,
-  createDefaultModulation,
-  listModulationTargets,
-} from '@lumaform/orb';
-import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from '@lumaform/orb';
-import { notifyParams } from '@lumaform/orb';
+import { LFO_SHAPES, TIME_SCALE_DEST, createModulationRack, createDefaultModulation, listModulationTargets } from '@lumaform/orb/internal';
+import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from '@lumaform/orb/internal';
+import { notifyParams } from '@lumaform/orb/internal';
 
 // --- colour jitter ---------------------------------------------------------
 

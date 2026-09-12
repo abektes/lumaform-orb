@@ -8,7 +8,7 @@
 // Pure — no DOM, no Three.js — so it can be tested in Node.
 
 import { applyEasing } from './easing.js';
-import { isModulatable } from '@lumaform/orb';
+import { isModulatable } from '@lumaform/orb/internal';
 
 const HEX = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
 

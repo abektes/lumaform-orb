@@ -1,9 +1,4 @@
-import {
-  LFO_SHAPES,
-  TIME_SCALE_DEST,
-  listModulationTargets,
-  createDefaultModulation,
-} from '@lumaform/orb';
+import { LFO_SHAPES, TIME_SCALE_DEST, listModulationTargets, createDefaultModulation } from '@lumaform/orb/internal';
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
 import { displayFileName } from '@lumaform/orb/audio';
