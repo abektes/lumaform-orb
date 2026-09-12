@@ -51,8 +51,3 @@ export function defaultEngineBags() {
   );
 }
 
-export function registerAllEngines(studio) {
-  for (const entry of ENGINE_CATALOG) {
-    studio.registerEngine(entry.id, entry.factory);
-  }
-}

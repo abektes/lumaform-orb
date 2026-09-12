@@ -59,7 +59,6 @@ for (const entry of ENGINE_CATALOG) {
       && !!entry.defaultPreset
       && !!entry.file
       && !!entry.factoryName
-      && typeof entry.factory === 'function'
       && entry.params
       && Object.keys(entry.params).length > 0);
 

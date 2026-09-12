@@ -1,11 +1,3 @@
-import { createTesseractEngine } from '../engines/tesseract-engine.js';
-import { createMoireEngine } from '../engines/moire-engine.js';
-import { createAurisEngine } from '../engines/auris-engine.js';
-import { createHopfEngine } from '../engines/hopf-engine.js';
-import { createPolytopeEngine } from '../engines/polytope-engine.js';
-import { createNebulaEngine } from '../engines/nebula-engine.js';
-import { createQuantumEngine } from '../engines/quantum-engine.js';
-import { createSingularityEngine } from '../engines/singularity-engine.js';
 
 export const ANALYTIC_ENGINES = [
   {
@@ -17,7 +9,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: 'Canonical Hypercube',
     file: 'tesseract-engine.js',
     factoryName: 'createTesseractEngine',
-    factory: createTesseractEngine,
     params: {
       color1: { type: 'color', label: 'Outer Cube Edges', default: '#ffed00', section: 'colors' },
       color2: { type: 'color', label: 'Inner Cube Edges', default: '#00f0ff', section: 'colors' },
@@ -49,7 +40,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: '1. Chiral Square Vortex',
     file: 'moire-engine.js',
     factoryName: 'createMoireEngine',
-    factory: createMoireEngine,
     params: {
       archetype: { type: 'select', label: 'Grid Archetype', options: ['meridian_beat', 'lattice_beat', 'helix_beat'], default: 'meridian_beat', section: 'geometry' },
       scale: { type: 'number', label: 'Orb Scale', min: 0.8, max: 3, step: 0.05, default: 2.2, section: 'geometry' },
@@ -81,7 +71,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: 'Geodesic Stellated Sun',
     file: 'auris-engine.js',
     factoryName: 'createAurisEngine',
-    factory: createAurisEngine,
     params: {
       archetype: { type: 'select', label: 'Crystalline Archetype', options: ['geodesic', 'cubic_compound', 'nested_square', 'nested_hex', 'nested_pentagon', 'nested_triangle'], default: 'geodesic', section: 'geometry' },
       scale: { type: 'number', label: 'Polyhedron Scale', min: 0.8, max: 2.5, step: 0.05, default: 1.4, section: 'geometry' },
@@ -112,7 +101,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: 'Clifford Quantum Vortex',
     file: 'hopf-engine.js',
     factoryName: 'createHopfEngine',
-    factory: createHopfEngine,
     params: {
       color1: { type: 'color', label: 'Core Villarceau Ring', default: '#ffed00', section: 'colors' },
       color2: { type: 'color', label: 'Outer Toroidal Shell', default: '#a855f7', section: 'colors' },
@@ -136,7 +124,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: 'Lumaform Gold Merkabah',
     file: 'polytope-engine.js',
     factoryName: 'createPolytopeEngine',
-    factory: createPolytopeEngine,
     params: {
       color1: { type: 'color', label: 'Primary Star (Yang)', default: '#ffed00', section: 'colors' },
       color2: { type: 'color', label: 'Counter Star (Yin)', default: '#ec4899', section: 'colors' },
@@ -161,7 +148,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: 'Aurora Core',
     file: 'nebula-engine.js',
     factoryName: 'createNebulaEngine',
-    factory: createNebulaEngine,
     params: {
       color1: { type: 'color', label: 'Primary Gradient', default: '#00ffc8', section: 'colors' },
       color2: { type: 'color', label: 'Secondary Field', default: '#4466ff', section: 'colors' },
@@ -187,7 +173,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: 'Cyber Matrix',
     file: 'quantum-engine.js',
     factoryName: 'createQuantumEngine',
-    factory: createQuantumEngine,
     params: {
       color1: { type: 'color', label: 'Primary Energy', default: '#0066ff', section: 'colors' },
       color2: { type: 'color', label: 'Secondary Field', default: '#a855f7', section: 'colors' },
@@ -213,7 +198,6 @@ export const ANALYTIC_ENGINES = [
     defaultPreset: 'Gargantua Singularity',
     file: 'singularity-engine.js',
     factoryName: 'createSingularityEngine',
-    factory: createSingularityEngine,
     params: {
       color1: { type: 'color', label: 'Accretion Core Flame', default: '#f59e0b', section: 'colors' },
       color2: { type: 'color', label: 'Outer Collapsar Halo', default: '#ef4444', section: 'colors' },

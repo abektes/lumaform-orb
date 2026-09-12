@@ -1,12 +1,3 @@
-import { createPrismBloomEngine } from '../engines/prism-bloom-engine.js';
-import { createCoronaVeilEngine } from '../engines/corona-veil-engine.js';
-import { createEchoRingsEngine } from '../engines/echo-rings-engine.js';
-import { createChromasphereEngine } from '../engines/chromasphere-engine.js';
-import { createVocalisEngine } from '../engines/vocalis-engine.js';
-import { createAetheriaEngine } from '../engines/aetheria-engine.js';
-import { createSuperpositionEngine } from '../engines/superposition-engine.js';
-import { createSynthesisEngine } from '../engines/synthesis-engine.js';
-import { createFerroTrailsEngine } from '../engines/ferro-trails-engine.js';
 
 export const BODIES_ENGINES = [
   {
@@ -18,7 +9,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Opaline Bloom',
     file: 'prism-bloom-engine.js',
     factoryName: 'createPrismBloomEngine',
-    factory: createPrismBloomEngine,
     params: {
       petalCount: { type: 'select', label: 'Petal Count', options: [24, 36, 48, 60, 72], default: 48, section: 'geometry' },
       petalLength: { type: 'number', label: 'Petal Length', min: 1.05, max: 1.42, step: 0.01, default: 1.32, section: 'geometry' },
@@ -45,7 +35,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Polar Veil',
     file: 'corona-veil-engine.js',
     factoryName: 'createCoronaVeilEngine',
-    factory: createCoronaVeilEngine,
     params: {
       veilCount: { type: 'select', label: 'Veil Count', options: [5, 6, 8, 10, 12], default: 8, section: 'geometry' },
       detail: { type: 'select', label: 'Membrane Detail', options: [48, 64, 80, 96], default: 80, section: 'geometry' },
@@ -72,7 +61,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'First Contact',
     file: 'echo-rings-engine.js',
     factoryName: 'createEchoRingsEngine',
-    factory: createEchoRingsEngine,
     params: {
       ringCount: { type: 'select', label: 'Idle Ring Count', options: [3, 5, 7, 9, 11], default: 7, section: 'geometry' },
       segments: { type: 'select', label: 'Ring Resolution', options: [64, 96, 128, 160, 192], default: 128, section: 'geometry' },
@@ -99,7 +87,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Luminous Root',
     file: 'chromasphere-engine.js',
     factoryName: 'createChromasphereEngine',
-    factory: createChromasphereEngine,
     params: {
       detail: { type: 'select', label: 'Surface Subdivision', options: [3, 4, 5, 6], default: 5, section: 'geometry' },
       rippleOctaves: { type: 'select', label: 'Ripple Detail', options: [1, 2, 3, 4], default: 3, section: 'geometry' },
@@ -132,7 +119,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Vocal Resonator',
     file: 'vocalis-engine.js',
     factoryName: 'createVocalisEngine',
-    factory: createVocalisEngine,
     params: {
       ringCount: { type: 'select', label: 'Diaphragm Rings', options: [4, 6, 8, 10, 12], default: 6, section: 'geometry' },
       ringLayout: { type: 'select', label: 'Ring Layout', options: ['circle', 'iris', 'ellipse', 'globe'], default: 'circle', section: 'geometry' },
@@ -162,7 +148,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Siri Pearl',
     file: 'aetheria-engine.js',
     factoryName: 'createAetheriaEngine',
-    factory: createAetheriaEngine,
     params: {
       sphereRadius: { type: 'number', label: 'Fluid Sphere Radius', min: 1, max: 2.2, step: 0.05, default: 1.55, section: 'geometry' },
       detail: { type: 'select', label: 'Mesh Resolution', options: [32, 48, 64, 96], default: 64, section: 'geometry' },
@@ -189,7 +174,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Quantum Superposition',
     file: 'superposition-engine.js',
     factoryName: 'createSuperpositionEngine',
-    factory: createSuperpositionEngine,
     params: {
       sampleDensity: { type: 'select', label: 'Quantum Samples', options: [3072, 6144, 9216, 12288], default: 6144, section: 'geometry' },
       orbitalScale: { type: 'number', label: 'Orbital Envelope', min: 0.8, max: 2.2, step: 0.05, default: 1.45, section: 'geometry' },
@@ -216,7 +200,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Gemini Harmonic',
     file: 'synthesis-engine.js',
     factoryName: 'createSynthesisEngine',
-    factory: createSynthesisEngine,
     params: {
       envelopeRadius: { type: 'number', label: 'Celestial Sphere Bounds', min: 1, max: 2.2, step: 0.05, default: 1.6, section: 'geometry' },
       coreRadius: { type: 'number', label: 'Fluid Core Size', min: 0.2, max: 0.65, step: 0.02, default: 0.38, section: 'geometry' },
@@ -244,7 +227,6 @@ export const BODIES_ENGINES = [
     defaultPreset: 'Magnetic Nebula Oval',
     file: 'ferro-trails-engine.js',
     factoryName: 'createFerroTrailsEngine',
-    factory: createFerroTrailsEngine,
     params: {
       ovalRatio: { type: 'number', label: 'Orb Oval Aspect Ratio', min: 0.8, max: 1.6, step: 0.02, default: 1.25, section: 'geometry' },
       coreRadius: { type: 'number', label: 'Ferrofluid Core Radius', min: 0.8, max: 2, step: 0.05, default: 1.35, section: 'geometry' },

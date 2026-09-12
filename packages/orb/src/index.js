@@ -20,7 +20,6 @@ export {
   getDefaultEngineParams,
   getDefaultPresetName,
   defaultEngineBags,
-  registerAllEngines,
 } from './engine-catalog.js';
 
 export {

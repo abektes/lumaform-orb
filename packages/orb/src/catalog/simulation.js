@@ -1,8 +1,3 @@
-import { createFluxEngine } from '../engines/flux-engine.js';
-import { createAqueousEngine } from '../engines/aqueous-engine.js';
-import { createCurlDriftEngine } from '../engines/curl-drift-engine.js';
-import { createMurmurationEngine } from '../engines/murmuration-engine.js';
-import { createFilamentEngine } from '../engines/filament-engine.js';
 
 export const SIMULATION_ENGINES = [
   {
@@ -14,7 +9,6 @@ export const SIMULATION_ENGINES = [
     defaultPreset: 'Neon Voice Ribbon',
     file: 'flux-engine.js',
     factoryName: 'createFluxEngine',
-    factory: createFluxEngine,
     params: {
       layout: { type: 'select', label: 'Layout', options: ['ribbon', 'orb'], default: 'ribbon', section: 'geometry' },
       strands: { type: 'number', label: 'Strand Count', min: 6, max: 64, step: 1, default: 28, section: 'geometry' },
@@ -46,7 +40,6 @@ export const SIMULATION_ENGINES = [
     defaultPreset: 'Stillwater Listener',
     file: 'aqueous-engine.js',
     factoryName: 'createAqueousEngine',
-    factory: createAqueousEngine,
     params: {
       detail: { type: 'select', label: 'Surface Detail', options: [3, 4, 5, 6], default: 5, section: 'geometry' },
       radius: { type: 'number', label: 'Body Radius', min: 0.8, max: 2.2, step: 0.05, default: 1.5, section: 'geometry' },
@@ -76,7 +69,6 @@ export const SIMULATION_ENGINES = [
     defaultPreset: 'Blue Current',
     file: 'curl-drift-engine.js',
     factoryName: 'createCurlDriftEngine',
-    factory: createCurlDriftEngine,
     params: {
       streamCount: { type: 'select', label: 'Stream Count', options: [32, 48, 64, 96, 128], default: 64, section: 'geometry' },
       trailLength: { type: 'select', label: 'Trail Length', options: [16, 32, 48, 64, 96], default: 48, section: 'geometry' },
@@ -106,7 +98,6 @@ export const SIMULATION_ENGINES = [
     defaultPreset: 'Deliberation Cloud',
     file: 'murmuration-engine.js',
     factoryName: 'createMurmurationEngine',
-    factory: createMurmurationEngine,
     params: {
       agentCount: { type: 'select', label: 'Agent Count', options: [128, 256, 384, 512], default: 256, section: 'geometry' },
       shellShape: { type: 'select', label: 'Shell Shape', options: ['sphere', 'torus', 'cube', 'disk'], default: 'sphere', section: 'geometry' },
@@ -136,7 +127,6 @@ export const SIMULATION_ENGINES = [
     defaultPreset: 'Signal Lattice',
     file: 'filament-engine.js',
     factoryName: 'createFilamentEngine',
-    factory: createFilamentEngine,
     params: {
       subdivision: { type: 'select', label: 'Lattice Subdivision', options: [1, 2, 3], default: 2, section: 'geometry' },
       radius: { type: 'number', label: 'Rest Sphere Radius', min: 0.8, max: 2.4, step: 0.05, default: 1.6, section: 'geometry' },
