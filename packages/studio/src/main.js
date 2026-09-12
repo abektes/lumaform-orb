@@ -31,7 +31,14 @@ if (reqPresetName) {
   }
 }
 
-const studio = new OrbStudio(container);
+// The studio opts into what the embed defaults deliberately withhold: it is a
+// camera-driving exploration tool, and its clip recorder reads pixels back with
+// toDataURL, which needs the preserved buffer.
+const studio = new OrbStudio(container, {
+  controls: true,
+  autoRotate: true,
+  preserveDrawingBuffer: true,
+});
 registerAllEngines(studio);
 
 const ui = new StudioUI(document.body, studio, store, (updatedState) => {

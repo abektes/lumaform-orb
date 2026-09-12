@@ -20,40 +20,56 @@ import { ENGINE_PARAM_DEFINITIONS } from '../engine-catalog.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { cameraDistanceForRadius, engineFrameRadius } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
+import { resolveRuntimeOptions } from './runtime-options.js';
 
 export class OrbRuntime {
   constructor(containerElement, options = {}) {
     this.container = containerElement;
     this.options = options;
 
+    // Defaults are the embed's, not the studio's. A host dropping an orb into a
+    // 400px div should get a 400px orb that sits still: no drag-to-rotate, no
+    // spin, and no capture buffer it never asked to pay for. The studio wants
+    // all three and opts in, which is the right way round — a consumer can
+    // discover an option, but cannot discover that a default was chosen for
+    // somebody else's use case.
+    const { controls, autoRotate, enableZoom, preserveDrawingBuffer } =
+      resolveRuntimeOptions(options);
+
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(
-      45,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      100
-    );
+    const { width, height } = this.measureContainer();
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
     this.camera.position.set(0, 0, 9.0);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
-      preserveDrawingBuffer: true,
+      // Forces the GPU to keep the frame around after compositing. Only a
+      // consumer calling toDataURL needs it; everyone else paid for it.
+      preserveDrawingBuffer,
       powerPreference: 'high-performance',
     });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(width, height);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.container.appendChild(this.renderer.domElement);
 
-    // Controls
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
-    this.controls.enableZoom = true;
-    this.controls.autoRotate = true;
-    this.controls.autoRotateSpeed = 1.0;
+    // Camera target, whether or not anything is steering it. Framing reads this
+    // so it works identically with controls off.
+    this.controlsTarget = new THREE.Vector3(0, 0, 0);
+
+    this.controls = null;
+    if (controls) {
+      this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+      this.controls.enableDamping = true;
+      this.controls.dampingFactor = 0.05;
+      this.controls.enableZoom = enableZoom;
+      this.controls.autoRotate = autoRotate;
+      this.controls.autoRotateSpeed = 1.0;
+      // Share one vector so `target` is the same object either way.
+      this.controls.target = this.controlsTarget;
+    }
 
     // Interaction & Performance
     this.pointerTracker = createPointerTracker(this.renderer.domElement);
@@ -95,7 +111,11 @@ export class OrbRuntime {
 
     // Listeners
     this.handleResize = this.onWindowResize.bind(this);
-    window.addEventListener('resize', this.handleResize);
+    // Observes the element we render into. A window listener sees only one of
+    // the reasons a container changes size — a split pane, a collapsing
+    // sidebar or a CSS transition moves it without the window moving at all.
+    this.resizeObserver = new ResizeObserver(() => this.handleResize());
+    this.resizeObserver.observe(this.container);
 
     this.animate = this.renderFrame.bind(this);
     this.rafId = requestAnimationFrame(this.animate);
@@ -153,7 +173,7 @@ export class OrbRuntime {
 
     this.camera.fov = 45.0;
     this.camera.updateProjectionMatrix();
-    this.controls.enablePan = true;
+    if (this.controls) this.controls.enablePan = true;
 
     // Instantiate new engine
     this.activeEngine = constructorFn({
@@ -239,10 +259,10 @@ export class OrbRuntime {
     }
 
     if (global.autoRotate !== undefined) {
-      this.controls.autoRotate = global.autoRotate;
+      if (this.controls) this.controls.autoRotate = global.autoRotate;
     }
     if (global.autoRotateSpeed !== undefined) {
-      this.controls.autoRotateSpeed = global.autoRotateSpeed;
+      if (this.controls) this.controls.autoRotateSpeed = global.autoRotateSpeed;
     }
 
     if (global.timeScale !== undefined) {
@@ -292,9 +312,17 @@ export class OrbRuntime {
     notifyParams(this.activeEngine, patch);
   }
 
+  // Falls back to the viewport when the container has no layout yet — a common
+  // case when the orb is constructed before its parent is shown. The observer
+  // corrects it the moment real dimensions exist.
+  measureContainer() {
+    const width = this.container?.clientWidth || window.innerWidth;
+    const height = this.container?.clientHeight || window.innerHeight;
+    return { width: Math.max(1, width), height: Math.max(1, height) };
+  }
+
   onWindowResize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const { width, height } = this.measureContainer();
 
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -314,8 +342,8 @@ export class OrbRuntime {
     this.camera.position.set(0, 0, cameraDistanceForRadius(radius, this.camera.fov));
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(0, 0, 0);
-    this.controls.target.set(0, 0, 0);
-    this.controls.update();
+    this.controlsTarget.set(0, 0, 0);
+    this.controls?.update();
   }
 
   // Engines whose size parameters change how much space they occupy report a new
@@ -331,12 +359,12 @@ export class OrbRuntime {
     if (Math.abs(radius - (this.framedRadius ?? radius)) < 1e-3) return;
     this.framedRadius = radius;
 
-    const offset = this.camera.position.clone().sub(this.controls.target);
+    const offset = this.camera.position.clone().sub(this.controlsTarget);
     const current = offset.length();
     if (current < 1e-6) return;
     offset.multiplyScalar(cameraDistanceForRadius(radius, this.camera.fov) / current);
-    this.camera.position.copy(this.controls.target.clone().add(offset));
-    this.controls.update();
+    this.camera.position.copy(this.controlsTarget.clone().add(offset));
+    this.controls?.update();
   }
 
   resetCamera() {
@@ -421,7 +449,7 @@ export class OrbRuntime {
     // Smooth pointer motion
     this.smoothedPointer.lerp(this.pointerTracker.pointer, 0.08);
 
-    this.controls.update();
+    this.controls?.update();
     this.camera.updateMatrixWorld();
 
     if (this.activeEngine) {
@@ -453,13 +481,15 @@ export class OrbRuntime {
   dispose() {
     this.onDispose();
     cancelAnimationFrame(this.rafId);
-    window.removeEventListener('resize', this.handleResize);
+    this.resizeObserver?.disconnect();
     this.clickPulseTracker?.dispose();
     this.pointerTracker?.dispose();
-    this.controls.dispose();
+    this.controls?.dispose();
     this.activeEngine?.dispose();
     this.composer?.dispose();
     this.renderer?.dispose();
-    this.container.innerHTML = '';
+    // Was `container.innerHTML = ''`, which removed every sibling the host had
+    // put there — overlays, captions, its own markup. Remove only what we added.
+    this.renderer?.domElement?.remove();
   }
 }

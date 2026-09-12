@@ -105,7 +105,7 @@ export const gridMethods = {
     }
 
     this.exitGridMode();
-    this.controls.enabled = false;
+    if (this.controls) this.controls.enabled = false;
     // Remembered so a later engine switch can rebuild the grid at the same shape.
     this.gridCols = cols;
     this.gridRows = rows;
@@ -153,7 +153,7 @@ export const gridMethods = {
     const base = state.engines[type];
 
     this.exitGridMode();
-    this.controls.enabled = false;
+    if (this.controls) this.controls.enabled = false;
 
     this.grid = createVariationGrid({
       renderer: this.renderer,
@@ -191,7 +191,7 @@ export const gridMethods = {
     this.grid.dispose();
     this.grid = null;
     this.sweepInfo = null;
-    this.controls.enabled = true;
+    if (this.controls) this.controls.enabled = true;
     this.renderer.setScissorTest(false);
     this.onWindowResize();
   },
