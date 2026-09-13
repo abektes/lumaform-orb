@@ -113,6 +113,51 @@ Motion Lab → **Mic** (or **Test Tone** if you just want to see it work). Enabl
 
 **The audio never leaves the page.** The signal goes to a Web Audio `AnalyserNode`, is reduced to a single amplitude number per frame, and is never recorded, stored or transmitted. There is no backend to send it to. Denying the permission is handled as a normal outcome, not an error — the orb keeps running and audio routes stay inert. See [SECURITY.md](SECURITY.md).
 
+## Using the runtime in your own app
+
+The studio is one consumer of `@lumaform/orb`; your app can be another. The
+package is not published yet — see [Status](#status) — but the API it will
+publish is the one the studio already uses.
+
+```js
+import { createOrb } from '@lumaform/orb';
+import { nebula } from '@lumaform/orb/engines';
+
+const orb = createOrb(document.querySelector('#orb'), {
+  engines: { nebula },
+  config,            // a JSON config exported from the studio's Export tab
+});
+```
+
+That is the whole happy path: `createOrb` constructs the runtime, registers the
+engines you handed it, reads the config, and starts its own loop. `orb.stop()`
+and `orb.start()` pause and resume without a jump, `orb.loadConfig(next)` swaps
+to another look, and `orb.dispose()` releases the GPU resources and removes only
+the canvas it added.
+
+**You import the engines you want.** `createOrb` never reaches for the catalog's
+factories, and catalog entries name theirs as a string rather than binding it, so
+reading a parameter schema does not drag in all twenty-two engines and their
+geometry. The import list is the bundle: name one engine, ship one engine.
+
+Defaults are the embed's, not the studio's — no drag-to-rotate, no auto-rotation,
+no preserved drawing buffer, and the canvas is sized from the container with a
+`ResizeObserver` rather than from the window. Opt in when you want them:
+
+```js
+createOrb(el, { engines: { nebula }, controls: true, autoRotate: true });
+```
+
+Audio is deliberately not a flag. `import` from `@lumaform/orb/audio` to capture
+a microphone, or hand `orb.setAudioSource()` anything exposing `read() → 0..1`
+and `isActive` — an `<audio>` element, a WebAudio node, your assistant's own
+speech. Not importing that subpath is the off switch: no `getUserMedia` in the
+bundle and nothing for a security review to flag.
+
+For a host that wants to own its own frame loop, construct `OrbRuntime` directly
+and call `advance(delta)` and `render(delta)` yourself. That is exactly what the
+studio does.
+
 ## Project layout
 
 Two npm workspaces. **`packages/orb`** is the runtime — everything needed to
@@ -127,7 +172,9 @@ packages/
       core/framing.js      derives camera distance from each engine's declared radius
       core/config-io.js    versioned config parse, migrate, sanitize
       core/engine-notify.js  setParams / onPulse / onResize dispatch
-      engine-catalog.js    the one engine list; types, info, schema, factories
+      create-orb.js        createOrb — construct, register, load a config, run
+      engine-catalog.js    the one engine list; types, info, schema (no factories)
+      internal/            building blocks the studio shares; not semver-stable
       catalog/             grouped catalog entries
       engines/             one file per engine; index.js is the generated barrel
       audio/               microphone capture, behind the ./audio subpath
@@ -135,7 +182,8 @@ packages/
   studio/                  the exploration tool
     src/
       main.js              composition root; constructs exploration sessions
-      core/studio.js       OrbStudio — extends OrbRuntime, adds the instrument
+      core/studio.js       OrbStudio — owns the frame loop, adds the instrument
+      core/register-engines.js  pairs catalog ids with the engines barrel
       core/studio-grid.js  variation grid and parameter sweep
       core/studio-capture.js   clip recording and snapshots
       core/studio-sequence.js  rehearsal playback
@@ -154,13 +202,15 @@ docs/
   engine-briefs/           proposed engines
 ```
 
-**The runtime never calls a studio method directly.** `OrbRuntime` declares five
-hooks — `onEngineWillChange`, `onEngineDidChange`, `advanceTimeline`,
-`renderOverride`, `onDispose` — with inert defaults, and `OrbStudio` overrides
-them. Reaching into `this.grid` or `this.paramTween` from a runtime method
-breaks the package for anyone who is not the studio, and it breaks at frame time
-inside `requestAnimationFrame`. `packages/studio/tests/runtime-hooks.test.mjs`
-checks this in both directions.
+**The runtime never calls a studio method directly.** `OrbRuntime` owns no frame
+loop and declares no hooks. It exposes `advance(delta)`, `render(delta)` and
+`tick(delta)`; the studio runs its own `requestAnimationFrame`, does its
+rehearsal and tween work, calls `advance()`, then either renders the variation
+grid or calls `render()`. Nothing calls down, so reaching for `this.grid` or
+`this.paramTween` from a runtime method is not something the design permits
+rather than something reviewers have to catch.
+`packages/studio/tests/runtime-seam.test.mjs` loads both classes and compares
+their prototypes: the studio may not override a runtime method except `dispose`.
 
 ## Adding an engine
 

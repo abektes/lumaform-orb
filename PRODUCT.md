@@ -85,7 +85,7 @@ Real and citable:
 - `README.md`, `CLAUDE.md`.
 - 23 plain-Node test files covering the DOM-free logic modules.
 
-**Absences future work must not fabricate:** there are no users beyond the author, no testimonials, no case studies, no customer logos, no analytics, no benchmarks, no pricing, and no license file. The hosted demo exists; adoption of it is unmeasured.
+**Absences future work must not fabricate:** there are no users beyond the author, no testimonials, no case studies, no customer logos, no analytics, no benchmarks, and no pricing. The repository is MIT licensed. The hosted demo exists; adoption of it is unmeasured.
 
 ## Product Principles
 
