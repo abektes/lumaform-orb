@@ -1,12 +1,28 @@
 {
   "name": "lumaform-orb-monorepo",
   "private": true,
+  "description": "Monorepo for Lumaform Orb: the @lumaform/orb runtime and the studio built on it.",
+  "license": "MIT",
+  "author": "Ahmet Bektes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abektes/lumaform-orb.git"
+  },
+  "homepage": "https://github.com/abektes/lumaform-orb#readme",
+  "bugs": {
+    "url": "https://github.com/abektes/lumaform-orb/issues"
+  },
   "type": "module",
-  "workspaces": ["packages/*"],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "npm run dev -w @lumaform/studio",
     "build": "npm run build -w @lumaform/studio",
     "preview": "npm run preview -w @lumaform/studio",
     "test": "node scripts/run-tests.mjs"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

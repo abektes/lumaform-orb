@@ -2,17 +2,53 @@
   "name": "@lumaform/orb",
   "version": "0.0.0",
   "private": true,
+  "description": "WebGL runtime for ambient, reactive AI-assistant orbs: 22 shader engines, a modulation rack, and a versioned config format.",
+  "keywords": [
+    "webgl",
+    "three",
+    "threejs",
+    "shader",
+    "orb",
+    "ambient",
+    "animation",
+    "ai-assistant",
+    "generative",
+    "glsl"
+  ],
+  "license": "MIT",
+  "author": "Ahmet Bektes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abektes/lumaform-orb.git",
+    "directory": "packages/orb"
+  },
+  "homepage": "https://github.com/abektes/lumaform-orb/tree/main/packages/orb#readme",
+  "bugs": {
+    "url": "https://github.com/abektes/lumaform-orb/issues"
+  },
   "type": "module",
   "main": "./src/index.js",
+  "types": "./index.d.ts",
   "exports": {
     ".": "./src/index.js",
     "./engines": "./src/engines/index.js",
     "./audio": "./src/audio/index.js",
     "./internal": "./src/internal/index.js"
   },
+  "files": [
+    "src",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "peerDependencies": {
     "three": ">=0.160 <1"
   },
-  "types": "./index.d.ts"
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -2,7 +2,22 @@
   "name": "@lumaform/studio",
   "version": "0.0.0",
   "private": true,
+  "description": "The Lumaform Orb exploration studio: the instrument built on @lumaform/orb. Not published.",
+  "license": "MIT",
+  "author": "Ahmet Bektes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abektes/lumaform-orb.git",
+    "directory": "packages/studio"
+  },
+  "homepage": "https://github.com/abektes/lumaform-orb#readme",
+  "bugs": {
+    "url": "https://github.com/abektes/lumaform-orb/issues"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
