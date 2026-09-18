@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/abektes/lumaform-orb/security/advisories/new
+    about: Report privately through GitHub's advisory form, not a public issue.
+  - name: Engine authoring contract
+    url: https://github.com/abektes/lumaform-orb/blob/main/docs/ENGINE-AUTHORING.md
+    about: Factory shape, catalog entry, schema rules and the verification checklist.

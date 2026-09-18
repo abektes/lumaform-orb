@@ -32,7 +32,7 @@ requests at all. See `.env.example`.
 the Export tab is checked against the engine schema: unknown engines are
 rejected, unknown keys are dropped, numbers are clamped to their declared range,
 colours must match `#rrggbb`, and select values must be in their option list.
-See `src/core/config-io.js`.
+See `packages/orb/src/core/config-io.js`.
 
 **Outbound requests.** Google Fonts, and Google Analytics only when configured.
 Nothing else.

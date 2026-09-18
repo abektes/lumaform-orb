@@ -20,7 +20,11 @@ npm test
 npm run build
 ```
 
-Both must pass. CI runs exactly these.
+Both must pass. CI runs both, plus `npm run verify:package` — which packs
+`@lumaform/orb`, installs the tarball into a scratch project and imports every
+subpath it declares. Run that one yourself if you touched the runtime package's
+manifest, its `exports` map or its `files` list; a packaging mistake is
+otherwise invisible until after publish.
 
 ## Adding an engine
 

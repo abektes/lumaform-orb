@@ -1,0 +1,26 @@
+name: Feature or change
+description: Anything that is not a bug and not a new engine.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: |
+        The problem, not the solution. This tool exists to find out what
+        movement reads as "thinking" by playing with it, so proposals that
+        start from a use case tend to land better than ones that start from a
+        format or an abstraction.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What did you try instead?
+      description: Including "nothing, I did not know where to start" — that is useful signal about the UI.

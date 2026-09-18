@@ -1,0 +1,48 @@
+name: Engine proposal
+description: Propose a new shader engine.
+labels: ["engine"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Engines are the main unit of work here, so they get their own template.
+        Read [docs/ENGINE-AUTHORING.md](https://github.com/abektes/lumaform-orb/blob/main/docs/ENGINE-AUTHORING.md) first —
+        it is the full contract, and a proposal that cannot satisfy it is worth
+        knowing about before anyone writes shader code.
+
+        Existing briefs live in [docs/engine-briefs/](https://github.com/abektes/lumaform-orb/blob/main/docs/engine-briefs/).
+
+  - type: input
+    id: name
+    attributes:
+      label: Working name
+      placeholder: "Cymatics"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motion
+    attributes:
+      label: What does it do that no current engine does?
+      description: |
+        Twenty-two engines already ship. The useful question is not "is this
+        pretty" but "does this read as a state the others cannot express".
+        Name the closest existing engine and say how this differs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: params
+    attributes:
+      label: Parameters you expect to expose
+      description: |
+        Rough is fine. Flag any that change geometry or act as a rate — neither
+        can be modulated, and knowing early shapes the design.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference
+      description: Images, shadertoy links, papers, video. Anything that shows the motion you mean.

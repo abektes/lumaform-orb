@@ -1,0 +1,105 @@
+name: Bug report
+description: Something renders wrong, runs wrong, or crashes.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Graphics bugs are often specific to one GPU driver or one browser. The
+        environment fields below are not boilerplate — without them a rendering
+        report usually cannot be acted on at all, because it cannot be
+        reproduced.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: |
+        The Nebula orb stops moving after the tab has been open overnight. FPS
+        still reads 60.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Exact steps. If it only happens with particular parameters, attach the
+        JSON from the **Export** tab — that captures the engine, every
+        parameter and the modulation rack, which is far more precise than a
+        description.
+      placeholder: |
+        1. Open ?engine=nebula
+        2. Motion Lab → set Warp Speed to 0.08
+        3. Leave the tab open for ~10 hours
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Safari
+        - Firefox
+        - Edge
+        - Other (say which below)
+    validations:
+      required: true
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser version
+      placeholder: "131.0.6778.86"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15.2 / Windows 11 / Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU
+      description: |
+        Chrome and Edge: open `chrome://gpu` and copy the **GL_RENDERER** line.
+        Safari: Apple menu → About This Mac. Firefox: `about:support`, then the
+        Graphics section.
+      placeholder: "Apple M2 Pro / NVIDIA GeForce RTX 3070 / Intel Iris Xe"
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: |
+        Any errors or warnings from the browser console. Shader compilation
+        failures appear here and nowhere else.
+      render: text
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Exported configuration
+      description: Optional, but the fastest possible reproduction. Export tab → Copy JSON.
+      render: json
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked that this is not already reported.
+          required: true
+        - label: I can reproduce it on a fresh reload (not only after a long session of edits).
+          required: false
