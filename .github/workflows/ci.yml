@@ -24,3 +24,11 @@ jobs:
       - run: npm test
 
       - run: npm run build
+
+      # The suite runs against src/, where every path resolves because the
+      # repository is right there. This packs the tarball, installs it into a
+      # scratch project and imports every declared subpath from outside the
+      # workspace — a `files` omission or a workspace-only export path is
+      # otherwise invisible until after publish, and a spent version cannot be
+      # unspent.
+      - run: npm run verify:package

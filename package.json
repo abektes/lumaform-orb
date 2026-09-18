@@ -20,7 +20,8 @@
     "dev": "npm run dev -w @lumaform/studio",
     "build": "npm run build -w @lumaform/studio",
     "preview": "npm run preview -w @lumaform/studio",
-    "test": "node scripts/run-tests.mjs"
+    "test": "node scripts/run-tests.mjs",
+    "verify:package": "node scripts/verify-package.mjs"
   },
   "workspaces": [
     "packages/*"
