@@ -127,6 +127,14 @@ Not "forgotten" — actively decided against, for now.
 These are genuinely unresolved. If your work bears on one, say so.
 
 1. **Will anyone actually author behaviour?** The entire bet is that someone will sit down and define five states with transition curves. It is possible they just want one beautiful look and will let an engineer wire up a CSS fade. If that turns out true, the state machine is over-engineering and the real product is brand-colour ingestion plus a clean export. **This is the riskiest assumption in the project.**
+
+   **Evidence against the bet, logged 2026-09-18.** [`thinking-orbs`](https://libraries.dev/orbs.html) (0.3.1, MIT, part of libraries.dev) ships the opposite product: nine hand-tuned states (`working`, `searching`, `solving`, `listening`, `connecting`, `weaving`, `composing`, `breathing`, `shaping`) mapped onto nine visual modes through a fixed `STATE_TO_MODE` table, with **no transitions, no modulation and no authoring surface at all** — the public API is `state`, `size`, `theme`, `speed`, `paused`. Their playground exposes about eight sliders of an already-decided design; deep customisation is the paid tier. The vendor reports 3.87M installs across the five-library family.
+
+   This is the first market signal either way, and it points away from authoring: what got adopted was a *fixed set of someone else's good taste*, consumed in one line. Three caveats keep it from settling the question. They never offered the authoring alternative, so this measures demand for the thing that exists, not preference between the two. Their paid tier *is* customisation, which says the ceiling of "one line, nine states" is real. And their unit of sale is a React component, not a motion design — a different business from the one §1 describes.
+
+   What it does change: the burden of proof. "Someone will author five states with transition curves" can no longer be assumed; it needs a user who has actually done it. Until then, treat the fixed-set product as the live alternative hypothesis rather than the fallback.
+
+   Their nine verbs are also the best-tested candidate list in existence for the starter template §7 promises. Prior art to steal the vocabulary from, not a format to adopt.
 2. **Can a designer ship without a frontend engineer?** If no, the primary export should be video and the tool aims at designers. If yes, it's a dev tool with a nice preview and the config should be a first-class visible object. Currently leaning toward the second.
 3. **How much does grid fidelity matter?** Cells have no bloom and render at reduced march quality. Is that close enough to judge, or does it mislead?
 4. **Does the tool need a picker for which parameter to sweep**, or is "the last one you touched" sufficient?
