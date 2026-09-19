@@ -145,6 +145,24 @@ export function createGridSession({ studio, store, state, ui }) {
     showSweepCaption(info);
   }
 
+  function toggleScale() {
+    if (studio.isGridMode) {
+      exitView();
+      return;
+    }
+
+    // The ladder reuses the grid's pointer handling. Every cell holds the same
+    // config, so a click promotes the config unchanged — harmless, and it keeps
+    // one exit path rather than a special case that has to know about ladders.
+    studio.onGridPromote = onPromote;
+
+    const info = studio.enterScaleMode(state);
+    if (!info) return;
+    ui.root.classList.add('grid-mode');
+    ui.render();
+    showSweepCaption(info);
+  }
+
   function breedFinding(entry) {
     // Grid entry always seeds from live state, so first load the finding through
     // the same validating import path used by the shelf's Load action.
@@ -167,11 +185,17 @@ export function createGridSession({ studio, store, state, ui }) {
       return {
         toggle,
         toggleSweep,
+        toggleScale,
         breedFinding,
         onKey(e) {
           if (e.code === 'KeyK') {
             e.preventDefault();
             toggleSweep();
+            return true;
+          }
+          if (e.code === 'KeyL') {
+            e.preventDefault();
+            toggleScale();
             return true;
           }
           if (e.code === 'KeyG') {

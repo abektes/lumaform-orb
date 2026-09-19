@@ -14,6 +14,7 @@ export const SHORTCUTS = [
   { code: 'KeyR', label: 'Randomize the current engine', context: 'any', group: 'Explore' },
   { code: 'KeyG', label: 'Variation grid — nine mutations at once', context: 'any', group: 'Explore' },
   { code: 'KeyK', label: 'Sweep strip — one parameter across five values', context: 'any', group: 'Explore' },
+  { code: 'KeyL', label: 'Scale ladder — one design at five rendered sizes', context: 'any', group: 'Explore' },
 
   { code: 'Digit1', label: 'Store the current orb in slot A', context: 'single', group: 'Compare' },
   { code: 'Digit2', label: 'Store the current orb in slot B', context: 'single', group: 'Compare' },

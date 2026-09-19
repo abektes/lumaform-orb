@@ -79,6 +79,7 @@ const grid = gridSession.bind();
 window.__orb.toggleClip = clip.toggle;
 window.__orb.ab = ab.ab;
 window.__orb.toggleSweep = grid.toggleSweep;
+window.__orb.toggleScale = grid.toggleScale;
 
 ui.onToggleGrid = grid.toggle;
 ui.onCompareFindings = ab.compareFindings;
