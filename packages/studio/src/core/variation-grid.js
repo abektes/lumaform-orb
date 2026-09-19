@@ -217,6 +217,10 @@ export function createVariationGrid({
   // of breeding one. The sweep strip uses it to lay out a deterministic ramp;
   // omit it and the grid mutates exactly as before.
   cellFactory = null,
+  // Optional. When supplied, it replaces the uniform lattice with arbitrary
+  // per-cell rectangles. The scale ladder uses it to render one square viewport
+  // per pixel size; omit it and cells tile the window exactly as before.
+  rectFactory = null,
 }) {
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
   // Same derivation as the main view, or a cell would crop differently from the
@@ -375,7 +379,28 @@ export function createVariationGrid({
     renderer.setClearColor(prevClear, prevAlpha);
   }
 
+  // Reading pixels back is only valid while the drawing buffer holds this
+  // frame, so measurement is a request fulfilled inside render() rather than a
+  // method that samples whatever happens to be on screen when it is called.
+  let pendingMeasure = null;
+
+  // Rect arrives in CSS pixels because that is what setViewport takes; the
+  // framebuffer is in device pixels, so the readback has to scale by the same
+  // ratio or it samples a corner of the cell and calls it the whole thing.
+  function readCellPixels(x, y, w, h) {
+    const gl = renderer.getContext();
+    const dpr = renderer.getPixelRatio();
+    const pw = Math.max(1, Math.round(w * dpr));
+    const ph = Math.max(1, Math.round(h * dpr));
+    const buffer = new Uint8Array(pw * ph * 4);
+    // OutputPass leaves its target bound; pixels live in the default framebuffer.
+    renderer.setRenderTarget(null);
+    gl.readPixels(Math.round(x * dpr), Math.round(y * dpr), pw, ph, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+    return buffer;
+  }
+
   function cellRect(index, width, height) {
+    if (rectFactory) return rectFactory(index, width, height);
     const w = Math.floor(width / cols);
     const h = Math.floor(height / rows);
     const cx = index % cols;
@@ -390,6 +415,11 @@ export function createVariationGrid({
       return parent;
     },
     populate,
+
+    // Fulfilled on the next render, with one RGBA buffer per cell in cell order.
+    requestMeasure(callback) {
+      pendingMeasure = callback;
+    },
 
     describeCell(index) {
       const cell = cells[index];
@@ -409,12 +439,16 @@ export function createVariationGrid({
 
     render(time, delta, width, height) {
       cellComposer.setSize(width, height);
+      const measured = [];
       renderer.setScissorTest(true);
-      camera.aspect = width / cols / (height / rows);
-      camera.updateProjectionMatrix();
 
       for (let i = 0; i < cells.length; i++) {
         const { x, y, w, h } = cellRect(i, width, height);
+        // Per cell rather than once for the grid: identical for a uniform
+        // lattice, and the only thing that makes a non-uniform one honest. A
+        // shared aspect would stretch every cell that is not the average shape.
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
         renderer.setViewport(x, y, w, h);
         renderer.setScissor(x, y, w, h);
         // Cells share a start time and a delta, so they stay comparable; each one
@@ -438,11 +472,18 @@ export function createVariationGrid({
         cellComposer.render();
 
         if (cells[i].selected) drawCellBorder(x, y, w, h);
+        if (pendingMeasure) measured.push(readCellPixels(x, y, w, h));
       }
 
       renderer.setScissorTest(false);
       renderer.setViewport(0, 0, width, height);
       renderer.setScissor(0, 0, width, height);
+
+      if (pendingMeasure) {
+        const done = pendingMeasure;
+        pendingMeasure = null;
+        done(measured);
+      }
     },
 
     hitTest(clientX, clientY, width, height) {
