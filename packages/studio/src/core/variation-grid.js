@@ -390,12 +390,20 @@ export function createVariationGrid({
   function readCellPixels(x, y, w, h) {
     const gl = renderer.getContext();
     const dpr = renderer.getPixelRatio();
-    const pw = Math.max(1, Math.round(w * dpr));
-    const ph = Math.max(1, Math.round(h * dpr));
+    // Derive the extent from the rounded edges rather than rounding the size on
+    // its own: rounding x and w independently can push the far edge one pixel
+    // past the drawing buffer, and those out-of-bounds bytes are undefined.
+    const px = Math.round(x * dpr);
+    const py = Math.round(y * dpr);
+    const pw = Math.max(1, Math.round((x + w) * dpr) - px);
+    const ph = Math.max(1, Math.round((y + h) * dpr) - py);
     const buffer = new Uint8Array(pw * ph * 4);
-    // OutputPass leaves its target bound; pixels live in the default framebuffer.
+    // EffectComposer.render() restores the render target it was called with and
+    // the final pass draws to screen, so the cell is already in the default
+    // framebuffer. This stays as a cheap guard against a caller (or a future
+    // pass) leaving a target bound — readPixels would otherwise sample it.
     renderer.setRenderTarget(null);
-    gl.readPixels(Math.round(x * dpr), Math.round(y * dpr), pw, ph, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+    gl.readPixels(px, py, pw, ph, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
     return buffer;
   }
 
@@ -418,6 +426,14 @@ export function createVariationGrid({
 
     // Fulfilled on the next render, with one RGBA buffer per cell in cell order.
     requestMeasure(callback) {
+      // A second request before that render would otherwise drop the first
+      // callback silently, and a Promise wrapped around it would never settle.
+      // An empty array is the honest answer: nothing was measured.
+      if (pendingMeasure) {
+        const stale = pendingMeasure;
+        pendingMeasure = null;
+        stale([]);
+      }
       pendingMeasure = callback;
     },
 
@@ -444,6 +460,15 @@ export function createVariationGrid({
 
       for (let i = 0; i < cells.length; i++) {
         const { x, y, w, h } = cellRect(i, width, height);
+        // A zero height makes camera.aspect Infinity or NaN; a negative extent
+        // makes gl.viewport/gl.scissor raise INVALID_VALUE and keep the previous
+        // rect, so the cell would silently paint over its neighbour. Skip it —
+        // but still contribute a buffer, or the measurement array would shift
+        // out of step with cell order. frameMetrics reads an empty one as zeros.
+        if (w <= 0 || h <= 0) {
+          if (pendingMeasure) measured.push(new Uint8Array(0));
+          continue;
+        }
         // Per cell rather than once for the grid: identical for a uniform
         // lattice, and the only thing that makes a non-uniform one honest. A
         // shared aspect would stretch every cell that is not the average shape.
@@ -471,8 +496,10 @@ export function createVariationGrid({
         cellRenderPass.scene = cells[i].scene;
         cellComposer.render();
 
-        if (cells[i].selected) drawCellBorder(x, y, w, h);
+        // Read before the border: the mark is chrome, and a 3px 0xffed00 frame
+        // baked into the sample would be reported as the orb's own legibility.
         if (pendingMeasure) measured.push(readCellPixels(x, y, w, h));
+        if (cells[i].selected) drawCellBorder(x, y, w, h);
       }
 
       renderer.setScissorTest(false);
@@ -544,6 +571,14 @@ export function createVariationGrid({
     },
 
     dispose() {
+      // A request made just before the grid goes away (grid exit, or an engine
+      // switch that rebuilds it) never reaches a render(), so settle it here or
+      // a Promise wrapping requestMeasure hangs for the rest of the session.
+      if (pendingMeasure) {
+        const done = pendingMeasure;
+        pendingMeasure = null;
+        done([]);
+      }
       for (const cell of cells) disposeCell(cell);
       cells.length = 0;
       cellComposer.dispose();
