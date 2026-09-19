@@ -34,6 +34,10 @@ ok('no cell overlaps its neighbour',
 const tight = scaleRects([256, 128, 64, 32, 20], 400, 300);
 ok('a large cell is clamped to its slot', tight[0].w <= Math.floor(400 / 5));
 ok('clamping keeps cells square', tight.every((r) => r.w === r.h));
+// The clamp exists to stop this, so assert it on the fixture that exercises the
+// clamp — not only on the wide one, where nothing is clamped in the first place.
+ok('a clamped ladder still does not overlap',
+  tight.every((r, i) => i === 0 || r.x >= tight[i - 1].x + tight[i - 1].w));
 ok('a short window clamps by height', scaleRects([256], 1000, 90)[0].w <= 90);
 ok('degenerate sizes still produce a drawable rect', scaleRects([0], 100, 100)[0].w >= 1);
 ok('an empty ladder produces no rects', scaleRects([], 100, 100).length === 0);
