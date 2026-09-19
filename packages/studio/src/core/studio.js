@@ -34,6 +34,7 @@ export class OrbStudio extends OrbRuntime {
     this.gridBreedPatch = null;
     this.onGridPromote = null;
     this.sweepInfo = null;
+    this.scaleInfo = null;
 
     // Sessions that never record should never create a canvas capture stream.
     this.clipRecorder = null;
@@ -93,9 +94,10 @@ export class OrbStudio extends OrbRuntime {
   // supersedes an in-flight rehearsal lives here, where it belongs, instead of
   // firing on every runtime parameter write.
   setEngine(type, state) {
-    // Captured before anything is torn down: exitGridMode clears both.
+    // Captured before anything is torn down: exitGridMode clears all three.
     const wasGridMode = !!this.grid;
     const wasSweep = this.sweepInfo ? { ...this.sweepInfo } : null;
+    const wasScale = this.scaleInfo ? { ...this.scaleInfo } : null;
     this.supersedeTransition();
 
     const swapped = this.mountEngine(type, {
@@ -107,7 +109,7 @@ export class OrbStudio extends OrbRuntime {
     // Only on a real swap. The grid holds engine instances built from whichever
     // factory was active when it was created, so re-entering it after a no-op
     // would rebuild cells that were never invalidated.
-    if (swapped && wasGridMode) this.rebuildGridForEngine(state, wasSweep);
+    if (swapped && wasGridMode) this.rebuildGridForEngine(state, wasSweep, wasScale);
   }
 
   updateParameters(state) {

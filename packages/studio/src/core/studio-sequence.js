@@ -5,8 +5,6 @@ export const sequenceMethods = {
     return this.sequencePlayer.isPlaying;
   },
 
-  // --- runtime hook overrides ----------------------------------------------
-
   // Real milliseconds, not virtualTime: a transition's duration should not
   // change when playback speed does.
   advanceTimeline(delta) {

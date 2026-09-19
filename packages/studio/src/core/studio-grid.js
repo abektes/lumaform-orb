@@ -2,6 +2,7 @@ import { ENGINE_PARAM_DEFINITIONS } from './state.js';
 import { createVariationGrid } from './variation-grid.js';
 import { engineFrameRadius } from '@lumaform/orb/internal';
 import { isSweepable, sweepValues, listSweepableParams } from './sweep.js';
+import { DEFAULT_SCALE_SIZES, scaleRects } from './scale-ladder.js';
 
 export function bindGridPointer(studio) {
   studio.handleGridPointer = (event) => {
@@ -30,8 +31,6 @@ export function bindGridPointer(studio) {
 }
 
 export const gridMethods = {
-  // --- runtime hook overrides ----------------------------------------------
-
   // The grid owns engine instances built from the factory that was active when
   // it was created, and renderFrame returns early whenever a grid exists.
   // Teardown the runtime knows nothing about. The studio's dispose() calls this
@@ -48,9 +47,16 @@ export const gridMethods = {
   // Re-creates the grid or sweep for whatever engine is now active. Split out of
   // setEngine so the recursion is obvious: neither enterGridMode nor
   // enterSweepMode calls setEngine, so this cannot loop.
-  rebuildGridForEngine(state, previousSweep) {
+  rebuildGridForEngine(state, previousSweep, previousScale) {
     const cols = this.gridCols ?? 3;
     const rows = this.gridRows ?? 3;
+
+    // Checked before the sweep because a ladder always re-enters cleanly: its
+    // sizes are a property of the viewport, not of the engine, so unlike a swept
+    // parameter there is nothing that can fail to exist on the new engine.
+    if (previousScale && this.enterScaleMode(state, { sizes: previousScale.sizes })) {
+      return;
+    }
 
     if (previousSweep) {
       const defs = ENGINE_PARAM_DEFINITIONS[state.engine] || {};
@@ -154,6 +160,47 @@ export const gridMethods = {
     return this.sweepInfo;
   },
 
+  // A scale ladder is the variation grid with the *viewport* as the varying
+  // quantity instead of a parameter: one config, N square cells, each rendered
+  // at a true CSS pixel size. It reuses this.grid so grid mode's render branch,
+  // exit path and pointer handling all apply unchanged.
+  enterScaleMode(state, { sizes = DEFAULT_SCALE_SIZES } = {}) {
+    if (this.currentSequence) this.stopSequence();
+    const type = state.engine;
+    const factory = this.engineConstructors.get(type);
+    if (!factory) {
+      console.error(`Engine type "${type}" not registered.`);
+      return null;
+    }
+    if (!sizes.length) return null;
+
+    const base = state.engines[type];
+
+    this.exitGridMode();
+    if (this.controls) this.controls.enabled = false;
+
+    this.grid = createVariationGrid({
+      renderer: this.renderer,
+      engineFactory: factory,
+      engineType: type,
+      baseParams: base,
+      globalSettings: state.global,
+      modulation: state.modulation,
+      defs: ENGINE_PARAM_DEFINITIONS[type] || {},
+      cols: sizes.length,
+      rows: 1,
+      frameRadius: engineFrameRadius(this.activeEngine),
+      // Every cell is the same config. The ladder's whole claim is that the only
+      // difference between these orbs is how many pixels they were given.
+      cellFactory: () => ({ params: { ...base } }),
+      rectFactory: (index, width, height) => scaleRects(sizes, width, height)[index],
+    });
+    this.grid.populate();
+
+    this.scaleInfo = { label: 'Rendered size', values: sizes.map((s) => `${s}px`), sizes: [...sizes] };
+    return this.scaleInfo;
+  },
+
   reseedGrid({ radius, sections, breadth, breedPatch } = {}) {
     if (!this.grid) return;
     if (radius !== undefined) this.gridRadius = radius;
@@ -171,6 +218,7 @@ export const gridMethods = {
     this.grid.dispose();
     this.grid = null;
     this.sweepInfo = null;
+    this.scaleInfo = null;
     if (this.controls) this.controls.enabled = true;
     this.renderer.setScissorTest(false);
     this.onWindowResize();
