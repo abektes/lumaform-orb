@@ -456,6 +456,19 @@ export function createVariationGrid({
     render(time, delta, width, height) {
       cellComposer.setSize(width, height);
       const measured = [];
+
+      // Cells are not required to tile the window — the scale ladder centres five
+      // small squares in their slots and leaves most of the frame untouched — and
+      // the renderer preserves its drawing buffer between frames. Without a
+      // full-frame clear the previous frame's pixels survive wherever no cell
+      // paints, so the full-screen orb stays visible behind the ladder. Scissor
+      // test off, or the clear would be clipped to the last cell's rect. The
+      // renderer's own clear colour is the studio's to set; this only consumes it.
+      renderer.setViewport(0, 0, width, height);
+      renderer.setScissor(0, 0, width, height);
+      renderer.setScissorTest(false);
+      renderer.clear(true, true, false);
+
       renderer.setScissorTest(true);
 
       for (let i = 0; i < cells.length; i++) {
