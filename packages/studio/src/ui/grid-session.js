@@ -1,5 +1,6 @@
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { listSweepableParams } from '../core/sweep.js';
+import { frameMetrics, formatMetric, scaleRects } from '../core/scale-ladder.js';
 import { normalizeSnapshot } from '../core/ab-compare.js';
 import { createGridHud } from './grid-hud.js';
 import {
@@ -21,19 +22,51 @@ export function createGridSession({ studio, store, state, ui }) {
   let gridBreedPatch = null;
   let gridHud = null;
   let markedPollId = null;
+  let scalePollId = null;
 
-  function showSweepCaption(info) {
+  function showSweepCaption(info, metrics = null) {
     if (!info) {
       caption.classList.add('hidden');
       caption.innerHTML = '';
       return;
     }
     caption.classList.remove('hidden');
+    // Values and metrics share one column template so a number always sits
+    // under the rung it describes, however many rungs there are.
+    const columns = `grid-template-columns: repeat(${info.values.length}, 1fr)`;
     caption.innerHTML =
       `<div class="sweep-title">${info.label}</div>` +
-      `<div class="sweep-values" style="grid-template-columns: repeat(${info.values.length}, 1fr)">` +
+      `<div class="sweep-values" style="${columns}">` +
       info.values.map((value) => `<span>${value}</span>`).join('') +
-      `</div>`;
+      `</div>` +
+      (metrics
+        ? `<div class="sweep-values" style="${columns}">` +
+          metrics
+            .map((m) => `<span>${formatMetric(m.coverage)} / ${formatMetric(m.rms)}</span>`)
+            .join('') +
+          `</div>`
+        : '');
+  }
+
+  // scaleInfo.values holds the *requested* sizes, but scaleRects clamps every
+  // rung to its slot — on a 1024px window the 256px rung is really drawn at
+  // 204px. The caption has to name the pixels that exist, not the ones that were
+  // asked for: the metrics below each rung were measured from the clamped
+  // viewport, and an instrument that misreports its own measurement is worse
+  // than no instrument. The clamp itself is correct, so this only fixes the
+  // label — rendered edge first because that is what the numbers describe, with
+  // the requested size kept after the arrow so a clamped rung is visibly a
+  // clamped rung rather than a different number silently substituted.
+  function withRenderedSizes(info) {
+    if (!info?.sizes) return info;
+    const rects = scaleRects(info.sizes, window.innerWidth, window.innerHeight);
+    return {
+      ...info,
+      values: info.sizes.map((size, index) => {
+        const edge = rects[index]?.w ?? size;
+        return edge === size ? `${size}px` : `${edge}px ↓${size}`;
+      }),
+    };
   }
 
   function downloadSelection() {
@@ -71,6 +104,8 @@ export function createGridSession({ studio, store, state, ui }) {
 
     clearInterval(markedPollId);
     markedPollId = null;
+    clearInterval(scalePollId);
+    scalePollId = null;
     gridHud?.destroy();
     gridHud = null;
 
@@ -160,7 +195,17 @@ export function createGridSession({ studio, store, state, ui }) {
     if (!info) return;
     ui.root.classList.add('grid-mode');
     ui.render();
-    showSweepCaption(info);
+    showSweepCaption(withRenderedSizes(info));
+
+    // Same cadence as the marked-cell poll. A readback stalls the GPU, so this
+    // is five reads every 500 ms rather than five per frame — the numbers settle
+    // within a second and nobody is watching them change. The labels are rebuilt
+    // here too, so a resize that reclamps a rung corrects itself on the next tick.
+    scalePollId = setInterval(() => {
+      studio.grid?.requestMeasure((buffers) => {
+        showSweepCaption(withRenderedSizes(info), buffers.map((buffer) => frameMetrics(buffer)));
+      });
+    }, 500);
   }
 
   function breedFinding(entry) {
@@ -235,6 +280,7 @@ export function createGridSession({ studio, store, state, ui }) {
     },
     dispose() {
       clearInterval(markedPollId);
+      clearInterval(scalePollId);
       gridHud?.destroy();
     },
   };
