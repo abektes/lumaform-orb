@@ -239,19 +239,26 @@ export function frameMetrics(pixels, { threshold = 0.06 } = {}) {
 
   let lit = 0;
   let sum = 0;
-  let sumSq = 0;
   for (let i = 0; i < n * 4; i += 4) {
     const value = luma(pixels[i], pixels[i + 1], pixels[i + 2]);
     if (value > threshold) lit++;
     sum += value;
-    sumSq += value * value;
   }
 
   const mean = sum / n;
-  // Float error can push this a hair below zero on a perfectly flat frame, and
-  // Math.sqrt of a negative would report NaN for the least interesting input.
-  const variance = Math.max(0, sumSq / n - mean * mean);
-  return { coverage: lit / n, mean, rms: Math.sqrt(variance) };
+
+  // Summed squared deviations, not the algebraic E[x²] - E[x]². On a flat frame
+  // those two terms agree to the last bit, so their difference is pure rounding
+  // (~1e-16) and Math.sqrt amplifies it to ~1e-8: a frame with no contrast would
+  // report contrast. Deviations from the mean cancel exactly instead, and a sum
+  // of squares cannot go negative, so sqrt needs no guard.
+  let sumSqDev = 0;
+  for (let i = 0; i < n * 4; i += 4) {
+    const value = luma(pixels[i], pixels[i + 1], pixels[i + 2]);
+    sumSqDev += (value - mean) * (value - mean);
+  }
+
+  return { coverage: lit / n, mean, rms: Math.sqrt(sumSqDev / n) };
 }
 
 export function formatMetric(value) {
