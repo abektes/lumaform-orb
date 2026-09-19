@@ -93,15 +93,15 @@ ok('the ladder descends', DEFAULT_SCALE_SIZES.every((s, i, a) => i === 0 || s < 
 ok('the ladder reaches inline scale', DEFAULT_SCALE_SIZES.includes(20));
 ok('the ladder includes avatar scale', DEFAULT_SCALE_SIZES.includes(64));
 
-// --- layout: 5 slots across 1000x600 ---
-const rects = scaleRects([256, 128, 64, 32, 20], 1000, 600);
+// --- layout: 5 slots across 2000x600 ---
+// 2000 wide so a 400px slot holds the 256px rung uncropped; at 1000 the first
+// rung clamps to its slot and this fixture would be testing the clamp instead.
+const rects = scaleRects([256, 128, 64, 32, 20], 2000, 600);
 ok('one rect per size', rects.length === 5);
 ok('every cell is square', rects.every((r) => r.w === r.h));
 ok('each cell renders at its requested edge', rects.map((r) => r.w).join(',') === '256,128,64,32,20');
-ok('cells are centred in equal slots',
-  rects[0].x === Math.round((200 - 256) / 2) + 0 || rects[0].x >= 0);
 ok('slot centres are evenly spaced',
-  rects.map((r) => Math.round(r.x + r.w / 2)).join(',') === '100,300,500,700,900');
+  rects.map((r) => Math.round(r.x + r.w / 2)).join(',') === '200,600,1000,1400,1800');
 ok('cells are vertically centred', rects.every((r) => r.y === Math.round((600 - r.w) / 2)));
 ok('no cell overlaps its neighbour',
   rects.every((r, i) => i === 0 || r.x >= rects[i - 1].x + rects[i - 1].w));
