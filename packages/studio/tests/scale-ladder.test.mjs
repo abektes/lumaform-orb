@@ -193,7 +193,7 @@ ok('empty ref buffer gives NaN', Number.isNaN(inkRetention(fullLit, new Uint8Arr
 // --- structuralDivergence ---
 // 1. Equal-size identical buffers give 0
 ok('identical equal-size buffers have 0 divergence',
-  Math.abs(structuralDivergence(fullLit, fullLit)) < 1e-9);
+  Math.abs(structuralDivergence(fullLit, 4, fullLit, 4)) < 1e-9);
 
 // 2. A rung that is exactly the box-downscale of the reference gives 0
 // Reference: 4x4 image with varying pixel intensities
@@ -216,7 +216,7 @@ for (let i = 0; i < 4; i++) {
 }
 // Note: rounding to uint8 introduces small quantization (< 1/255 ≈ 0.004)
 ok('ideal downscale rung has ~0 divergence',
-  structuralDivergence(ref4x4, idealRung2x2) < 0.005);
+  structuralDivergence(ref4x4, 4, idealRung2x2, 2) < 0.005);
 
 // 3. A uniformly grey rung against a structured reference gives clearly non-zero divergence
 const greyRung2x2 = new Uint8Array(2 * 2 * 4);
@@ -226,26 +226,52 @@ for (let i = 0; i < 4; i++) {
   greyRung2x2[i * 4 + 2] = 128;
   greyRung2x2[i * 4 + 3] = 255;
 }
-const greyDiv = structuralDivergence(ref4x4, greyRung2x2);
+const greyDiv = structuralDivergence(ref4x4, 4, greyRung2x2, 2);
 ok('flat grey rung against structured ref has clearly non-zero divergence', greyDiv > 0.1);
 
 // 4. A rung larger than the reference gives NaN
 ok('rung larger than reference gives NaN',
-  Number.isNaN(structuralDivergence(idealRung2x2, ref4x4)));
+  Number.isNaN(structuralDivergence(idealRung2x2, 2, ref4x4, 4)));
 
 // 5. Empty buffers give NaN
 ok('empty reference gives NaN',
-  Number.isNaN(structuralDivergence(new Uint8Array(0), idealRung2x2)));
+  Number.isNaN(structuralDivergence(new Uint8Array(0), 0, idealRung2x2, 2)));
 ok('empty rung gives NaN',
-  Number.isNaN(structuralDivergence(ref4x4, new Uint8Array(0))));
+  Number.isNaN(structuralDivergence(ref4x4, 4, new Uint8Array(0), 0)));
 
 // 6. Normalised bounds: stays within 0..1 for opposite extremes
 const whiteRef = new Uint8Array(4 * 4 * 4).fill(255);
 const blackRung = new Uint8Array(2 * 2 * 4);
 for (let i = 3; i < blackRung.length; i += 4) blackRung[i] = 255;
-const extremeDiv = structuralDivergence(whiteRef, blackRung);
+const extremeDiv = structuralDivergence(whiteRef, 4, blackRung, 2);
 ok('extreme opposite gives divergence in 0..1',
   extremeDiv >= 0 && extremeDiv <= 1 && Math.abs(extremeDiv - 1.0) < 1e-9);
+
+// 7. Non-square buffer handling: 24x25 reference downscaled to 12x13
+const ref24x25 = new Uint8Array(24 * 25 * 4);
+for (let y = 0; y < 25; y++) {
+  for (let x = 0; x < 24; x++) {
+    const idx = (y * 24 + x) * 4;
+    const v = (x * 10 + y * 8) % 256;
+    ref24x25[idx] = v; ref24x25[idx + 1] = v; ref24x25[idx + 2] = v; ref24x25[idx + 3] = 255;
+  }
+}
+ok('non-square identical buffers have 0 divergence',
+  Math.abs(structuralDivergence(ref24x25, { w: 24, h: 25 }, ref24x25, { w: 24, h: 25 })) < 1e-9);
+
+const ideal12x13Luma = downscaleLuma(ref24x25, { w: 24, h: 25 }, { w: 12, h: 13 });
+const idealRung12x13 = new Uint8Array(12 * 13 * 4);
+for (let i = 0; i < 12 * 13; i++) {
+  const byte = Math.round(ideal12x13Luma[i] * 255);
+  idealRung12x13[i * 4] = byte;
+  idealRung12x13[i * 4 + 1] = byte;
+  idealRung12x13[i * 4 + 2] = byte;
+  idealRung12x13[i * 4 + 3] = 255;
+}
+ok('non-square ideal downscale has ~0 divergence',
+  structuralDivergence(ref24x25, { w: 24, h: 25 }, idealRung12x13, { w: 12, h: 13 }) < 0.005);
+ok('non-square rung larger than ref returns NaN',
+  Number.isNaN(structuralDivergence(idealRung12x13, { w: 12, h: 13 }, ref24x25, { w: 24, h: 25 })));
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

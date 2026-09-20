@@ -1,6 +1,7 @@
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { listSweepableParams } from '../core/sweep.js';
 import { inkRetention, structuralDivergence, formatMetric, scaleRects } from '../core/scale-ladder.js';
+import { readbackRegion } from '../core/grid-measure.js';
 import { normalizeSnapshot } from '../core/ab-compare.js';
 import { createGridHud } from './grid-hud.js';
 import {
@@ -224,15 +225,26 @@ export function createGridSession({ studio, store, state, ui }) {
         if (!studio.scaleInfo) return;
         if (!buffers?.length) return;
 
+        const dpr = studio.renderer.getPixelRatio();
+        const rects = scaleRects(info.sizes, window.innerWidth, window.innerHeight);
+        const dims = rects.map((rect) => readbackRegion(rect, dpr));
+
         // The reference rung is the largest actually-rendered cell (greatest byte length),
         // which may not be index 0 if clamped. Ties take the first.
-        const ref = buffers.reduce((a, b) => (b.length > a.length ? b : a), buffers[0]);
+        let refIndex = 0;
+        for (let i = 1; i < buffers.length; i++) {
+          if (buffers[i].length > buffers[refIndex].length) {
+            refIndex = i;
+          }
+        }
+        const ref = buffers[refIndex];
+        const refDim = dims[refIndex];
 
         // The reference compares against itself, yielding 1.00 / 0.00. This is the
         // baseline the smaller rungs are measured against, not a measurement finding.
-        const metrics = buffers.map((buffer) => ({
+        const metrics = buffers.map((buffer, i) => ({
           retention: inkRetention(buffer, ref),
-          divergence: structuralDivergence(ref, buffer),
+          divergence: structuralDivergence(ref, refDim, buffer, dims[i]),
         }));
         showSweepCaption(withRenderedSizes(info), metrics);
       });

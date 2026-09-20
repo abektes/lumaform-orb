@@ -113,5 +113,25 @@ q5.collect(new Uint8Array([100]));
 q5.flush();
 ok('collect before request does not leak into delivery', delivered5 && delivered5.length === 1 && delivered5[0][0] === 100);
 
+// Re-entrant request() inside stale callback settles cleanly
+const qReentrant = createMeasureQueue();
+let staleSettled = null;
+let reentrantDelivered = null;
+qReentrant.request(() => {
+  // Stale callback synchronously registers a new request
+  qReentrant.request((bufs) => {
+    reentrantDelivered = bufs;
+  });
+});
+qReentrant.request((bufs) => {
+  staleSettled = bufs;
+});
+qReentrant.collect(new Uint8Array([42]));
+qReentrant.flush();
+ok('outer callback is settled with [] when re-entrant request replaces it',
+  Array.isArray(staleSettled) && staleSettled.length === 0);
+ok('re-entrant request is not stomped and receives flush',
+  reentrantDelivered && reentrantDelivered.length === 1 && reentrantDelivered[0][0] === 42);
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

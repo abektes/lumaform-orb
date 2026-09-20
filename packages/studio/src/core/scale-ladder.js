@@ -53,21 +53,6 @@ function luma(r, g, b) {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
-// Helper: resolve plausible (w, h) dimensions for a buffer of length bytes.
-// Ladder cells are square in CSS pixels, but at fractional DPR subpixel rounding
-// can make device pixel width and height differ by at most 1 (pw * ph * 4).
-function bufferDimensions(length) {
-  const p = Math.floor(length / 4);
-  if (!p) return [];
-  const s = Math.round(Math.sqrt(p));
-  if (s * s === p) return [{ w: s, h: s }];
-  const k = Math.floor(Math.sqrt(p));
-  if (k * (k + 1) === p) {
-    return [{ w: k, h: k + 1 }, { w: k + 1, h: k }];
-  }
-  return [];
-}
-
 // Area-average downscale of the luma channel. `pixels` is RGBA bytes for an
 // image of `size` device pixels (number for square, or { w, h }); returns
 // targetSize luma values in 0..1, row-major, same orientation as the input.
@@ -134,48 +119,46 @@ export function inkRetention(rungPixels, referencePixels) {
 // either input is empty or the reference is smaller than the rung.
 //
 // A perfect 0.0 divergence is unattainable in practice because antialiasing
-// differs across resolutions; the number is comparative across rungs and
-// configs, never absolute.
-export function structuralDivergence(referencePixels, rungPixels) {
-  if (!referencePixels?.length || !rungPixels?.length) return NaN;
+// differs across resolutions. The metric is comparative across rungs of the
+// same design, never absolute, and does not compare across different configs:
+// the normalisation is by pixel count, not by the reference's contrast or mean,
+// so a dim design scores lower divergence than a bright one at identical
+// relative structural loss.
+export function structuralDivergence(referencePixels, refDim, rungPixels, rungDim) {
+  if (!referencePixels?.length || !rungPixels?.length || !refDim || !rungDim) return NaN;
 
-  const refCandidates = bufferDimensions(referencePixels.length);
-  const rungCandidates = bufferDimensions(rungPixels.length);
-  if (!refCandidates.length || !rungCandidates.length) return NaN;
+  const rw = typeof refDim === 'number' ? refDim : (refDim.w ?? refDim.pw);
+  const rh = typeof refDim === 'number' ? refDim : (refDim.h ?? refDim.ph);
+  const tw = typeof rungDim === 'number' ? rungDim : (rungDim.w ?? rungDim.pw);
+  const th = typeof rungDim === 'number' ? rungDim : (rungDim.h ?? rungDim.ph);
 
-  let bestDiv = Infinity;
+  if (!rw || !rh || !tw || !th || rw <= 0 || rh <= 0 || tw <= 0 || th <= 0) return NaN;
+  if (rw < tw || rh < th) return NaN;
+  if (referencePixels.length < rw * rh * 4 || rungPixels.length < tw * th * 4) return NaN;
 
-  for (const refDim of refCandidates) {
-    for (const rungDim of rungCandidates) {
-      if (refDim.w < rungDim.w || refDim.h < rungDim.h) continue;
+  const ideal = downscaleLuma(referencePixels, { w: rw, h: rh }, { w: tw, h: th });
+  if (!ideal.length) return NaN;
 
-      const ideal = downscaleLuma(referencePixels, refDim, rungDim);
-      if (!ideal.length) continue;
-
-      const n = rungDim.w * rungDim.h;
-      let sumSqDiff = 0;
-      for (let i = 0; i < n; i++) {
-        const idx = i * 4;
-        const actual = luma(rungPixels[idx], rungPixels[idx + 1], rungPixels[idx + 2]);
-        const diff = actual - ideal[i];
-        sumSqDiff += diff * diff;
-      }
-
-      const div = Math.sqrt(sumSqDiff / n);
-      if (div < bestDiv) bestDiv = div;
-    }
+  const n = tw * th;
+  let sumSqDiff = 0;
+  for (let i = 0; i < n; i++) {
+    const idx = i * 4;
+    const actual = luma(rungPixels[idx], rungPixels[idx + 1], rungPixels[idx + 2]);
+    const diff = actual - ideal[i];
+    sumSqDiff += diff * diff;
   }
 
-  return Number.isFinite(bestDiv) ? bestDiv : NaN;
+  return Math.sqrt(sumSqDiff / n);
 }
 
-// Two numbers, because there are two distinct ways a small orb fails.
+// Frame statistics over raw pixels.
 //
-// `coverage` catches disappearance: an orb whose marks fall below the visible
-// threshold trends to 0 even though the config is unchanged.
-// `rms` catches mush: an orb that keeps every pixel lit but loses all internal
-// structure trends to 0 contrast at high coverage. Coverage alone would call
-// that a success.
+// Note: `coverage` and `rms` contrast were originally proposed as legibility
+// metrics, but measurement proved both are near-invariant under pure scaling
+// (~0.075 coverage and ~0.22 RMS across all rungs on every engine) because
+// both are ratios over a cell's own pixels. `mean` is the active input to
+// `inkRetention`, and `coverage` remains a useful raw readout of lit fraction;
+// the legibility question is answered by `inkRetention` and `structuralDivergence`.
 export function frameMetrics(pixels, { threshold = 0.06 } = {}) {
   const n = Math.floor(pixels.length / 4);
   if (!n) return { coverage: 0, mean: 0, rms: 0 };

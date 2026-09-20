@@ -465,11 +465,9 @@ export function createVariationGrid({
 
       for (let i = 0; i < cells.length; i++) {
         const rect = cellRect(i, width, height);
-        // A zero height makes camera.aspect Infinity or NaN; a negative extent
-        // makes gl.viewport/gl.scissor raise INVALID_VALUE and keep the previous
-        // rect, so the cell would silently paint over its neighbour. Skip it —
-        // but still contribute a buffer, or the measurement array would shift
-        // out of step with cell order. frameMetrics reads an empty one as zeros.
+        // Non-drawable rects cannot render (see isDrawableRect in grid-measure.js).
+        // Skip it, but contribute an empty buffer so the measurement array stays
+        // aligned with cell order.
         if (!isDrawableRect(rect)) {
           measureQueue.collect(new Uint8Array(0));
           continue;

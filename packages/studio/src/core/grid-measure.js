@@ -1,12 +1,20 @@
 // Which cells render, and what the measurement array should look like.
 // Pure: no renderer, no GL, no DOM.
 
-// A rect is drawable when both extents are positive and finite. A zero height
-// makes the camera aspect Infinity or NaN; a negative extent makes gl.viewport
-// and gl.scissor raise INVALID_VALUE and silently keep the previous rect, so
-// the cell would paint over its neighbour.
+// A rect is drawable when both extents are positive and finite, and coordinates
+// are finite numbers. Checking finiteness of x and y is deliberate: custom
+// rect factories can return NaN/Infinity under edge-case geometry, which would
+// cause WebGL viewport calls to raise INVALID_VALUE and paint over neighbours.
 export function isDrawableRect(rect) {
-  return !!rect && Number.isFinite(rect.x) && Number.isFinite(rect.y) && Number.isFinite(rect.w) && Number.isFinite(rect.h) && rect.w > 0 && rect.h > 0;
+  return (
+    !!rect &&
+    Number.isFinite(rect.x) &&
+    Number.isFinite(rect.y) &&
+    Number.isFinite(rect.w) &&
+    Number.isFinite(rect.h) &&
+    rect.w > 0 &&
+    rect.h > 0
+  );
 }
 
 // Device-pixel readback region for a CSS-pixel rect. Extents are derived from
@@ -31,14 +39,12 @@ export function createMeasureQueue() {
 
   return {
     request(callback) {
-      if (pendingCallback) {
-        const stale = pendingCallback;
-        pendingCallback = null;
-        collected = [];
-        stale([]);
-      }
+      const stale = pendingCallback;
       pendingCallback = callback;
       collected = [];
+      if (stale) {
+        stale([]);
+      }
     },
 
     isPending() {
