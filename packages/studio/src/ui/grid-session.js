@@ -1,7 +1,6 @@
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { listSweepableParams } from '../core/sweep.js';
-import { inkRetention, structuralDivergence, formatMetric, scaleRects } from '../core/scale-ladder.js';
-import { readbackRegion } from '../core/grid-measure.js';
+import { inkRetention, structuralDivergence, formatMetric } from '../core/scale-ladder.js';
 import { normalizeSnapshot } from '../core/ab-compare.js';
 import { createGridHud } from './grid-hud.js';
 import {
@@ -65,22 +64,16 @@ export function createGridSession({ studio, store, state, ui }) {
     caption.replaceChildren(...children);
   }
 
-  // scaleInfo.values holds the *requested* sizes, but scaleRects clamps every
-  // rung to its slot — on a 1024px window the 256px rung is really drawn at
-  // 204px. The caption has to name the pixels that exist, not the ones that were
-  // asked for: the metrics below each rung were measured from the clamped
-  // viewport, and an instrument that misreports its own measurement is worse
-  // than no instrument. The clamp itself is correct, so this only fixes the
-  // label — rendered edge first because that is what the numbers describe, with
-  // the requested size kept after the arrow so a clamped rung is visibly a
-  // clamped rung rather than a different number silently substituted.
-  function withRenderedSizes(info) {
+  // scaleInfo.values holds the *requested* sizes, but each rung may clamp to
+  // its slot or window extent. The caption reports what was actually drawn,
+  // derived directly from the measurement payload's rect.w rather than
+  // recomputing geometry against window dimensions that may have drifted.
+  function withRenderedSizes(info, measurements = null) {
     if (!info?.sizes) return info;
-    const rects = scaleRects(info.sizes, window.innerWidth, window.innerHeight);
     return {
       ...info,
       values: info.sizes.map((size, index) => {
-        const edge = rects[index]?.w ?? size;
+        const edge = measurements ? measurements[index]?.rect?.w : size;
         return edge === size ? `${size}px` : `${edge}px ↓${size}`;
       }),
     };
@@ -216,37 +209,38 @@ export function createGridSession({ studio, store, state, ui }) {
 
     // Same cadence as the marked-cell poll. A readback stalls the GPU, so this
     // is five reads every 500 ms rather than five per frame — the numbers settle
-    // within a second and nobody is watching them change. The labels are rebuilt
-    // here too, so a resize that reclamps a rung corrects itself on the next tick.
+    // within a second and nobody is watching them change. The labels are updated
+    // here too from the exact rects the grid rendered with on this tick.
     scalePollId = setInterval(() => {
-      studio.grid?.requestMeasure((buffers) => {
+      studio.grid?.requestMeasure((measurements) => {
         // A measurement request outlives the view if exitView runs while a readback
         // is in flight. Guard against repainting the caption after teardown.
         if (!studio.scaleInfo) return;
-        if (!buffers?.length) return;
+        if (!measurements?.length) return;
 
-        const dpr = studio.renderer.getPixelRatio();
-        const rects = scaleRects(info.sizes, window.innerWidth, window.innerHeight);
-        const dims = rects.map((rect) => readbackRegion(rect, dpr));
-
-        // The reference rung is the largest actually-rendered cell (greatest byte length),
-        // which may not be index 0 if clamped. Ties take the first.
-        let refIndex = 0;
-        for (let i = 1; i < buffers.length; i++) {
-          if (buffers[i].length > buffers[refIndex].length) {
-            refIndex = i;
+        // When no rung is drawable (e.g. collapsed pane), five dashes is noise.
+        // Skip the metrics row entirely.
+        const anyDrawable = measurements.some((m) => m.rect && m.rect.w > 0 && m.rect.h > 0);
+        let metrics = null;
+        if (anyDrawable) {
+          // The reference rung is the largest actually-rendered cell (greatest byte length),
+          // which may not be index 0 if clamped. Ties take the first.
+          let refIndex = 0;
+          for (let i = 1; i < measurements.length; i++) {
+            if (measurements[i].buffer.length > measurements[refIndex].buffer.length) {
+              refIndex = i;
+            }
           }
-        }
-        const ref = buffers[refIndex];
-        const refDim = dims[refIndex];
+          const ref = measurements[refIndex];
 
-        // The reference compares against itself, yielding 1.00 / 0.00. This is the
-        // baseline the smaller rungs are measured against, not a measurement finding.
-        const metrics = buffers.map((buffer, i) => ({
-          retention: inkRetention(buffer, ref),
-          divergence: structuralDivergence(ref, refDim, buffer, dims[i]),
-        }));
-        showSweepCaption(withRenderedSizes(info), metrics);
+          // The reference compares against itself, yielding 1.00 / 0.00. This is the
+          // baseline the smaller rungs are measured against, not a measurement finding.
+          metrics = measurements.map((m) => ({
+            retention: inkRetention(ref.buffer, m.buffer),
+            divergence: structuralDivergence(ref.buffer, ref.dim, m.buffer, m.dim),
+          }));
+        }
+        showSweepCaption(withRenderedSizes(info, measurements), metrics);
       });
     }, 500);
   }

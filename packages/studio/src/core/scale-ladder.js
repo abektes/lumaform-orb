@@ -22,16 +22,14 @@ export function scaleRects(sizes, width, height) {
   const slot = width / cols;
 
   return sizes.map((size, index) => {
-    // Clamped to the slot and to the window: an unclamped 256px cell on a narrow
-    // window would render over its neighbour, and you would be judging the wrong
-    // orb without any sign that it had happened.
-    //
-    // Tension: at window widths under ~5px, slot < 1px so Math.max(1, ...) makes
-    // adjacent rungs overlap. The floor is required so degenerate size requests
-    // (such as scaleRects([0])) still produce drawable rects. Sub-5px windows do
-    // not occur in practice (responsive breakpoints are 1280/900px and canvas
-    // fills the window), so the floor stands.
-    const edge = Math.max(1, Math.min(Math.floor(size), Math.floor(slot), Math.floor(height)));
+    // A zero-size request still wants a pixel; a slot with no room genuinely has
+    // nowhere to draw. Separating wanted size from available room avoids
+    // conflating the floor with available space: a collapsed pane (window width
+    // or height 0) produces zero-width, non-drawable rects rather than five
+    // overlapping 1px rungs.
+    const wanted = Math.max(1, Math.floor(size));
+    const available = Math.min(Math.floor(slot), Math.floor(height));
+    const edge = Math.max(0, Math.min(wanted, available));
     return {
       x: Math.round(index * slot + (slot - edge) / 2),
       // Square and centred, so the bottom-left WebGL origin needs no flip here.
@@ -54,15 +52,30 @@ function luma(r, g, b) {
 }
 
 // Area-average downscale of the luma channel. `pixels` is RGBA bytes for an
-// image of `size` device pixels (number for square, or { w, h }); returns
-// targetSize luma values in 0..1, row-major, same orientation as the input.
+// image of `size` device pixels ({ w, h }); returns targetSize luma values
+// in 0..1, row-major, same orientation as the input.
+//
+// Both `size` and `targetSize` are strictly { w, h } in device pixels.
 export function downscaleLuma(pixels, size, targetSize) {
-  const srcW = typeof size === 'number' ? size : size?.w;
-  const srcH = typeof size === 'number' ? size : size?.h;
-  const dstW = typeof targetSize === 'number' ? targetSize : targetSize?.w;
-  const dstH = typeof targetSize === 'number' ? targetSize : targetSize?.h;
+  const srcW = size?.w;
+  const srcH = size?.h;
+  const dstW = targetSize?.w;
+  const dstH = targetSize?.h;
 
-  if (!pixels?.length || !srcW || !srcH || !dstW || !dstH || srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0 || dstW > srcW || dstH > srcH || pixels.length < srcW * srcH * 4) {
+  if (
+    !pixels?.length ||
+    !srcW ||
+    !srcH ||
+    !dstW ||
+    !dstH ||
+    srcW <= 0 ||
+    srcH <= 0 ||
+    dstW <= 0 ||
+    dstH <= 0 ||
+    dstW > srcW ||
+    dstH > srcH ||
+    pixels.length < srcW * srcH * 4
+  ) {
     // Upscaling is unsupported: the ladder only downscales the reference to
     // compare against smaller rungs. Upscaling would synthesize detail.
     return new Float64Array(0);
@@ -106,8 +119,11 @@ export function downscaleLuma(pixels, size, targetSize) {
 // Mean luma of the rung over mean luma of the reference. 1 = ink scaling
 // cleanly, <1 = marks dropping out, >1 = marks crowding. NaN if the reference
 // is blank or either input is empty.
-export function inkRetention(rungPixels, referencePixels) {
-  if (!rungPixels?.length || !referencePixels?.length) return NaN;
+//
+// Argument order: reference first, matching the mental model "compare this
+// rung against the reference", consistent with structuralDivergence.
+export function inkRetention(referencePixels, rungPixels) {
+  if (!referencePixels?.length || !rungPixels?.length) return NaN;
   const refMean = frameMetrics(referencePixels).mean;
   if (refMean === 0 || !Number.isFinite(refMean)) return NaN;
   const rungMean = frameMetrics(rungPixels).mean;
@@ -118,6 +134,8 @@ export function inkRetention(rungPixels, referencePixels) {
 // reference. Returns 0 for a perfect scale, higher for lost structure, NaN when
 // either input is empty or the reference is smaller than the rung.
 //
+// Both `refDim` and `rungDim` are strictly { w, h } in device pixels.
+//
 // A perfect 0.0 divergence is unattainable in practice because antialiasing
 // differs across resolutions. The metric is comparative across rungs of the
 // same design, never absolute, and does not compare across different configs:
@@ -127,10 +145,10 @@ export function inkRetention(rungPixels, referencePixels) {
 export function structuralDivergence(referencePixels, refDim, rungPixels, rungDim) {
   if (!referencePixels?.length || !rungPixels?.length || !refDim || !rungDim) return NaN;
 
-  const rw = typeof refDim === 'number' ? refDim : (refDim.w ?? refDim.pw);
-  const rh = typeof refDim === 'number' ? refDim : (refDim.h ?? refDim.ph);
-  const tw = typeof rungDim === 'number' ? rungDim : (rungDim.w ?? rungDim.pw);
-  const th = typeof rungDim === 'number' ? rungDim : (rungDim.h ?? rungDim.ph);
+  const rw = refDim.w;
+  const rh = refDim.h;
+  const tw = rungDim.w;
+  const th = rungDim.h;
 
   if (!rw || !rh || !tw || !th || rw <= 0 || rh <= 0 || tw <= 0 || th <= 0) return NaN;
   if (rw < tw || rh < th) return NaN;

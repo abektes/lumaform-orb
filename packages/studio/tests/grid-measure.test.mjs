@@ -50,47 +50,60 @@ ok('tiny rect width floors to 1', rTiny.pw === 1);
 ok('tiny rect height floors to 1', rTiny.ph === 1);
 
 // --- createMeasureQueue ---
-// request then flush delivers collected buffers in collection order
+// request then flush delivers collected payloads in collection order
 const q1 = createMeasureQueue();
 ok('queue initially not pending', !q1.isPending());
 let delivered1 = null;
-q1.request((bufs) => { delivered1 = bufs; });
+q1.request((items) => { delivered1 = items; });
 ok('queue is pending after request', q1.isPending());
-const b1 = new Uint8Array([1]);
-const b2 = new Uint8Array([2]);
-q1.collect(b1);
-q1.collect(b2);
+const item1 = { buffer: new Uint8Array([1]), rect: { x: 0, y: 0, w: 10, h: 10 }, dim: { w: 12, h: 12 } };
+const item2 = { buffer: new Uint8Array([2]), rect: { x: 10, y: 0, w: 10, h: 10 }, dim: { w: 12, h: 12 } };
+q1.collect(item1);
+q1.collect(item2);
 q1.flush();
-ok('flush delivers collected buffers', delivered1 && delivered1.length === 2 && delivered1[0] === b1 && delivered1[1] === b2);
+ok('flush delivers collected items in order', delivered1 && delivered1.length === 2 && delivered1[0] === item1 && delivered1[1] === item2);
 ok('queue no longer pending after flush', !q1.isPending());
+
+// Skipped degenerate cell contributes empty buffer with its rect and zero dim
+const qDegenerate = createMeasureQueue();
+let deliveredDegen = null;
+qDegenerate.request((items) => { deliveredDegen = items; });
+const degenItem = { buffer: new Uint8Array(0), rect: { x: 0, y: 0, w: 0, h: 0 }, dim: { w: 0, h: 0 } };
+qDegenerate.collect(degenItem);
+qDegenerate.flush();
+ok('degenerate cell entry carries empty buffer and rect',
+  deliveredDegen && deliveredDegen.length === 1 &&
+  deliveredDegen[0].buffer.length === 0 &&
+  deliveredDegen[0].rect.w === 0 &&
+  deliveredDegen[0].dim.w === 0);
 
 // Second request before flush settles first callback with [] exactly once
 const q2 = createMeasureQueue();
 let delivered2A = null;
 let calls2A = 0;
-q2.request((bufs) => { delivered2A = bufs; calls2A++; });
+q2.request((items) => { delivered2A = items; calls2A++; });
 let delivered2B = null;
 let calls2B = 0;
-q2.request((bufs) => { delivered2B = bufs; calls2B++; });
+q2.request((items) => { delivered2B = items; calls2B++; });
 ok('first callback settled with []', Array.isArray(delivered2A) && delivered2A.length === 0);
 ok('first callback called exactly once', calls2A === 1);
 ok('second callback not yet called', calls2B === 0);
-const b3 = new Uint8Array([3]);
-q2.collect(b3);
+const item3 = { buffer: new Uint8Array([3]), rect: { x: 0, y: 0, w: 5, h: 5 }, dim: { w: 6, h: 6 } };
+q2.collect(item3);
 q2.flush();
-ok('second callback delivered by flush', delivered2B && delivered2B.length === 1 && delivered2B[0] === b3);
+ok('second callback delivered by flush', delivered2B && delivered2B.length === 1 && delivered2B[0] === item3);
 ok('first callback was not called again on flush', calls2A === 1);
 
 // settle() delivers [] and subsequent flush() delivers nothing to already-settled callback
 const q3 = createMeasureQueue();
 let delivered3 = null;
 let calls3 = 0;
-q3.request((bufs) => { delivered3 = bufs; calls3++; });
+q3.request((items) => { delivered3 = items; calls3++; });
 q3.settle();
 ok('settle delivers []', Array.isArray(delivered3) && delivered3.length === 0);
 ok('settle called callback once', calls3 === 1);
 ok('queue not pending after settle', !q3.isPending());
-q3.collect(new Uint8Array([9]));
+q3.collect({ buffer: new Uint8Array([9]), rect: { x: 0, y: 0, w: 1, h: 1 }, dim: { w: 1, h: 1 } });
 q3.flush();
 ok('flush after settle does not invoke settled callback again', calls3 === 1);
 
@@ -106,12 +119,12 @@ ok('flush with nothing pending does not throw', !threw);
 
 // collect() while nothing is pending does not accumulate
 const q5 = createMeasureQueue();
-q5.collect(new Uint8Array([99]));
+q5.collect({ buffer: new Uint8Array([99]), rect: { x: 0, y: 0, w: 1, h: 1 }, dim: { w: 1, h: 1 } });
 let delivered5 = null;
-q5.request((bufs) => { delivered5 = bufs; });
-q5.collect(new Uint8Array([100]));
+q5.request((items) => { delivered5 = items; });
+q5.collect({ buffer: new Uint8Array([100]), rect: { x: 0, y: 0, w: 1, h: 1 }, dim: { w: 1, h: 1 } });
 q5.flush();
-ok('collect before request does not leak into delivery', delivered5 && delivered5.length === 1 && delivered5[0][0] === 100);
+ok('collect before request does not leak into delivery', delivered5 && delivered5.length === 1 && delivered5[0].buffer[0] === 100);
 
 // Re-entrant request() inside stale callback settles cleanly
 const qReentrant = createMeasureQueue();
@@ -119,19 +132,19 @@ let staleSettled = null;
 let reentrantDelivered = null;
 qReentrant.request(() => {
   // Stale callback synchronously registers a new request
-  qReentrant.request((bufs) => {
-    reentrantDelivered = bufs;
+  qReentrant.request((items) => {
+    reentrantDelivered = items;
   });
 });
-qReentrant.request((bufs) => {
-  staleSettled = bufs;
+qReentrant.request((items) => {
+  staleSettled = items;
 });
-qReentrant.collect(new Uint8Array([42]));
+qReentrant.collect({ buffer: new Uint8Array([42]), rect: { x: 0, y: 0, w: 1, h: 1 }, dim: { w: 1, h: 1 } });
 qReentrant.flush();
 ok('outer callback is settled with [] when re-entrant request replaces it',
   Array.isArray(staleSettled) && staleSettled.length === 0);
 ok('re-entrant request is not stomped and receives flush',
-  reentrantDelivered && reentrantDelivered.length === 1 && reentrantDelivered[0][0] === 42);
+  reentrantDelivered && reentrantDelivered.length === 1 && reentrantDelivered[0].buffer[0] === 42);
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

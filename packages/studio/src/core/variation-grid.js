@@ -391,9 +391,7 @@ export function createVariationGrid({
   function readCellPixels(x, y, w, h) {
     const gl = renderer.getContext();
     const dpr = renderer.getPixelRatio();
-    // Derive the extent from the rounded edges rather than rounding the size on
-    // its own: rounding x and w independently can push the far edge one pixel
-    // past the drawing buffer, and those out-of-bounds bytes are undefined.
+    // Device-pixel bounds derived by readbackRegion in grid-measure.js.
     const { px, py, pw, ph } = readbackRegion({ x, y, w, h }, dpr);
     const buffer = new Uint8Array(pw * ph * 4);
     // EffectComposer.render() restores the render target it was called with and
@@ -402,7 +400,7 @@ export function createVariationGrid({
     // pass) leaving a target bound — readPixels would otherwise sample it.
     renderer.setRenderTarget(null);
     gl.readPixels(px, py, pw, ph, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
-    return buffer;
+    return { buffer, dim: { w: pw, h: ph } };
   }
 
   function cellRect(index, width, height) {
@@ -446,7 +444,7 @@ export function createVariationGrid({
       };
     },
 
-    render(time, delta, width, height) {
+    render(_time, delta, width, height) {
       cellComposer.setSize(width, height);
 
       // Cells are not required to tile the window — the scale ladder centres five
@@ -469,7 +467,9 @@ export function createVariationGrid({
         // Skip it, but contribute an empty buffer so the measurement array stays
         // aligned with cell order.
         if (!isDrawableRect(rect)) {
-          measureQueue.collect(new Uint8Array(0));
+          if (measureQueue.isPending()) {
+            measureQueue.collect({ buffer: new Uint8Array(0), rect, dim: { w: 0, h: 0 } });
+          }
           continue;
         }
         const { x, y, w, h } = rect;
@@ -502,7 +502,10 @@ export function createVariationGrid({
 
         // Read before the border: the mark is chrome, and a 3px 0xffed00 frame
         // baked into the sample would be reported as the orb's own legibility.
-        if (measureQueue.isPending()) measureQueue.collect(readCellPixels(x, y, w, h));
+        if (measureQueue.isPending()) {
+          const { buffer, dim } = readCellPixels(x, y, w, h);
+          measureQueue.collect({ buffer, rect, dim });
+        }
         if (cells[i].selected) drawCellBorder(x, y, w, h);
       }
 

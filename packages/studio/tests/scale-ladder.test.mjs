@@ -45,6 +45,12 @@ ok('a short window clamps by height', scaleRects([256], 1000, 90)[0].w <= 90);
 ok('degenerate sizes still produce a drawable rect', scaleRects([0], 100, 100)[0].w >= 1);
 ok('an empty ladder produces no rects', scaleRects([], 100, 100).length === 0);
 
+const collapsed = scaleRects([256, 128, 64, 32, 20], 0, 0);
+ok('a collapsed viewport yields nothing drawable', collapsed.every((r) => r.w === 0));
+ok('a collapsed viewport still returns one rect per rung', collapsed.length === 5);
+ok('a zero-size request in a real window still gets a pixel',
+  scaleRects([0], 100, 100)[0].w === 1);
+
 // --- metrics ---
 const black = new Uint8Array(4 * 100).fill(0);
 for (let i = 3; i < black.length; i += 4) black[i] = 255;
@@ -100,7 +106,7 @@ const p2x2 = new Uint8Array([
   255, 255, 255, 255,   0,   0,   0, 255,
     0,   0,   0, 255,   0,   0,   0, 255,
 ]);
-const down2to1 = downscaleLuma(p2x2, 2, 1);
+const down2to1 = downscaleLuma(p2x2, { w: 2, h: 2 }, { w: 1, h: 1 });
 ok('2x2 down to 1x1 has length 1', down2to1.length === 1);
 ok('2x2 down to 1x1 averages four pixels', Math.abs(down2to1[0] - 0.25) < 1e-9);
 
@@ -130,7 +136,7 @@ for (let y = 0; y < 4; y++) {
     }
   }
 }
-const down4to2 = downscaleLuma(p4x4, 4, 2);
+const down4to2 = downscaleLuma(p4x4, { w: 4, h: 4 }, { w: 2, h: 2 });
 ok('4x4 down to 2x2 has length 4', down4to2.length === 4);
 ok('quadrant 0 is 1.0', Math.abs(down4to2[0] - 1.0) < 1e-9);
 ok('quadrant 1 is 0.0', Math.abs(down4to2[1] - 0.0) < 1e-9);
@@ -144,7 +150,7 @@ ok('quadrant 3 is 128/255', Math.abs(down4to2[3] - 128 / 255) < 1e-9);
 const p3x3A = new Uint8Array(3 * 3 * 4).fill(0);
 for (let i = 3; i < p3x3A.length; i += 4) p3x3A[i] = 255;
 p3x3A[0] = 255; p3x3A[1] = 255; p3x3A[2] = 255;
-const down3to2A = downscaleLuma(p3x3A, 3, 2);
+const down3to2A = downscaleLuma(p3x3A, { w: 3, h: 3 }, { w: 2, h: 2 });
 ok('3x3 to 2x2 non-integer overlap (0,0) matches 4/9 exactly', Math.abs(down3to2A[0] - 4 / 9) < 1e-9);
 ok('3x3 to 2x2 non-integer other pixels are 0', down3to2A[1] === 0 && down3to2A[2] === 0 && down3to2A[3] === 0);
 
@@ -154,24 +160,24 @@ const p3x3B = new Uint8Array(3 * 3 * 4).fill(0);
 for (let i = 3; i < p3x3B.length; i += 4) p3x3B[i] = 255;
 const centerIdx = (1 * 3 + 1) * 4;
 p3x3B[centerIdx] = 255; p3x3B[centerIdx + 1] = 255; p3x3B[centerIdx + 2] = 255;
-const down3to2B = downscaleLuma(p3x3B, 3, 2);
+const down3to2B = downscaleLuma(p3x3B, { w: 3, h: 3 }, { w: 2, h: 2 });
 ok('3x3 to 2x2 center pixel distributes 1/9 to all 4 target cells',
   Array.from(down3to2B).every((v) => Math.abs(v - 1 / 9) < 1e-9));
 
 // Identity downscaling (targetSize === size)
-const id3 = downscaleLuma(p3x3B, 3, 3);
+const id3 = downscaleLuma(p3x3B, { w: 3, h: 3 }, { w: 3, h: 3 });
 ok('identity downscale preserves size', id3.length === 9);
 ok('identity downscale preserves exact pixel values',
   Math.abs(id3[4] - 1.0) < 1e-9 && id3[0] === 0 && id3[8] === 0);
 
 // Unsupported: targetSize > size returns empty array
-ok('upscaling (targetSize > size) is unsupported and returns empty', downscaleLuma(p2x2, 2, 4).length === 0);
+ok('upscaling (targetSize > size) is unsupported and returns empty', downscaleLuma(p2x2, { w: 2, h: 2 }, { w: 4, h: 4 }).length === 0);
 
 // Empty or degenerate buffers return empty without throwing
-ok('empty buffer returns empty', downscaleLuma(new Uint8Array(0), 0, 0).length === 0);
-ok('zero targetSize returns empty', downscaleLuma(p2x2, 2, 0).length === 0);
-ok('null pixels returns empty', downscaleLuma(null, 2, 1).length === 0);
-ok('negative targetSize returns empty', downscaleLuma(p2x2, 2, -1).length === 0);
+ok('empty buffer returns empty', downscaleLuma(new Uint8Array(0), { w: 0, h: 0 }, { w: 0, h: 0 }).length === 0);
+ok('zero targetSize returns empty', downscaleLuma(p2x2, { w: 2, h: 2 }, { w: 0, h: 0 }).length === 0);
+ok('null pixels returns empty', downscaleLuma(null, { w: 2, h: 2 }, { w: 1, h: 1 }).length === 0);
+ok('negative targetSize returns empty', downscaleLuma(p2x2, { w: 2, h: 2 }, { w: -1, h: 1 }).length === 0);
 
 // --- inkRetention ---
 const fullLit = new Uint8Array(4 * 16).fill(255);
@@ -183,17 +189,18 @@ for (let i = 0; i < 16; i++) {
 const allDark = new Uint8Array(4 * 16);
 for (let i = 3; i < allDark.length; i += 4) allDark[i] = 255;
 
+// Reference first: inkRetention(referencePixels, rungPixels)
 ok('identical buffers give retention 1.0', Math.abs(inkRetention(fullLit, fullLit) - 1.0) < 1e-9);
-ok('half mean luma gives retention 0.5', Math.abs(inkRetention(halfLit, fullLit) - 0.5) < 1e-9);
-ok('blank reference gives NaN', Number.isNaN(inkRetention(fullLit, allDark)));
-ok('blank rung against lit reference gives 0', inkRetention(allDark, fullLit) === 0);
-ok('empty rung buffer gives NaN', Number.isNaN(inkRetention(new Uint8Array(0), fullLit)));
-ok('empty ref buffer gives NaN', Number.isNaN(inkRetention(fullLit, new Uint8Array(0))));
+ok('half mean luma gives retention 0.5', Math.abs(inkRetention(fullLit, halfLit) - 0.5) < 1e-9);
+ok('blank reference gives NaN', Number.isNaN(inkRetention(allDark, fullLit)));
+ok('blank rung against lit reference gives 0', inkRetention(fullLit, allDark) === 0);
+ok('empty rung buffer gives NaN', Number.isNaN(inkRetention(fullLit, new Uint8Array(0))));
+ok('empty ref buffer gives NaN', Number.isNaN(inkRetention(new Uint8Array(0), fullLit)));
 
 // --- structuralDivergence ---
 // 1. Equal-size identical buffers give 0
 ok('identical equal-size buffers have 0 divergence',
-  Math.abs(structuralDivergence(fullLit, 4, fullLit, 4)) < 1e-9);
+  Math.abs(structuralDivergence(fullLit, { w: 4, h: 4 }, fullLit, { w: 4, h: 4 })) < 1e-9);
 
 // 2. A rung that is exactly the box-downscale of the reference gives 0
 // Reference: 4x4 image with varying pixel intensities
@@ -205,7 +212,7 @@ for (let y = 0; y < 4; y++) {
     ref4x4[idx] = v; ref4x4[idx + 1] = v; ref4x4[idx + 2] = v; ref4x4[idx + 3] = 255;
   }
 }
-const ideal2x2Luma = downscaleLuma(ref4x4, 4, 2);
+const ideal2x2Luma = downscaleLuma(ref4x4, { w: 4, h: 4 }, { w: 2, h: 2 });
 const idealRung2x2 = new Uint8Array(2 * 2 * 4);
 for (let i = 0; i < 4; i++) {
   const byte = Math.round(ideal2x2Luma[i] * 255);
@@ -216,7 +223,7 @@ for (let i = 0; i < 4; i++) {
 }
 // Note: rounding to uint8 introduces small quantization (< 1/255 ≈ 0.004)
 ok('ideal downscale rung has ~0 divergence',
-  structuralDivergence(ref4x4, 4, idealRung2x2, 2) < 0.005);
+  structuralDivergence(ref4x4, { w: 4, h: 4 }, idealRung2x2, { w: 2, h: 2 }) < 0.005);
 
 // 3. A uniformly grey rung against a structured reference gives clearly non-zero divergence
 const greyRung2x2 = new Uint8Array(2 * 2 * 4);
@@ -226,24 +233,24 @@ for (let i = 0; i < 4; i++) {
   greyRung2x2[i * 4 + 2] = 128;
   greyRung2x2[i * 4 + 3] = 255;
 }
-const greyDiv = structuralDivergence(ref4x4, 4, greyRung2x2, 2);
+const greyDiv = structuralDivergence(ref4x4, { w: 4, h: 4 }, greyRung2x2, { w: 2, h: 2 });
 ok('flat grey rung against structured ref has clearly non-zero divergence', greyDiv > 0.1);
 
 // 4. A rung larger than the reference gives NaN
 ok('rung larger than reference gives NaN',
-  Number.isNaN(structuralDivergence(idealRung2x2, 2, ref4x4, 4)));
+  Number.isNaN(structuralDivergence(idealRung2x2, { w: 2, h: 2 }, ref4x4, { w: 4, h: 4 })));
 
 // 5. Empty buffers give NaN
 ok('empty reference gives NaN',
-  Number.isNaN(structuralDivergence(new Uint8Array(0), 0, idealRung2x2, 2)));
+  Number.isNaN(structuralDivergence(new Uint8Array(0), { w: 0, h: 0 }, idealRung2x2, { w: 2, h: 2 })));
 ok('empty rung gives NaN',
-  Number.isNaN(structuralDivergence(ref4x4, 4, new Uint8Array(0), 0)));
+  Number.isNaN(structuralDivergence(ref4x4, { w: 4, h: 4 }, new Uint8Array(0), { w: 0, h: 0 })));
 
 // 6. Normalised bounds: stays within 0..1 for opposite extremes
 const whiteRef = new Uint8Array(4 * 4 * 4).fill(255);
 const blackRung = new Uint8Array(2 * 2 * 4);
 for (let i = 3; i < blackRung.length; i += 4) blackRung[i] = 255;
-const extremeDiv = structuralDivergence(whiteRef, 4, blackRung, 2);
+const extremeDiv = structuralDivergence(whiteRef, { w: 4, h: 4 }, blackRung, { w: 2, h: 2 });
 ok('extreme opposite gives divergence in 0..1',
   extremeDiv >= 0 && extremeDiv <= 1 && Math.abs(extremeDiv - 1.0) < 1e-9);
 
