@@ -1,6 +1,6 @@
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { listSweepableParams } from '../core/sweep.js';
-import { inkRetention, structuralDivergence, formatMetric } from '../core/scale-ladder.js';
+import { inkRetention, structuralDivergence, formatMetric, scaleRects } from '../core/scale-ladder.js';
 import { normalizeSnapshot } from '../core/ab-compare.js';
 import { createGridHud } from './grid-hud.js';
 import {
@@ -64,16 +64,27 @@ export function createGridSession({ studio, store, state, ui }) {
     caption.replaceChildren(...children);
   }
 
-  // scaleInfo.values holds the *requested* sizes, but each rung may clamp to
-  // its slot or window extent. The caption reports what was actually drawn,
-  // derived directly from the measurement payload's rect.w rather than
-  // recomputing geometry against window dimensions that may have drifted.
+  // scaleInfo.values holds the *requested* sizes, but each rung may clamp to its
+  // slot or window extent. The caption has to name the pixels that exist.
+  //
+  // Once a readback has landed, the measurement payload's rect is the honest
+  // source: it is the rect the grid actually drew with, so it cannot drift from
+  // what the numbers beneath it describe. Before the first one lands there is
+  // nothing to drift from, so recomputing the layout is both safe and necessary
+  // — labelling a clamped rung with its requested size is the instrument
+  // misreporting its own measurement, and half a second of that is still that.
+  //
+  // Falling back to `size` on a missing entry keeps a length mismatch from
+  // rendering the string "undefinedpx".
   function withRenderedSizes(info, measurements = null) {
     if (!info?.sizes) return info;
+    const drawn = measurements
+      ? measurements.map((m) => m?.rect?.w)
+      : scaleRects(info.sizes, window.innerWidth, window.innerHeight).map((r) => r.w);
     return {
       ...info,
       values: info.sizes.map((size, index) => {
-        const edge = measurements ? measurements[index]?.rect?.w : size;
+        const edge = drawn[index] ?? size;
         return edge === size ? `${size}px` : `${edge}px ↓${size}`;
       }),
     };
