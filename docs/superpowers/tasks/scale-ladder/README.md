@@ -16,13 +16,14 @@ CONTEXT.md carries the repo layout, the architectural invariants, the test conve
 | **T02** | [`variation-grid.js` tests](T02-variation-grid-tests.md) | A 600-line file carrying grid, sweep and ladder has no test touching it. Extract a pure seam and cover it | Fully specified, ready to run |
 | **T03** | [Independent review](T03-review-scale-ladder.md) | `enterScaleMode` never got a second pair of eyes — that review was interrupted. Read-only, produces findings | Ready to run |
 | **T04** | [Four small open items](T04-open-decisions.md) | Three need a decision from you before implementation; one is just a fix | Item 4 done; **needs your input on items 1–3** |
-| **T05** | [Merge blockers](T05-merge-blockers.md) | Three blockers and four cleanups found by reviewing T01/T02, plus one decision that reverses a mistake in T01's spec | **Needs your input on Blocker 3** |
+| **T05** | [Merge blockers](T05-merge-blockers.md) | Three blockers and four cleanups found by reviewing T01/T02, plus one decision that reverses a mistake in T01's spec | Done |
+| **T06** | [API cleanup + degenerate viewport](T06-api-cleanup.md) | One dimension type, consistent argument order, measurement that carries its own geometry, and a live bug at zero-width windows | Ready to run |
 
 ## Status as of 2026-09-20
 
-**T01, T02 and T03 have landed** on branch `scale-ladder`; 40 suites pass and the build is clean. T03's review came back with no findings. T04's item 4 shipped inside T01's commit.
+**T01, T02, T03 and T05 have landed** on branch `scale-ladder`. Verified after T05: `ALL SUITES PASS (40)`, clean build, and the ladder reads five real rungs with no `NaN` at a 1500px window. T03's review came back with no findings. T04's item 4 shipped inside T01's commit.
 
-**The branch is not mergeable yet** — see T05, which carries what reviewing T01 and T02 turned up.
+**T04 items 1 and 3 were implemented without the decision they asked for** — both landed on option (a), "leave it and document it". Item 3 (alpha) is fine. **Item 1 was documented as acceptable on a premise that has since been disproven**: it claimed sub-5px windows are unreachable, but a collapsed browser pane gives `window.innerWidth === 0` and makes the ladder render five overlapping 1px rungs. T06 Part C fixes that properly. **T04 item 2 remains genuinely open.**
 
 What the metrics actually do, measured live rather than argued: **`inkRetention` works.** At a 38px rung against a 308px reference, murmuration reads 1.723 (particles crowding, because line and point size have a pixel floor) against nebula's 0.800 (a raymarched blob simply dimming) — a 2.2× spread between designs at one size, matching the physics. **`structuralDivergence` is correctly implemented but does not discriminate**: 0.11–0.22 across every engine and every rung, non-monotonic. It answers "is there loss" (always yes past the first step), not "how much" or "for which design". That needs its own decision — keep it as a coarse yes/no, or respec it. T05 deliberately leaves it alone.
 
