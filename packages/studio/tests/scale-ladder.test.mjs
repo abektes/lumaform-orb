@@ -170,6 +170,8 @@ ok('upscaling (targetSize > size) is unsupported and returns empty', downscaleLu
 // Empty or degenerate buffers return empty without throwing
 ok('empty buffer returns empty', downscaleLuma(new Uint8Array(0), 0, 0).length === 0);
 ok('zero targetSize returns empty', downscaleLuma(p2x2, 2, 0).length === 0);
+ok('null pixels returns empty', downscaleLuma(null, 2, 1).length === 0);
+ok('negative targetSize returns empty', downscaleLuma(p2x2, 2, -1).length === 0);
 
 // --- inkRetention ---
 const fullLit = new Uint8Array(4 * 16).fill(255);

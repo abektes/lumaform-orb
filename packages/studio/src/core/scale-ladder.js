@@ -77,7 +77,7 @@ export function downscaleLuma(pixels, size, targetSize) {
   const dstW = typeof targetSize === 'number' ? targetSize : targetSize?.w;
   const dstH = typeof targetSize === 'number' ? targetSize : targetSize?.h;
 
-  if (!srcW || !srcH || !dstW || !dstH || dstW > srcW || dstH > srcH || pixels.length < srcW * srcH * 4) {
+  if (!pixels?.length || !srcW || !srcH || !dstW || !dstH || srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0 || dstW > srcW || dstH > srcH || pixels.length < srcW * srcH * 4) {
     // Upscaling is unsupported: the ladder only downscales the reference to
     // compare against smaller rungs. Upscaling would synthesize detail.
     return new Float64Array(0);

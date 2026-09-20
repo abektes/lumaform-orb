@@ -18,6 +18,8 @@ ok('negative width fails', !isDrawableRect({ x: 0, y: 0, w: -5, h: 100 }));
 ok('negative height fails', !isDrawableRect({ x: 0, y: 0, w: 100, h: -10 }));
 ok('NaN width fails', !isDrawableRect({ x: 0, y: 0, w: NaN, h: 100 }));
 ok('NaN height fails', !isDrawableRect({ x: 0, y: 0, w: 100, h: NaN }));
+ok('NaN origin fails', !isDrawableRect({ x: NaN, y: 0, w: 100, h: 100 }));
+ok('Infinity origin fails', !isDrawableRect({ x: 0, y: Infinity, w: 100, h: 100 }));
 ok('Infinity extent fails', !isDrawableRect({ x: 0, y: 0, w: Infinity, h: 100 }));
 ok('missing rect fails', !isDrawableRect(null));
 
@@ -97,7 +99,7 @@ const q4 = createMeasureQueue();
 let threw = false;
 try {
   q4.flush();
-} catch (e) {
+} catch {
   threw = true;
 }
 ok('flush with nothing pending does not throw', !threw);

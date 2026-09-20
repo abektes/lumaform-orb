@@ -6,7 +6,7 @@
 // and gl.scissor raise INVALID_VALUE and silently keep the previous rect, so
 // the cell would paint over its neighbour.
 export function isDrawableRect(rect) {
-  return !!rect && Number.isFinite(rect.w) && Number.isFinite(rect.h) && rect.w > 0 && rect.h > 0;
+  return !!rect && Number.isFinite(rect.x) && Number.isFinite(rect.y) && Number.isFinite(rect.w) && Number.isFinite(rect.h) && rect.w > 0 && rect.h > 0;
 }
 
 // Device-pixel readback region for a CSS-pixel rect. Extents are derived from
