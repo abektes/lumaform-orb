@@ -18,6 +18,7 @@ import { stampVersion } from '@lumaform/orb';
 import { LFO_SHAPES, TIME_SCALE_DEST, createModulationRack, createDefaultModulation, listModulationTargets } from '@lumaform/orb/internal';
 import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from '@lumaform/orb/internal';
 import { notifyParams } from '@lumaform/orb/internal';
+import { isDrawableRect, readbackRegion, createMeasureQueue } from './grid-measure.js';
 
 // --- colour jitter ---------------------------------------------------------
 
@@ -382,7 +383,7 @@ export function createVariationGrid({
   // Reading pixels back is only valid while the drawing buffer holds this
   // frame, so measurement is a request fulfilled inside render() rather than a
   // method that samples whatever happens to be on screen when it is called.
-  let pendingMeasure = null;
+  const measureQueue = createMeasureQueue();
 
   // Rect arrives in CSS pixels because that is what setViewport takes; the
   // framebuffer is in device pixels, so the readback has to scale by the same
@@ -393,10 +394,7 @@ export function createVariationGrid({
     // Derive the extent from the rounded edges rather than rounding the size on
     // its own: rounding x and w independently can push the far edge one pixel
     // past the drawing buffer, and those out-of-bounds bytes are undefined.
-    const px = Math.round(x * dpr);
-    const py = Math.round(y * dpr);
-    const pw = Math.max(1, Math.round((x + w) * dpr) - px);
-    const ph = Math.max(1, Math.round((y + h) * dpr) - py);
+    const { px, py, pw, ph } = readbackRegion({ x, y, w, h }, dpr);
     const buffer = new Uint8Array(pw * ph * 4);
     // EffectComposer.render() restores the render target it was called with and
     // the final pass draws to screen, so the cell is already in the default
@@ -429,12 +427,7 @@ export function createVariationGrid({
       // A second request before that render would otherwise drop the first
       // callback silently, and a Promise wrapped around it would never settle.
       // An empty array is the honest answer: nothing was measured.
-      if (pendingMeasure) {
-        const stale = pendingMeasure;
-        pendingMeasure = null;
-        stale([]);
-      }
-      pendingMeasure = callback;
+      measureQueue.request(callback);
     },
 
     describeCell(index) {
@@ -455,7 +448,6 @@ export function createVariationGrid({
 
     render(time, delta, width, height) {
       cellComposer.setSize(width, height);
-      const measured = [];
 
       // Cells are not required to tile the window — the scale ladder centres five
       // small squares in their slots and leaves most of the frame untouched — and
@@ -472,16 +464,17 @@ export function createVariationGrid({
       renderer.setScissorTest(true);
 
       for (let i = 0; i < cells.length; i++) {
-        const { x, y, w, h } = cellRect(i, width, height);
+        const rect = cellRect(i, width, height);
         // A zero height makes camera.aspect Infinity or NaN; a negative extent
         // makes gl.viewport/gl.scissor raise INVALID_VALUE and keep the previous
         // rect, so the cell would silently paint over its neighbour. Skip it —
         // but still contribute a buffer, or the measurement array would shift
         // out of step with cell order. frameMetrics reads an empty one as zeros.
-        if (w <= 0 || h <= 0) {
-          if (pendingMeasure) measured.push(new Uint8Array(0));
+        if (!isDrawableRect(rect)) {
+          measureQueue.collect(new Uint8Array(0));
           continue;
         }
+        const { x, y, w, h } = rect;
         // Per cell rather than once for the grid: identical for a uniform
         // lattice, and the only thing that makes a non-uniform one honest. A
         // shared aspect would stretch every cell that is not the average shape.
@@ -511,7 +504,7 @@ export function createVariationGrid({
 
         // Read before the border: the mark is chrome, and a 3px 0xffed00 frame
         // baked into the sample would be reported as the orb's own legibility.
-        if (pendingMeasure) measured.push(readCellPixels(x, y, w, h));
+        if (measureQueue.isPending()) measureQueue.collect(readCellPixels(x, y, w, h));
         if (cells[i].selected) drawCellBorder(x, y, w, h);
       }
 
@@ -519,11 +512,7 @@ export function createVariationGrid({
       renderer.setViewport(0, 0, width, height);
       renderer.setScissor(0, 0, width, height);
 
-      if (pendingMeasure) {
-        const done = pendingMeasure;
-        pendingMeasure = null;
-        done(measured);
-      }
+      measureQueue.flush();
     },
 
     hitTest(clientX, clientY, width, height) {
@@ -587,11 +576,7 @@ export function createVariationGrid({
       // A request made just before the grid goes away (grid exit, or an engine
       // switch that rebuilds it) never reaches a render(), so settle it here or
       // a Promise wrapping requestMeasure hangs for the rest of the session.
-      if (pendingMeasure) {
-        const done = pendingMeasure;
-        pendingMeasure = null;
-        done([]);
-      }
+      measureQueue.settle();
       for (const cell of cells) disposeCell(cell);
       cells.length = 0;
       cellComposer.dispose();
