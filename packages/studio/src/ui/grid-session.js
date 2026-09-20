@@ -1,6 +1,6 @@
 import { ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
 import { listSweepableParams } from '../core/sweep.js';
-import { frameMetrics, formatMetric, scaleRects } from '../core/scale-ladder.js';
+import { inkRetention, structuralDivergence, formatMetric, scaleRects } from '../core/scale-ladder.js';
 import { normalizeSnapshot } from '../core/ab-compare.js';
 import { createGridHud } from './grid-hud.js';
 import {
@@ -27,25 +27,41 @@ export function createGridSession({ studio, store, state, ui }) {
   function showSweepCaption(info, metrics = null) {
     if (!info) {
       caption.classList.add('hidden');
-      caption.innerHTML = '';
+      caption.replaceChildren();
       return;
     }
     caption.classList.remove('hidden');
-    // Values and metrics share one column template so a number always sits
-    // under the rung it describes, however many rungs there are.
-    const columns = `grid-template-columns: repeat(${info.values.length}, 1fr)`;
-    caption.innerHTML =
-      `<div class="sweep-title">${info.label}</div>` +
-      `<div class="sweep-values" style="${columns}">` +
-      info.values.map((value) => `<span>${value}</span>`).join('') +
-      `</div>` +
-      (metrics
-        ? `<div class="sweep-values" style="${columns}">` +
-          metrics
-            .map((m) => `<span>${formatMetric(m.coverage)} / ${formatMetric(m.rms)}</span>`)
-            .join('') +
-          `</div>`
-        : '');
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'sweep-title';
+    titleEl.textContent = info.label + (metrics ? ' · retention / divergence' : '');
+
+    const columns = `repeat(${info.values.length}, 1fr)`;
+
+    const valuesEl = document.createElement('div');
+    valuesEl.className = 'sweep-values';
+    valuesEl.style.gridTemplateColumns = columns;
+    for (const value of info.values) {
+      const span = document.createElement('span');
+      span.textContent = value;
+      valuesEl.append(span);
+    }
+
+    const children = [titleEl, valuesEl];
+
+    if (metrics) {
+      const metricsEl = document.createElement('div');
+      metricsEl.className = 'sweep-values';
+      metricsEl.style.gridTemplateColumns = columns;
+      for (const m of metrics) {
+        const span = document.createElement('span');
+        span.textContent = `${formatMetric(m.retention)} / ${formatMetric(m.divergence)}`;
+        metricsEl.append(span);
+      }
+      children.push(metricsEl);
+    }
+
+    caption.replaceChildren(...children);
   }
 
   // scaleInfo.values holds the *requested* sizes, but scaleRects clamps every
@@ -203,7 +219,22 @@ export function createGridSession({ studio, store, state, ui }) {
     // here too, so a resize that reclamps a rung corrects itself on the next tick.
     scalePollId = setInterval(() => {
       studio.grid?.requestMeasure((buffers) => {
-        showSweepCaption(withRenderedSizes(info), buffers.map((buffer) => frameMetrics(buffer)));
+        // A measurement request outlives the view if exitView runs while a readback
+        // is in flight. Guard against repainting the caption after teardown.
+        if (!studio.scaleInfo) return;
+        if (!buffers?.length) return;
+
+        // The reference rung is the largest actually-rendered cell (greatest byte length),
+        // which may not be index 0 if clamped. Ties take the first.
+        const ref = buffers.reduce((a, b) => (b.length > a.length ? b : a), buffers[0]);
+
+        // The reference compares against itself, yielding 1.00 / 0.00. This is the
+        // baseline the smaller rungs are measured against, not a measurement finding.
+        const metrics = buffers.map((buffer) => ({
+          retention: inkRetention(buffer, ref),
+          divergence: structuralDivergence(ref, buffer),
+        }));
+        showSweepCaption(withRenderedSizes(info), metrics);
       });
     }, 500);
   }

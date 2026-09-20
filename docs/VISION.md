@@ -171,7 +171,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 | A/B compare | Built — `1`/`2` store, findings can fill both slots, `` ` `` swaps without rebuilding the engine |
 | Rehearsal room | Built — findings can be arranged, retimed and looped with per-step transitions to judge movement between configs |
 | Parameter sweep | Built — `K` ladders one parameter across 5 cells |
-| Scale ladder | Built — `L` renders the current config at 256/128/64/32/20 CSS px with per-rung coverage and RMS contrast, so legibility at size is measurable rather than assumed. No bloom in cells, so it measures geometry, not the final composite. |
+| Scale ladder | Built — `L` renders the current config at 256/128/64/32/20 CSS px with per-rung ink retention and structural divergence measured against the largest rung, so legibility at size is measurable rather than assumed. No bloom in cells, so it measures geometry, not the final composite. |
 | Section-locked mutation | Built — chips in the grid HUD |
 | Mutation breadth | Built — attributable 1 / 3 / 6 / everything parameter breeding, independent patch breeding, and changed-key export metadata |
 | Chrome layering | Two layers inside the root, named `--z-*` scale, guarded by `layering.test.mjs` |

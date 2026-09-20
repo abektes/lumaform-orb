@@ -3,6 +3,9 @@ import {
   scaleRects,
   frameMetrics,
   formatMetric,
+  downscaleLuma,
+  inkRetention,
+  structuralDivergence,
 } from '../src/core/scale-ladder.js';
 
 let failures = 0;
@@ -90,6 +93,157 @@ ok('an empty buffer is safe', frameMetrics(new Uint8Array(0)).coverage === 0);
 ok('metrics format to two decimals', formatMetric(0.12345) === '0.12');
 ok('zero formats without an exponent', formatMetric(0) === '0.00');
 ok('a non-finite metric degrades to a dash', formatMetric(NaN) === '–');
+
+// --- downscaleLuma ---
+// 2x2 downscaled to 1x1 returns mean of four pixels
+const p2x2 = new Uint8Array([
+  255, 255, 255, 255,   0,   0,   0, 255,
+    0,   0,   0, 255,   0,   0,   0, 255,
+]);
+const down2to1 = downscaleLuma(p2x2, 2, 1);
+ok('2x2 down to 1x1 has length 1', down2to1.length === 1);
+ok('2x2 down to 1x1 averages four pixels', Math.abs(down2to1[0] - 0.25) < 1e-9);
+
+// 4x4 downscaled to 2x2 box-averages each quadrant
+// Quadrant 0 (top-left, x in 0..1, y in 0..1): all white (luma 1.0)
+// Quadrant 1 (top-right, x in 2..3, y in 0..1): all black (luma 0.0)
+// Quadrant 2 (bottom-left, x in 0..1, y in 2..3): 2 white, 2 black (luma 0.5)
+// Quadrant 3 (bottom-right, x in 2..3, y in 2..3): all grey (128, 128, 128)
+const p4x4 = new Uint8Array(4 * 4 * 4).fill(0);
+for (let y = 0; y < 4; y++) {
+  for (let x = 0; x < 4; x++) {
+    const idx = (y * 4 + x) * 4;
+    p4x4[idx + 3] = 255;
+    if (x < 2 && y < 2) {
+      // Quad 0: all white
+      p4x4[idx] = 255; p4x4[idx + 1] = 255; p4x4[idx + 2] = 255;
+    } else if (x >= 2 && y < 2) {
+      // Quad 1: all black
+      p4x4[idx] = 0; p4x4[idx + 1] = 0; p4x4[idx + 2] = 0;
+    } else if (x < 2 && y >= 2) {
+      // Quad 2: x=0 white, x=1 black
+      const v = x === 0 ? 255 : 0;
+      p4x4[idx] = v; p4x4[idx + 1] = v; p4x4[idx + 2] = v;
+    } else {
+      // Quad 3: all grey 128
+      p4x4[idx] = 128; p4x4[idx + 1] = 128; p4x4[idx + 2] = 128;
+    }
+  }
+}
+const down4to2 = downscaleLuma(p4x4, 4, 2);
+ok('4x4 down to 2x2 has length 4', down4to2.length === 4);
+ok('quadrant 0 is 1.0', Math.abs(down4to2[0] - 1.0) < 1e-9);
+ok('quadrant 1 is 0.0', Math.abs(down4to2[1] - 0.0) < 1e-9);
+ok('quadrant 2 is 0.5', Math.abs(down4to2[2] - 0.5) < 1e-9);
+ok('quadrant 3 is 128/255', Math.abs(down4to2[3] - 128 / 255) < 1e-9);
+
+// Non-integer ratio: 3x3 downscaled to 2x2
+// Case A: only pixel (0,0) is white.
+// Target (0,0) footprint is [0, 1.5] x [0, 1.5], area 2.25.
+// Overlap with pixel (0,0) is 1.0 x 1.0 = 1.0. Expected target (0,0) = 1.0 / 2.25 = 4/9.
+const p3x3A = new Uint8Array(3 * 3 * 4).fill(0);
+for (let i = 3; i < p3x3A.length; i += 4) p3x3A[i] = 255;
+p3x3A[0] = 255; p3x3A[1] = 255; p3x3A[2] = 255;
+const down3to2A = downscaleLuma(p3x3A, 3, 2);
+ok('3x3 to 2x2 non-integer overlap (0,0) matches 4/9 exactly', Math.abs(down3to2A[0] - 4 / 9) < 1e-9);
+ok('3x3 to 2x2 non-integer other pixels are 0', down3to2A[1] === 0 && down3to2A[2] === 0 && down3to2A[3] === 0);
+
+// Case B: only center pixel (1,1) is white.
+// Target pixels all overlap (1,1) by 0.5 x 0.5 = 0.25. Expected = 0.25 / 2.25 = 1/9 for all 4.
+const p3x3B = new Uint8Array(3 * 3 * 4).fill(0);
+for (let i = 3; i < p3x3B.length; i += 4) p3x3B[i] = 255;
+const centerIdx = (1 * 3 + 1) * 4;
+p3x3B[centerIdx] = 255; p3x3B[centerIdx + 1] = 255; p3x3B[centerIdx + 2] = 255;
+const down3to2B = downscaleLuma(p3x3B, 3, 2);
+ok('3x3 to 2x2 center pixel distributes 1/9 to all 4 target cells',
+  Array.from(down3to2B).every((v) => Math.abs(v - 1 / 9) < 1e-9));
+
+// Identity downscaling (targetSize === size)
+const id3 = downscaleLuma(p3x3B, 3, 3);
+ok('identity downscale preserves size', id3.length === 9);
+ok('identity downscale preserves exact pixel values',
+  Math.abs(id3[4] - 1.0) < 1e-9 && id3[0] === 0 && id3[8] === 0);
+
+// Unsupported: targetSize > size returns empty array
+ok('upscaling (targetSize > size) is unsupported and returns empty', downscaleLuma(p2x2, 2, 4).length === 0);
+
+// Empty or degenerate buffers return empty without throwing
+ok('empty buffer returns empty', downscaleLuma(new Uint8Array(0), 0, 0).length === 0);
+ok('zero targetSize returns empty', downscaleLuma(p2x2, 2, 0).length === 0);
+
+// --- inkRetention ---
+const fullLit = new Uint8Array(4 * 16).fill(255);
+const halfLit = new Uint8Array(4 * 16);
+for (let i = 0; i < 16; i++) {
+  const v = i < 8 ? 255 : 0;
+  halfLit[i * 4] = v; halfLit[i * 4 + 1] = v; halfLit[i * 4 + 2] = v; halfLit[i * 4 + 3] = 255;
+}
+const allDark = new Uint8Array(4 * 16);
+for (let i = 3; i < allDark.length; i += 4) allDark[i] = 255;
+
+ok('identical buffers give retention 1.0', Math.abs(inkRetention(fullLit, fullLit) - 1.0) < 1e-9);
+ok('half mean luma gives retention 0.5', Math.abs(inkRetention(halfLit, fullLit) - 0.5) < 1e-9);
+ok('blank reference gives NaN', Number.isNaN(inkRetention(fullLit, allDark)));
+ok('blank rung against lit reference gives 0', inkRetention(allDark, fullLit) === 0);
+ok('empty rung buffer gives NaN', Number.isNaN(inkRetention(new Uint8Array(0), fullLit)));
+ok('empty ref buffer gives NaN', Number.isNaN(inkRetention(fullLit, new Uint8Array(0))));
+
+// --- structuralDivergence ---
+// 1. Equal-size identical buffers give 0
+ok('identical equal-size buffers have 0 divergence',
+  Math.abs(structuralDivergence(fullLit, fullLit)) < 1e-9);
+
+// 2. A rung that is exactly the box-downscale of the reference gives 0
+// Reference: 4x4 image with varying pixel intensities
+const ref4x4 = new Uint8Array(4 * 4 * 4);
+for (let y = 0; y < 4; y++) {
+  for (let x = 0; x < 4; x++) {
+    const idx = (y * 4 + x) * 4;
+    const v = (x + y * 4) * 16;
+    ref4x4[idx] = v; ref4x4[idx + 1] = v; ref4x4[idx + 2] = v; ref4x4[idx + 3] = 255;
+  }
+}
+const ideal2x2Luma = downscaleLuma(ref4x4, 4, 2);
+const idealRung2x2 = new Uint8Array(2 * 2 * 4);
+for (let i = 0; i < 4; i++) {
+  const byte = Math.round(ideal2x2Luma[i] * 255);
+  idealRung2x2[i * 4] = byte;
+  idealRung2x2[i * 4 + 1] = byte;
+  idealRung2x2[i * 4 + 2] = byte;
+  idealRung2x2[i * 4 + 3] = 255;
+}
+// Note: rounding to uint8 introduces small quantization (< 1/255 ≈ 0.004)
+ok('ideal downscale rung has ~0 divergence',
+  structuralDivergence(ref4x4, idealRung2x2) < 0.005);
+
+// 3. A uniformly grey rung against a structured reference gives clearly non-zero divergence
+const greyRung2x2 = new Uint8Array(2 * 2 * 4);
+for (let i = 0; i < 4; i++) {
+  greyRung2x2[i * 4] = 128;
+  greyRung2x2[i * 4 + 1] = 128;
+  greyRung2x2[i * 4 + 2] = 128;
+  greyRung2x2[i * 4 + 3] = 255;
+}
+const greyDiv = structuralDivergence(ref4x4, greyRung2x2);
+ok('flat grey rung against structured ref has clearly non-zero divergence', greyDiv > 0.1);
+
+// 4. A rung larger than the reference gives NaN
+ok('rung larger than reference gives NaN',
+  Number.isNaN(structuralDivergence(idealRung2x2, ref4x4)));
+
+// 5. Empty buffers give NaN
+ok('empty reference gives NaN',
+  Number.isNaN(structuralDivergence(new Uint8Array(0), idealRung2x2)));
+ok('empty rung gives NaN',
+  Number.isNaN(structuralDivergence(ref4x4, new Uint8Array(0))));
+
+// 6. Normalised bounds: stays within 0..1 for opposite extremes
+const whiteRef = new Uint8Array(4 * 4 * 4).fill(255);
+const blackRung = new Uint8Array(2 * 2 * 4);
+for (let i = 3; i < blackRung.length; i += 4) blackRung[i] = 255;
+const extremeDiv = structuralDivergence(whiteRef, blackRung);
+ok('extreme opposite gives divergence in 0..1',
+  extremeDiv >= 0 && extremeDiv <= 1 && Math.abs(extremeDiv - 1.0) < 1e-9);
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

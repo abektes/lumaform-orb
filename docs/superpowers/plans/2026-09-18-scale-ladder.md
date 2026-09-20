@@ -745,6 +745,8 @@ css-hygiene fails on a rule nothing emits as readily as on a class with no rule.
 
 Eyeballing a 20px orb across the room tells you it is small. The numbers tell you *which way* it failed — coverage falling means the marks are disappearing, contrast falling at steady coverage means it is turning to mush — and they can be compared across sessions and engines, which memory cannot.
 
+> **Correction (2026-09-19):** The coverage/RMS contrast premise below was disproven upon measurement. Across all five rungs on multiple engines, coverage and RMS contrast were near-invariant (~0.075 coverage, ~0.22 RMS) because both are ratios over a cell's own pixels. See `docs/superpowers/tasks/scale-ladder/T01-scale-sensitive-metrics.md`. The metrics were replaced with `retention` (ink retention vs reference) and `divergence` (structural divergence against ideal downscale of reference), which are scale-sensitive by construction.
+
 - [ ] **Step 1: Import the metrics**
 
 In `packages/studio/src/ui/grid-session.js`, after the existing `import { listSweepableParams } from '../core/sweep.js';`:
