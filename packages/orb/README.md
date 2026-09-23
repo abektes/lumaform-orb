@@ -1,6 +1,6 @@
 # @lumaform/orb
 
-The runtime behind [Lumaform Orb](https://github.com/abektes/lumaform-orb): twenty-two WebGL shader engines for ambient, reactive assistant orbs, a modulation rack that drives their parameters, and a versioned config format that round-trips a look between the studio and your app.
+The runtime behind [Lumaform Orb](https://github.com/abektes/lumaform-orb): twenty-three WebGL shader engines for ambient, reactive assistant orbs, a modulation rack that drives their parameters, and a versioned config format that round-trips a look between the studio and your app.
 
 > **Not yet published.** This package is `private` while its API settles. The surface documented here is the one the studio already uses; see [Status](#status).
 
@@ -22,7 +22,7 @@ const orb = createOrb(document.querySelector('#orb'), {
 
 ## You import the engines you want
 
-`createOrb` never reaches for the catalog's factories. Catalog entries name theirs as a **string** (`factoryName`) rather than binding the function, so reading a parameter schema does not drag in all twenty-two engines and their geometry.
+`createOrb` never reaches for the catalog's factories. Catalog entries name theirs as a **string** (`factoryName`) rather than binding the function, so reading a parameter schema does not drag in all twenty-three engines and their geometry.
 
 **The import list is the bundle.** Name one engine, ship one engine. This is a structural property, not a bundler setting — `sideEffects: false` cannot drop a module whose export is named in a live binding, which is why the binding is not there.
 

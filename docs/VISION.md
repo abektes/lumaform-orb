@@ -9,7 +9,7 @@ Read this before writing code. The implementation plans in `docs/superpowers/pla
 
 ## 1. What this is
 
-Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs twenty-two independent engines spanning wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations, all driven through one parameter schema and one render loop.
+Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs twenty-three independent engines spanning wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations, all driven through one parameter schema and one render loop.
 
 It is **not** a component library and not (yet) a design system. It is an instrument for finding out what's possible.
 

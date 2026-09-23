@@ -248,4 +248,36 @@ export const BODIES_ENGINES = [
       glowIntensity: { type: 'number', label: 'Volumetric Arc Radiance', min: 0.4, max: 3, step: 0.1, default: 1.8, section: 'colors' },
     },
   },
+  {
+    key: 'REGARD',
+    id: 'regard',
+    name: 'Regard',
+    badge: 'Attentive Gaze',
+    description: 'A dark sphere with one inner light that looks — at you while listening, away in quick glances while thinking. The one engine here with a front.',
+    defaultPreset: 'Regard Attending',
+    file: 'regard-engine.js',
+    factoryName: 'createRegardEngine',
+    params: {
+      // Everything is a uniform write or a number read at the next saccade.
+      // haloSize sits in `geometry` for a different reason: it sets
+      // frame.radius, and only a direct edit reframes the camera — a modulated
+      // halo would swell past the frame edge.
+      haloSize: { type: 'number', label: 'Halo Size', min: 1.05, max: 1.4, step: 0.01, default: 1.18, section: 'geometry' },
+      irisFibres: { type: 'select', label: 'Iris Fibres', options: [0, 12, 23, 36], default: 23, section: 'geometry' },
+      attention: { type: 'number', label: 'Attention (you → away)', min: 0, max: 1, step: 0.01, default: 0.3, section: 'motion' },
+      searchSpread: { type: 'number', label: 'Search Spread', min: 0.05, max: 1, step: 0.01, default: 0.55, section: 'motion' },
+      dwell: { type: 'number', label: 'Fixation Dwell (s)', min: 0.2, max: 3, step: 0.05, default: 0.9, section: 'motion' },
+      saccadeSpeed: { type: 'number', label: 'Glance Speed', min: 0.3, max: 2.5, step: 0.05, default: 1, section: 'motion' },
+      jitter: { type: 'number', label: 'Fixation Drift', min: 0, max: 1, step: 0.01, default: 0.35, section: 'motion' },
+      blinks: { type: 'number', label: 'Blinkiness', min: 0, max: 1, step: 0.01, default: 0.35, section: 'motion' },
+      focusSize: { type: 'number', label: 'Focus Size', min: 0.15, max: 0.7, step: 0.01, default: 0.38, section: 'motion' },
+      lean: { type: 'number', label: 'Body Follows Gaze', min: 0, max: 1, step: 0.01, default: 0.5, section: 'motion' },
+      focusColor: { type: 'color', label: 'Focus Light', default: '#ffc978', section: 'colors' },
+      haloColor: { type: 'color', label: 'Spill & Halo', default: '#ff8a4c', section: 'colors' },
+      rimColor: { type: 'color', label: 'Rim', default: '#4f63ff', section: 'colors' },
+      bodyColor: { type: 'color', label: 'Body', default: '#05070c', section: 'colors', paletteRole: 'fixed' },
+      focusGlow: { type: 'number', label: 'Focus Glow', min: 0.3, max: 2.5, step: 0.05, default: 1.2, section: 'colors' },
+      rimGlow: { type: 'number', label: 'Rim Glow', min: 0, max: 1.5, step: 0.05, default: 0.6, section: 'colors' },
+    },
+  },
 ];

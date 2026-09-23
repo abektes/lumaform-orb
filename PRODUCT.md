@@ -26,7 +26,7 @@ It is explicitly **not** a component library, not an embeddable runtime, and not
 
 ## Positioning
 
-Twenty-two independent shader engines — wireframes, raymarchers, particle swarms, spring networks, physical bodies — all driven through **one parameter schema and one render loop**. Adding an engine is one file plus one catalog entry; the schema alone generates every control in the panel.
+Twenty-three independent shader engines — wireframes, raymarchers, particle swarms, spring networks, physical bodies — all driven through **one parameter schema and one render loop**. Adding an engine is one file plus one catalog entry; the schema alone generates every control in the panel.
 
 The mechanism a neighbouring tool could not truthfully copy is the combination of that uniformity with instruments built for comparison rather than for authoring:
 
@@ -54,7 +54,7 @@ Sessions are exploratory and fast. The tool is operated by keyboard as much as b
 
 ## Capabilities and Constraints
 
-**Confirmed capabilities:** 22 engines; schema-driven UI with no per-engine control code; variation grid and parameter sweep; A/B compare without engine rebuild; modulation rack with live audio input; rehearsal sequencing between findings; JSON export/import, PNG snapshot, WebM/MP4 clip recording, localStorage presets, findings shelf; a source-scanned keyboard map.
+**Confirmed capabilities:** 23 engines; schema-driven UI with no per-engine control code; variation grid and parameter sweep; A/B compare without engine rebuild; modulation rack with live audio input; rehearsal sequencing between findings; JSON export/import, PNG snapshot, WebM/MP4 clip recording, localStorage presets, findings shelf; a source-scanned keyboard map.
 
 **Technical constraints that are product decisions, not accidents:**
 

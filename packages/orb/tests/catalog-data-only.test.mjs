@@ -4,7 +4,7 @@
 // a consumer reading `ENGINE_PARAM_DEFINITIONS` to build a settings panel, an
 // embed that shows one engine, a test. When a catalog entry binds
 // `factory: createTesseractEngine`, that import is static and real, and pulling
-// a schema drags all 22 engines plus three.js geometry into the bundle.
+// a schema drags all 23 engines plus three.js geometry into the bundle.
 //
 // `sideEffects: false` cannot undo this. It lets a bundler drop modules with no
 // observable effect; it does not let it drop a module whose export is named in
@@ -68,7 +68,7 @@ for (const entry of ENGINE_CATALOG) {
 
 // --- registering belongs to whoever wants engines running ---
 
-// registerAllEngines binds all 22 by definition. Exporting it from the package
+// registerAllEngines binds all 23 by definition. Exporting it from the package
 // root puts the whole engine layer one import away from every consumer, which
 // is the same leak by another route.
 const index = read('index.js');
