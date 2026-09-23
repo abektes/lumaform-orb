@@ -44,7 +44,7 @@ export function createFooEngine({ studio, scene, camera, renderer, composer, poi
 **`update({ time, delta, pointer, marchQuality, fps })`** — called once per frame, and once per cell per frame in grid mode.
 
 - `time` is `virtualTime`, not wall clock. It already has `timeScale`, pause, and the modulation rack's `_timeScale` folded in. **Never call `clock.getElapsedTime()` or `performance.now()` yourself** — doing so makes the engine ignore pause, scrubbing, and every tempo route in the modulation rack.
-- `delta` is `0` when paused. If you integrate state (a simulation), integrate `delta`, not a constant.
+- `delta` is exactly how far `time` moved this frame — the same clock, tempo routes included, and `0` when paused. If you integrate state (a simulation, a rotation, a decay), integrate `delta`, never a constant and never "per frame": `pulse *= 0.92` in `update` fades twice as fast on a 120 Hz display and keeps fading while paused, so the acknowledgement a click produces has no fixed duration. Write `pulse *= Math.exp(-rate * delta)`. `engine-clock.test.mjs` rejects the per-frame form.
 - **Never assign `time` straight to a shader uniform.** Uniform floats are float32, whose resolution is relative to magnitude, and `virtualTime` grows without bound. Ten hours in, a 16.67 ms frame advance can no longer be represented evenly (the step alternates 15.6/19.5 ms); a week in, only 17 frames in 60 advance at all. FPS never drops — the motion just stops flowing and starts lurching. Accumulate a wrapped phase instead:
 
   ```js

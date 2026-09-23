@@ -86,7 +86,7 @@ export class OrbStudio extends OrbRuntime {
       return;
     }
 
-    this.render(delta);
+    this.render();
   }
 
   // The studio's own engine swap, in terms of its store. This is not an

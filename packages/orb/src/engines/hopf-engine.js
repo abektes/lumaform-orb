@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { createPhaseTracker } from '../core/phase.js';
+import { createPhaseTracker, decay } from '../core/phase.js';
 
 export function createHopfEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -170,8 +170,8 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
     // the same fraction of the viewport instead of a shared fixed distance.
     // Villarceau fibre bundle at default fibre count.
     frame: { radius: 2.3 },
-    update({ time }) {
-      clickBoost *= 0.94;
+    update({ time, delta }) {
+      clickBoost = decay(clickBoost, 3.7, delta);
       phaseTracker.advance(time);
       coreMat.uniforms.uPulsePhase.value = phaseTracker.phase('pulse', 2.5);
 

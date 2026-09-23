@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decay } from '../core/phase.js';
 import {
   PROJECTION_AXES,
   orientationBasis,
@@ -209,7 +210,7 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
     // Outer hypercube edge span at default scale.
     frame: { radius: 2.34 },
     update({ time, delta }) {
-      clickPulse *= 0.92;
+      clickPulse = decay(clickPulse, 5.0, delta);
 
       // Base scale factors
       const S = currentParams.cubeSize * (1.0 + clickPulse * 0.25);

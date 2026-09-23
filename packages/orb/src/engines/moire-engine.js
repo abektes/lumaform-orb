@@ -3,6 +3,7 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { buildShell, resolveShells } from '../core/moire-sphere.js';
+import { decay } from '../core/phase.js';
 
 // Chiral Moiré — two nested spherical line grids of slightly different pitch.
 //
@@ -188,7 +189,7 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
       elapsedTotal = elapsed;
       const pointer = args.pointer;
 
-      pulse *= 0.92;
+      pulse = decay(pulse, 5.0, dt);
 
       if (currentParams.motionMode === 'interactive_tilt') {
         if (pointer) {

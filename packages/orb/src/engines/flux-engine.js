@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildLattice, mapPoint, pickSparkles } from '../core/flow-field.js';
+import { decay } from '../core/phase.js';
 
 // Flux — a bundle of glowing strands streaming in a travelling wave.
 //
@@ -397,7 +398,7 @@ export function createFluxEngine({ studio, scene, camera, renderer, pointerTrack
 
       // Integrated, never time * rate — see the note at the top of this file.
       phase += vdt * currentParams.flowSpeed;
-      pulse *= 0.93;
+      pulse = decay(pulse, 4.35, dt);
 
       setUniform('uPhase', phase);
       setUniform('uPulse', pulse);

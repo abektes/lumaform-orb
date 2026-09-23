@@ -38,10 +38,9 @@ export function advancePhase(phase, vdt, rate, period = TAU) {
 //
 // Call `advance(time)` once per frame with the engine's `time` argument, then
 // `phase(key, rate)` per term. The tracker differences successive virtualTime
-// values rather than using `delta`, because `delta` carries timeScale and pause
-// but *not* the modulation rack's `_timeScale` tempo route, which the studio
-// folds into virtualTime alone. Integrating delta would silently ignore every
-// tempo route in the rack.
+// values. `delta` is now that same step (the runtime hands engines the frame's
+// virtualTime advance), but differencing `time` keeps the tracker correct for
+// any host that still passes a delta without the rack's tempo folded in.
 export function createPhaseTracker() {
   const phases = new Map();
   let last = null;
@@ -66,4 +65,13 @@ export function createPhaseTracker() {
       return next;
     },
   };
+}
+
+// Exponential fade of `value` over one step. `ratePerSecond` is how many
+// e-folds a second of virtualTime takes, so the fade lasts the same time at
+// 60 Hz, 120 Hz and under a tempo route — `value *= 0.92` per frame did not.
+// The step's magnitude is used because reverse playback hands engines a
+// negative delta, and a decay that grows without bound is not a decay.
+export function decay(value, ratePerSecond, step) {
+  return Number.isFinite(step) ? value * Math.exp(-ratePerSecond * Math.abs(step)) : value;
 }

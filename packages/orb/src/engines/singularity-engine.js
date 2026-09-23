@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decay } from '../core/phase.js';
 
 function hexToVec3(hex) {
   const color = new THREE.Color(hex);
@@ -270,8 +271,8 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
   return {
     frame,
 
-    update({ time, pointer }) {
-      pulseValue *= 0.92;
+    update({ time, delta, pointer }) {
+      pulseValue = decay(pulseValue, 5.0, delta);
       material.uniforms.uTime.value = time;
       material.uniforms.uPointer.value.copy(pointer);
       material.uniforms.uPulse.value = pulseValue;
