@@ -31,7 +31,7 @@ export const BODIES_ENGINES = [
     id: 'coronaveil',
     name: 'Corona Veil',
     badge: 'Aurora Membrane',
-    description: 'Layered aurora membranes roll quietly around a dark solar core.',
+    description: 'Membranes around a dark solar core — bands or coronal loops, worn as aurora, silk, lace or frost.',
     defaultPreset: 'Polar Veil',
     file: 'corona-veil-engine.js',
     factoryName: 'createCoronaVeilEngine',
@@ -39,6 +39,10 @@ export const BODIES_ENGINES = [
       veilCount: { type: 'select', label: 'Veil Count', options: [5, 6, 8, 10, 12], default: 8, section: 'geometry' },
       detail: { type: 'select', label: 'Membrane Detail', options: [48, 64, 80, 96], default: 80, section: 'geometry' },
       coreRadius: { type: 'number', label: 'Dark Core Radius', min: 1.5, max: 1.75, step: 0.01, default: 1.62, section: 'geometry' },
+      // Shape and surface are uniforms: switching morphs or cross-fades over
+      // ~0.6 s and never rebuilds. Selects, so never modulated.
+      veilShape: { type: 'select', label: 'Veil Shape', options: ['bands', 'loops'], default: 'bands', section: 'geometry' },
+      veilSurface: { type: 'select', label: 'Veil Surface', options: ['aurora', 'silk', 'lace', 'frost'], default: 'aurora', section: 'geometry' },
       veilSpread: { type: 'number', label: 'Veil Separation', min: 0.14, max: 0.3, step: 0.01, default: 0.24, section: 'motion' },
       twist: { type: 'number', label: 'Membrane Twist', min: 0.25, max: 1.1, step: 0.01, default: 0.68, section: 'motion' },
       waveAmp: { type: 'number', label: 'Membrane Wave', min: 0.02, max: 0.09, step: 0.005, default: 0.055, section: 'motion' },
