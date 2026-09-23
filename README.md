@@ -230,6 +230,18 @@ One trap worth knowing before you debug anything visual: **if the browser pane i
 
 `window.__orb = { studio, state, ui, ab }` is exposed for console-driven checks.
 
+## Deploying
+
+The studio builds to a static site: `npm run build` writes it to `packages/studio/dist`, and any static host can serve that folder. No server, no environment variables.
+
+The public demo runs on [Railway](https://railway.com), whose Railpack builder only recognises a Vite site when Vite is declared in the **root** `package.json`. In this workspace it lives in `packages/studio`, so detection misses it and the build fails with "No start command detected". The service therefore sets one variable:
+
+```bash
+RAILPACK_SPA_OUTPUT_DIR=packages/studio/dist
+```
+
+It has to be a service variable rather than a `railpack.json` entry — Railpack reads it from the environment only. It is not a secret.
+
 ## Status
 
 This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips and it carries a `version` field, but it has no stability guarantee, and it will be redesigned around named states once exploration has actually produced a vocabulary. Don't build anything on its shape yet — the version field exists so that redesign can migrate your files rather than break them, not to promise the shape will hold. See [docs/VISION.md](docs/VISION.md) §6.
