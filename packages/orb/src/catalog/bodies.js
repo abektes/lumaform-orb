@@ -115,7 +115,7 @@ export const BODIES_ENGINES = [
     id: 'vocalis',
     name: 'Vocalis',
     badge: 'Vocal Diaphragm',
-    description: 'Acoustic diaphragm rings articulate around a vocal glottis as circles, an iris, an ellipse, or globe latitudes.',
+    description: 'Acoustic diaphragm rings ripple around a glottal slit that opens and snaps shut with each syllable — as circles, an iris, an ellipse, or globe latitudes.',
     defaultPreset: 'Vocal Resonator',
     file: 'vocalis-engine.js',
     factoryName: 'createVocalisEngine',
@@ -137,6 +137,9 @@ export const BODIES_ENGINES = [
       formantColor: { type: 'color', label: 'Formant Crest Wave', default: '#a855f7', section: 'colors' },
       glowIntensity: { type: 'number', label: 'Acoustic Radiance', min: 0.4, max: 3, step: 0.1, default: 1.8, section: 'colors' },
       glottisDarkness: { type: 'number', label: 'Glottal Occlusion', min: 0.2, max: 1, step: 0.05, default: 0.8, section: 'colors' },
+      // Uniform writes on the slit card, so both stay modulatable.
+      slitAngle: { type: 'number', label: 'Slit Angle (mouth ↔ folds)', min: 0, max: 180, step: 1, default: 0, section: 'motion' },
+      slitLength: { type: 'number', label: 'Slit Length', min: 0.3, max: 1, step: 0.01, default: 0.7, section: 'motion' },
     },
   },
   {
