@@ -5,7 +5,7 @@
 // every consumer — including one that only wanted a param schema — and no
 // amount of `sideEffects: false` could drop a factory named in a live binding.
 //
-// The studio genuinely does want all 22: it is an exploration tool, and an
+// The studio genuinely does want all 23: it is an exploration tool, and an
 // engine you cannot select is an engine you cannot explore. So the cost is
 // paid here, by the one consumer for which it is the point.
 //

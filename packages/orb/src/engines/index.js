@@ -1,7 +1,7 @@
 // Generated from ENGINE_CATALOG — regenerate rather than hand-editing.
 //
 // One named export per engine so a consumer importing one does not pay for
-// the other 21. createOrb takes the factories it is given; nothing here is
+// the other 22. createOrb takes the factories it is given; nothing here is
 // registered implicitly.
 export { createTesseractEngine as tesseract } from './tesseract-engine.js';
 export { createMoireEngine as moire } from './moire-engine.js';
@@ -25,3 +25,4 @@ export { createAetheriaEngine as aetheria } from './aetheria-engine.js';
 export { createSuperpositionEngine as superposition } from './superposition-engine.js';
 export { createSynthesisEngine as synthesis } from './synthesis-engine.js';
 export { createFerroTrailsEngine as ferrotrails } from './ferro-trails-engine.js';
+export { createRegardEngine as regard } from './regard-engine.js';

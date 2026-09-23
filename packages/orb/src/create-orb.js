@@ -6,7 +6,7 @@
 // it is the reason the runtime has no loop of its own.
 //
 // Engines are passed in rather than imported. A convenience function that
-// reached for the catalog's factories would statically import all 22 and undo
+// reached for the catalog's factories would statically import all 23 and undo
 // the reason the catalog carries `factoryName` as a string:
 //
 //   import { createOrb } from '@lumaform/orb';

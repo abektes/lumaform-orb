@@ -19,6 +19,17 @@ visual territory, while nothing in the library was solid, opaque or reflective.
 | [Superposition](superposition.md) | Coherent quantum orbital wavepacket | Structured shells + phase lobes | Reads as **hypothesizing / uncertainty** |
 | [Synthesis](synthesis.md) | 4-body fluid orbital fusion & stardust | Potential metaballs + filaments + stardust | Reads as **deliberation / harmonious thought** |
 | [Ferro Trails](ferro-trails.md) | Magnetic fluid core & sweeping arc trails | Deformed ellipsoid + Line2 arc trails | Reads as **dynamic focus / magnetic intelligence** |
+| [Regard](regard.md) | A single inner light that looks — at you, or away | Opaque shader body + gaze simulation | Reads as **listening ↔ thinking**, and still does at 20 px |
+
+### Proposed next — the gaps Regard's review surfaced
+
+Looking at the library as a set rather than one engine at a time, three whole
+axes are missing. Regard covers the first; these two are unbuilt.
+
+| Concept | Gap it fills | Substrate | Bet | Main risk |
+|---|---|---|---|---|
+| **Morphogen** — Gray–Scott reaction–diffusion on the sphere | Nothing *forms*. Every engine shows a finished shape moving; none shows structure emerging from noise. `feed`/`kill` cross regime boundaries (spots → stripes → mazes → dividing cells), a character axis no other engine has. | GPU ping-pong render targets: the first engine with state on the GPU | Reads as **composing / forming a thought** | Nine cells × a simulation per frame; renderer state must be restored exactly around each render-target pass |
+| **Cadence** — discrete beads fired by a bursty token process | Nothing is *discrete*. The most legible "thinking" indicator ever shipped is the typing indicator's three dots. An LLM literally emits tokens in bursts and gaps. | Instanced beads driven by a seeded Poisson-burst process | Reads as **speaking** (steady stream) vs **thinking** (bursts and gaps) through rhythm alone | Too literal a borrowing: it may read as "loading" rather than as a presence |
 
 | Brief | Concept | Substrate | Bet | Difficulty |
 |---|---|---|---|---|

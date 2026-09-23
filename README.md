@@ -1,6 +1,6 @@
 # Lumaform Orb
 
-A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Twenty-two shader engines, one parameter schema, one render loop.
+A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Twenty-three shader engines, one parameter schema, one render loop.
 
 It is **not** a component library and not a design system. It is an instrument for finding out what is possible.
 
@@ -70,10 +70,11 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `aetheria` — Aetheria | Iridescent luminescence | 14 |
 | `superposition` — Superposition | Quantum wavepacket | 14 |
 | `synthesis` — Synthesis | Harmonic fluid fusion | 15 |
+| `regard` — Regard | Attentive gaze — the one engine with a front | 16 |
 
 Load any of them directly with `?engine=<id>`, e.g. `http://localhost:5173/?engine=chromasphere`.
 
-Roughly half are **stateful** — Murmuration, Curl Drift, Filament Lattice and Echo Rings carry bounded history, so settle, overshoot and propagation emerge from the simulation rather than being painted on. The rest compute their pose as a function of time.
+Five are **stateful** — Murmuration, Curl Drift, Filament Lattice, Echo Rings and Regard carry bounded history, so settle, overshoot, propagation and hesitation emerge from the simulation rather than being painted on. The rest compute their pose as a function of time.
 
 ## What the tool is good at
 
@@ -105,7 +106,7 @@ Eleven tabs: Presets, Findings, Rehearsal, Colors, Geometry, Motion, Motion Lab,
 
 Colors, Geometry and Motion are generated entirely from each engine's schema — there is no per-engine control code. An engine's `section` assignment is a behavioural declaration, not a tab name: `geometry` means "may rebuild geometry, therefore never modulated". See [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) §3.
 
-83 curated presets ship across the engines.
+86 curated presets ship across the engines.
 
 ## Using the microphone
 
@@ -137,7 +138,7 @@ the canvas it added.
 
 **You import the engines you want.** `createOrb` never reaches for the catalog's
 factories, and catalog entries name theirs as a string rather than binding it, so
-reading a parameter schema does not drag in all twenty-two engines and their
+reading a parameter schema does not drag in all twenty-three engines and their
 geometry. The import list is the bundle: name one engine, ship one engine.
 
 Defaults are the embed's, not the studio's — no drag-to-rotate, no auto-rotation,

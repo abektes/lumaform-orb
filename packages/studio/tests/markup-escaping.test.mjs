@@ -71,7 +71,7 @@ for (const attr of ['data-load-custom', 'data-delete-custom']) {
 
 // --- curated preset data is escaped too -----------------------------------
 // Not a security issue — PRESET_LIBRARY is authored in this repo, not typed by
-// a user. But 2 of the 83 curated entries carry a raw `&`, which emits
+// a user. But 2 of the 86 curated entries carry a raw `&`, which emits
 // technically-invalid HTML, and the escaping rule is easier to keep if it has
 // no exceptions.
 const bareAmpersands = [...markup.matchAll(/&(?!(?:amp|quot|lt|gt|#39);)/g)];
