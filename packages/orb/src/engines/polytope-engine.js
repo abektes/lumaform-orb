@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { createPhaseTracker } from '../core/phase.js';
+import { createPhaseTracker, decay } from '../core/phase.js';
 
 const PHI = (1 + Math.sqrt(5)) / 2; // Golden ratio 1.6180339887
 
@@ -287,7 +287,7 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
     // Stella octangula outer vertices.
     frame: { radius: 2.24 },
     update({ time, delta }) {
-      pulseVal *= 0.93;
+      pulseVal = decay(pulseVal, 4.35, delta);
       phaseTracker.advance(time);
       const prismPhase = phaseTracker.phase('prism', 0.5);
       matA.uniforms.uPrismPhase.value = prismPhase;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createPhaseTracker } from '../core/phase.js';
+import { createPhaseTracker, decay } from '../core/phase.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -406,8 +406,8 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
   }
 
   return {
-    update({ time, pointer }) {
-      pulseTime *= 0.94;
+    update({ time, delta, pointer }) {
+      pulseTime = decay(pulseTime, 3.7, delta);
 
       // `morph` scales the offset rate and itself follows the decaying pulse.
       // Under the old `time * rate` form every pulse retroactively repriced the

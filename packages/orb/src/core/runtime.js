@@ -110,6 +110,9 @@ export class OrbRuntime {
     // Time & Playback
     this.clock = new THREE.Clock();
     this.virtualTime = 0;
+    // The virtualTime advance() added this frame — what render() hands engines
+    // as `delta`, so the two clocks an engine sees can never disagree.
+    this.frameStep = 0;
     this.timeScale = 1.0;
     this.isPaused = false;
 
@@ -402,19 +405,22 @@ export class OrbRuntime {
     const mod = this.modulation.apply(this.baseParams, this.paramDefs, this.virtualTime);
 
     // virtualTime stays the runtime's. A host passing raw delta still gets the
-    // rack's _timeScale folded in here, which is the only place it is applied —
-    // engines integrate the change in `time`, not `delta`, and would otherwise
-    // ignore every tempo route.
-    if (!this.isPaused) {
-      this.virtualTime += delta * this.timeScale * mod.timeScale;
-    }
+    // rack's _timeScale folded in here, which is the only place it is applied.
+    // The same step is what engines later receive as `delta`: it used to be
+    // `delta * timeScale` without the rack's multiplier, so every engine that
+    // integrates delta — most of them — ignored tempo routes in the main view
+    // while grid cells, which fold the multiplier in themselves, obeyed them.
+    // A hesitation found in the grid then vanished on promotion.
+    this.frameStep = this.isPaused ? 0 : delta * this.timeScale * mod.timeScale;
+    this.virtualTime += this.frameStep;
 
     this.applyModulatedParams(mod.params);
     return mod;
   }
 
-  // Draws the active engine through the composer.
-  render(delta) {
+  // Draws the active engine through the composer. Time comes from the last
+  // advance(), never from an argument, so drawing cannot disagree with it.
+  render() {
     this.smoothedPointer.lerp(this.pointerTracker.pointer, 0.08);
 
     this.controls?.update();
@@ -426,7 +432,7 @@ export class OrbRuntime {
 
       this.activeEngine.update({
         time: this.virtualTime,
-        delta: this.isPaused ? 0 : delta * this.timeScale,
+        delta: this.frameStep,
         pointer: this.smoothedPointer,
         marchQuality,
         fps: this.fpsTracker.fps,
@@ -440,7 +446,7 @@ export class OrbRuntime {
   tick(delta) {
     this.fpsTracker.tick();
     this.advance(delta);
-    this.render(delta);
+    this.render();
   }
 
   // A refused microphone is a normal outcome, not an error.

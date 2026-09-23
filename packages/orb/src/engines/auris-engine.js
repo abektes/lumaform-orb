@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { decay } from '../core/phase.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -448,7 +449,7 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
     // Stellated geodesic including spike apexes.
     frame: { radius: 2.35 },
     update({ time, delta, pointer }) {
-      clickPulse *= 0.92;
+      clickPulse = decay(clickPulse, 5.0, delta);
 
       // Only accumulate rotation from delta (NOT from pointer)
       // This ensures no movement when paused (delta=0)

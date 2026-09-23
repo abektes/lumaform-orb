@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createPhaseTracker, TAU } from '../core/phase.js';
+import { createPhaseTracker, decay, TAU } from '../core/phase.js';
 
 export function createNebulaEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -313,7 +313,7 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
 
   return {
     update({ time, delta, pointer, marchQuality }) {
-      pulseValue *= 0.92;
+      pulseValue = decay(pulseValue, 5.0, delta);
       currentSpin += delta * currentParams.sphereSpinSpeed;
 
       material.uniforms.uTime.value = time;

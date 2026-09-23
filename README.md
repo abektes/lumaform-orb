@@ -155,7 +155,7 @@ speech. Not importing that subpath is the off switch: no `getUserMedia` in the
 bundle and nothing for a security review to flag.
 
 For a host that wants to own its own frame loop, construct `OrbRuntime` directly
-and call `advance(delta)` and `render(delta)` yourself. That is exactly what the
+and call `advance(delta)` and then `render()` yourself. That is exactly what the
 studio does.
 
 ## Project layout
@@ -203,7 +203,7 @@ docs/
 ```
 
 **The runtime never calls a studio method directly.** `OrbRuntime` owns no frame
-loop and declares no hooks. It exposes `advance(delta)`, `render(delta)` and
+loop and declares no hooks. It exposes `advance(delta)`, `render()` and
 `tick(delta)`; the studio runs its own `requestAnimationFrame`, does its
 rehearsal and tween work, calls `advance()`, then either renders the variation
 grid or calls `render()`. Nothing calls down, so reaching for `this.grid` or
