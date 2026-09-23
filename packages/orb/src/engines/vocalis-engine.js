@@ -2,10 +2,77 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { resolveRingLayout, ringRest, sampleRingPoint } from './vocalis-layout.js';
+import { resolveRingLayout, ringRest, sampleRingPoint, syllableOpening } from './vocalis-layout.js';
 
 const FRAME_RADIUS = 2.25;
 const SEGMENTS_PER_RING = 128;
+// Syllables per second at articulationRate 1 — conversational speech runs at
+// roughly three to five.
+const SYLLABLES_PER_RATE = 2.5;
+// A plosive holds the slit shut this long before it bursts.
+const PLOSIVE_CLOSURE = 0.06;
+const GLOBE_LEAN = 0.42;
+
+// `Number(x) || fallback` turns a legitimate 0 into the fallback, which made
+// zero ripple and zero breath unreachable from their own sliders.
+function numberOr(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// The glottal slit: a lens-shaped opening drawn per pixel on a card that lies
+// in the innermost ring's plane, so it tilts with the diaphragm. It replaced a
+// nucleus sphere that sat *inside* its own "occluder" — the occluder's front
+// face was nearer the camera than the nucleus, so the centre rendered black.
+const SLIT_VERTEX_SHADER = /* glsl */ `
+  varying vec2 vLocal;
+  void main() {
+    vLocal = position.xy;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const SLIT_FRAGMENT_SHADER = /* glsl */ `
+  uniform float uLength;
+  uniform float uWidth;
+  uniform float uAngle;
+  uniform float uRim;
+  uniform float uDark;
+  uniform float uGlow;
+  uniform float uFlash;
+  uniform vec3 uRimColor;
+  uniform vec3 uHaloColor;
+  uniform vec3 uDepthColor;
+  varying vec2 vLocal;
+
+  void main() {
+    float c = cos(uAngle);
+    float s = sin(uAngle);
+    vec2 p = vec2(c * vLocal.x + s * vLocal.y, -s * vLocal.x + c * vLocal.y);
+
+    // Parabolic lens: pointed where the folds meet, widest in the middle. At
+    // zero width it collapses to a glowing line, which is the closed glottis.
+    float u = clamp(p.x / uLength, -1.0, 1.0);
+    float halfWidth = uWidth * (1.0 - u * u);
+    float edge = abs(p.y) - halfWidth;
+    float along = 1.0 - smoothstep(0.82, 1.0, abs(p.x) / uLength);
+
+    float rim = exp(-pow(edge / uRim, 2.0)) * along;
+    float halo = exp(-pow(edge / (uRim * 5.0), 2.0)) * along;
+    float inside = (1.0 - smoothstep(-uRim * 0.5, uRim * 0.5, edge)) * along;
+
+    // Depth contrast without a depth-writing sphere: a soft dark pool around
+    // the slit that the rings, drawn afterwards, sit on top of.
+    float pool = exp(-dot(p, p) / (uLength * uLength) * 1.6) * uDark * 0.6;
+
+    vec3 light = uRimColor * rim * (0.9 + uFlash) * uGlow
+      + uHaloColor * halo * 0.5 * uGlow
+      + uDepthColor * inside * 0.25 * (1.0 - uDark);
+    float alpha = max(pool, inside * uDark);
+    alpha = max(alpha, clamp(rim + halo * 0.5, 0.0, 1.0));
+    gl_FragColor = vec4(light, clamp(alpha, 0.0, 1.0));
+  }
+`;
 
 export function createVocalisEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -26,6 +93,8 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
     formantColor: '#a855f7',
     glowIntensity: 1.8,
     glottisDarkness: 0.8,
+    slitAngle: 0,
+    slitLength: 0.7,
     ...params,
   };
 
@@ -33,20 +102,44 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
   scene.add(group);
 
   let rings = []; // array of { line, geometry, material, posArr, colArr, baseR, zOffset }
-  let glottisMesh = null;
-  let glottisGeometry = null;
-  let glottisMaterial = null;
-  let coreOccluder = null;
-  let occluderGeometry = null;
-  let occluderMaterial = null;
-
   let plosiveTimer = 0;
+  let plosiveAge = Infinity;
   let articulationPhase = 0;
+  let syllableClock = 0;
 
   const coreRGB = new THREE.Color(currentParams.coreColor);
   const diaphragmRGB = new THREE.Color(currentParams.diaphragmColor);
   const formantRGB = new THREE.Color(currentParams.formantColor);
   const tempColor = new THREE.Color();
+
+  const slitUniforms = {
+    uLength: { value: 0.3 },
+    uWidth: { value: 0 },
+    uAngle: { value: 0 },
+    uRim: { value: 0.01 },
+    uDark: { value: Number(currentParams.glottisDarkness) || 0.8 },
+    uGlow: { value: 1 },
+    uFlash: { value: 0 },
+    uRimColor: { value: new THREE.Color() },
+    uHaloColor: { value: new THREE.Color() },
+    uDepthColor: { value: new THREE.Color() },
+  };
+  // Unit card, scaled per layout in buildRings; built once, never rebuilt.
+  const slitGeometry = new THREE.PlaneGeometry(2, 2);
+  const slitMaterial = new THREE.ShaderMaterial({
+    uniforms: slitUniforms,
+    vertexShader: SLIT_VERTEX_SHADER,
+    fragmentShader: SLIT_FRAGMENT_SHADER,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const slit = new THREE.Mesh(slitGeometry, slitMaterial);
+  // First among the transparent objects, so the rings draw over its dark pool.
+  slit.renderOrder = -1;
+  group.add(slit);
+  // Card-space radius the slit is measured against: the innermost ring.
+  let slitReference = 0.5;
 
   function buildRings() {
     for (const r of rings) {
@@ -55,19 +148,6 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
       r.material.dispose();
     }
     rings = [];
-
-    if (glottisMesh) {
-      group.remove(glottisMesh);
-      glottisGeometry.dispose();
-      glottisMaterial.dispose();
-      glottisMesh = null;
-    }
-    if (coreOccluder) {
-      group.remove(coreOccluder);
-      occluderGeometry.dispose();
-      occluderMaterial.dispose();
-      coreOccluder = null;
-    }
 
     const count = parseInt(currentParams.ringCount, 10) || 6;
     const baseR = Number(currentParams.baseRadius) || 1.45;
@@ -114,30 +194,13 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
       });
     }
 
-    // Inner glowing glottal nucleus (the vocal core that flashes on syllables)
-    const nucleusR = baseR * 0.28;
-    glottisGeometry = new THREE.SphereGeometry(nucleusR, 32, 24);
-    glottisMaterial = new THREE.MeshBasicMaterial({
-      color: coreRGB,
-      transparent: true,
-      opacity: 0.85,
-      depthWrite: false,
-    });
-    glottisMesh = new THREE.Mesh(glottisGeometry, glottisMaterial);
-    group.add(glottisMesh);
-
-    // Occluder sphere behind glottis for depth contrast
-    const occluderR = baseR * 0.55;
-    occluderGeometry = new THREE.SphereGeometry(occluderR, 32, 24);
-    occluderMaterial = new THREE.MeshBasicMaterial({
-      color: 0x020408,
-      transparent: true,
-      opacity: Number(currentParams.glottisDarkness) || 0.8,
-      depthWrite: true,
-    });
-    coreOccluder = new THREE.Mesh(occluderGeometry, occluderMaterial);
-    coreOccluder.position.z = -depth * 0.4;
-    group.add(coreOccluder);
+    // The slit lies in the innermost ring's plane. The globe has no such
+    // plane, so it sits at the centre, measured against the same fraction of
+    // the radius the flat layouts use for their inner ring.
+    const inner = ringRest(layout, 0, baseR, depth);
+    slitReference = layout === 'globe' ? baseR * 0.35 : inner.radius;
+    slit.position.z = layout === 'globe' ? 0 : inner.zOffset;
+    slit.scale.setScalar(slitReference * 1.25);
   }
 
   buildRings();
@@ -149,22 +212,28 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
       const dt = Math.min(delta || 0, 1 / 30);
       const rate = Number(currentParams.articulationRate) || 1.2;
       articulationPhase += dt * rate * 3.2;
+      syllableClock += dt * rate * SYLLABLES_PER_RATE;
+      plosiveAge += Math.abs(dt);
 
       if (plosiveTimer > 0) {
         plosiveTimer = Math.max(0, plosiveTimer - dt * 2.0);
       }
 
-      // Gentle orientation sway
+      const layout = resolveRingLayout(currentParams.ringLayout);
+
+      // Gentle orientation sway. The globe also leans toward the camera: seen
+      // from the equator its latitudes collapse into horizontal lines and it
+      // stops reading as a sphere at all.
+      const globeLean = layout === 'globe' ? GLOBE_LEAN : 0;
       group.rotation.y = Math.sin(time * 0.2) * 0.18;
-      group.rotation.x = Math.cos(time * 0.16) * 0.12;
+      group.rotation.x = globeLean + Math.cos(time * 0.16) * 0.12;
 
       const aperture = Number(currentParams.apertureSize) || 0.35;
-      const rippleAmp = Number(currentParams.vocalRipple) || 0.14;
+      const rippleAmp = numberOr(currentParams.vocalRipple, 0.14);
       const harmonics = parseInt(currentParams.formantHarmonics, 10) || 3;
       const formantGain = Number(currentParams.formantGain) || 1.2;
-      const breathe = 1.0 + Math.sin(time * 1.5) * (Number(currentParams.breatheAmp) || 0.04);
+      const breathe = 1.0 + Math.sin(time * 1.5) * numberOr(currentParams.breatheAmp, 0.04);
       const glow = Number(currentParams.glowIntensity) || 1.8;
-      const layout = resolveRingLayout(currentParams.ringLayout);
 
       // Update concentric vocal diaphragm rings
       for (let r = 0; r < rings.length; r++) {
@@ -208,15 +277,28 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
         geom.setColors(colArr);
       }
 
-      // Glottal nucleus flare on articulation & plosive surge
-      if (glottisMesh && glottisMaterial) {
-        const nucleusPulse = (1.0 + aperture * 0.5 + plosiveTimer * 0.8) * breathe;
-        glottisMesh.scale.set(nucleusPulse, nucleusPulse, nucleusPulse);
-
-        tempColor.copy(coreRGB).lerp(diaphragmRGB, 0.4);
-        tempColor.multiplyScalar(0.45 + plosiveTimer * 0.35 + aperture * 0.15);
-        glottisMaterial.color.copy(tempColor);
+      // Glottal slit. A plosive shuts it completely, then bursts it past its
+      // normal maximum; otherwise it follows the syllable envelope.
+      let opening = syllableOpening(syllableClock);
+      if (plosiveAge < PLOSIVE_CLOSURE) {
+        opening = 0;
+      } else if (plosiveTimer > 0) {
+        opening = Math.max(opening, Math.min(1.5, 0.9 + plosiveTimer * 0.4));
       }
+      // Slit geometry is card-local: the card is scaled by slitReference·1.25,
+      // so lengths here are fractions of that.
+      const slitLength = Math.min(0.78, (Number(currentParams.slitLength) || 0.7) / 1.25);
+      slitUniforms.uLength.value = slitLength;
+      // A floor under aperture so even a small setting opens visibly: at
+      // 0.6·aperture the default opened to a fifth of its length and read as a dash.
+      slitUniforms.uWidth.value = slitLength * (0.12 + aperture * 0.95) * opening * breathe;
+      slitUniforms.uAngle.value = THREE.MathUtils.degToRad(Number(currentParams.slitAngle) || 0);
+      slitUniforms.uRim.value = 0.022 * ((Number(currentParams.lineWidth) || 2.4) / 2.4);
+      slitUniforms.uGlow.value = glow / 1.8;
+      slitUniforms.uFlash.value = plosiveTimer * 0.5;
+      slitUniforms.uRimColor.value.copy(coreRGB).lerp(diaphragmRGB, 0.3);
+      slitUniforms.uHaloColor.value.copy(diaphragmRGB);
+      slitUniforms.uDepthColor.value.copy(formantRGB);
     },
 
     setParams(patch) {
@@ -250,8 +332,8 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
       if (patch.diaphragmColor !== undefined) diaphragmRGB.set(patch.diaphragmColor);
       if (patch.formantColor !== undefined) formantRGB.set(patch.formantColor);
 
-      if (patch.glottisDarkness !== undefined && occluderMaterial) {
-        occluderMaterial.opacity = patch.glottisDarkness;
+      if (patch.glottisDarkness !== undefined) {
+        slitUniforms.uDark.value = Number(patch.glottisDarkness);
       }
 
       if (needsRebuild) {
@@ -261,6 +343,7 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
 
     onPulse() {
       plosiveTimer = Number(currentParams.plosiveSurge) || 1.4;
+      plosiveAge = 0;
     },
 
     onResize(width, height) {
@@ -279,16 +362,8 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
         ring.material?.dispose();
       }
       rings = [];
-      if (glottisMesh) {
-        group.remove(glottisMesh);
-        glottisGeometry?.dispose();
-        glottisMaterial?.dispose();
-      }
-      if (coreOccluder) {
-        group.remove(coreOccluder);
-        occluderGeometry?.dispose();
-        occluderMaterial?.dispose();
-      }
+      slitGeometry.dispose();
+      slitMaterial.dispose();
     },
   };
 }
