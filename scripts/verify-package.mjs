@@ -101,6 +101,10 @@ try {
     out.OrbRuntime = typeof root.OrbRuntime;
     const engines = await import('${PACKAGE}/engines');
     out.engineCount = Object.keys(engines).length;
+    // Compared against the installed catalog rather than a literal count: a
+    // hard-coded 22 failed the first time an engine was added.
+    out.catalogIds = (root.ENGINE_CATALOG || []).map((entry) => entry.id);
+    out.unreachable = out.catalogIds.filter((id) => typeof engines[id] !== 'function');
     // The catalog must not drag the engine layer in. If a factory is reachable
     // from the root barrel the tree-shaking contract is broken again.
     out.factoryOnRoot = Object.keys(root).some((k) => /^create[A-Z]\\w*Engine$/.test(k));
@@ -123,7 +127,11 @@ try {
     }
     ok('createOrb is callable from the tarball', result.createOrb === 'function');
     ok('OrbRuntime is exported', result.OrbRuntime === 'function');
-    ok('all engines are reachable from ./engines', result.engineCount === 22, String(result.engineCount));
+    ok('all engines are reachable from ./engines',
+      result.catalogIds.length > 0 && result.unreachable.length === 0
+        && result.engineCount === result.catalogIds.length,
+      `${result.engineCount} exported, ${result.catalogIds.length} in catalog`
+        + (result.unreachable.length ? `, missing: ${result.unreachable.join(', ')}` : ''));
     ok('no engine factory leaks onto the root barrel', result.factoryOnRoot === false);
   }
 } finally {
