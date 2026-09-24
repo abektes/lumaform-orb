@@ -25,6 +25,7 @@ import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { cameraDistanceForRadius, engineFrameRadius } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
 import { resolveRuntimeOptions } from './runtime-options.js';
+import { createBackgroundPass, preserveBloomAlpha, lightCarriesNoCoverage } from './background-pass.js';
 
 export class OrbRuntime {
   constructor(containerElement, options = {}) {
@@ -145,10 +146,20 @@ export class OrbRuntime {
       0.35  // threshold
     );
     this.composer.addPass(this.bloomPass);
+    preserveBloomAlpha(this.bloomPass);
 
     // Ensure proper color management in the composer pipeline
     this.outputPass = new OutputPass();
     this.composer.addPass(this.outputPass);
+
+    // Last, so the backdrop is laid behind an already tone-mapped orb and
+    // reaches the screen exactly as picked. See background-pass.js.
+    this.background = createBackgroundPass();
+    this.composer.addPass(this.background.pass);
+    // The scene itself always renders over transparent black; the colour
+    // lives only in the pass.
+    this.renderer.setClearColor(0x000000, 0);
+    this.scene.background = null;
   }
 
   registerEngine(type, constructorFn) {
@@ -283,14 +294,10 @@ export class OrbRuntime {
       this.isPaused = global.paused;
     }
 
-    if (global.transparentBg) {
-      this.renderer.setClearColor(0x000000, 0);
-      this.scene.background = null;
-    } else if (global.background) {
-      const bgColor = new THREE.Color(global.background);
-      this.renderer.setClearColor(bgColor, 1);
-      this.scene.background = bgColor;
-    }
+    // Never scene.background or a clear colour: both are tone-mapped (and a
+    // clear colour set here is sRGB-encoded for the screen, which grid cells
+    // then misread as linear). The background pass composites it exactly.
+    this.background.set({ background: global.background, transparent: global.transparentBg });
   }
 
   // Push only what actually changed. Engines fan params out to uniforms on every
@@ -439,6 +446,7 @@ export class OrbRuntime {
       });
     }
 
+    lightCarriesNoCoverage(this.scene);
     this.composer.render();
   }
 
@@ -465,6 +473,7 @@ export class OrbRuntime {
     this.pointerTracker?.dispose();
     this.controls?.dispose();
     this.activeEngine?.dispose();
+    this.background?.pass.dispose();
     this.composer?.dispose();
     this.renderer?.dispose();
     // Was `container.innerHTML = ''`, which removed every sibling the host had
