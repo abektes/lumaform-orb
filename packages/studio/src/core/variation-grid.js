@@ -17,7 +17,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { stampVersion } from '@lumaform/orb';
 import { LFO_SHAPES, TIME_SCALE_DEST, createModulationRack, createDefaultModulation, listModulationTargets } from '@lumaform/orb/internal';
 import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from '@lumaform/orb/internal';
-import { notifyParams } from '@lumaform/orb/internal';
+import { notifyParams, createBackgroundPass, lightCarriesNoCoverage } from '@lumaform/orb/internal';
 import { isDrawableRect, readbackRegion, createMeasureQueue } from './grid-measure.js';
 
 // --- colour jitter ---------------------------------------------------------
@@ -245,6 +245,13 @@ export function createVariationGrid({
   const cellRenderPass = new RenderPass(new THREE.Scene(), camera);
   cellComposer.addPass(cellRenderPass);
   cellComposer.addPass(new OutputPass());
+  // Same last step as the main view, so a cell sits on exactly the colour its
+  // orb will sit on once promoted. Cells used to be cleared with the renderer's
+  // clear colour, which three had encoded to sRGB for the screen; OutputPass
+  // then tone-mapped those sRGB numbers as if they were linear light.
+  const cellBackground = createBackgroundPass();
+  cellComposer.addPass(cellBackground.pass);
+  const gutterColor = new THREE.Color();
 
   function buildCell(params, patch, { mutatedKeys = [], mutationBase = params } = {}) {
     const scene = new THREE.Scene();
@@ -457,7 +464,19 @@ export function createVariationGrid({
       renderer.setViewport(0, 0, width, height);
       renderer.setScissor(0, 0, width, height);
       renderer.setScissorTest(false);
+      // Gutters and the ladder's empty slots get the exact backdrop too. Set
+      // while drawing to the screen, a clear colour is encoded for the screen,
+      // so this one is right; it is restored before any cell clears a render
+      // target, where the same encoding would be wrong.
+      const transparent = !!globalSettings?.transparentBg;
+      cellBackground.set({ background: globalSettings?.background, transparent });
+      const clearAlpha = renderer.getClearAlpha();
+      renderer.getClearColor(prevClear);
+      if (!transparent && globalSettings?.background) {
+        renderer.setClearColor(gutterColor.set(globalSettings.background), 1);
+      }
       renderer.clear(true, true, false);
+      renderer.setClearColor(prevClear, clearAlpha);
 
       renderer.setScissorTest(true);
 
@@ -498,6 +517,7 @@ export function createVariationGrid({
         // Scissor clips every pass to this cell, so the composer's full-screen
         // quads only ever touch the current rect.
         cellRenderPass.scene = cells[i].scene;
+        lightCarriesNoCoverage(cells[i].scene);
         cellComposer.render();
 
         // Read before the border: the mark is chrome, and a 3px 0xffed00 frame
@@ -580,6 +600,7 @@ export function createVariationGrid({
       measureQueue.settle();
       for (const cell of cells) disposeCell(cell);
       cells.length = 0;
+      cellBackground.pass.dispose();
       cellComposer.dispose();
     },
   };

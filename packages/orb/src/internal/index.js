@@ -40,3 +40,8 @@ export {
 
 export { createPointerTracker, createClickPulse } from '../shared/pointer.js';
 export { createFpsTracker } from '../shared/fps.js';
+
+// The exact-colour backdrop, composited after tone mapping. The studio's grid
+// renders cells through its own composer and needs the same last step, or
+// cells sit on a different colour from the main view.
+export { createBackgroundPass, preserveBloomAlpha, lightCarriesNoCoverage } from '../core/background-pass.js';
