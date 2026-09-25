@@ -20,10 +20,10 @@ The Publish workflow uses npm's [trusted publishing](https://docs.npmjs.com/trus
 - **npm trusts one workflow file in one repository.** On npmjs.com, `@lumaform/orb` → Settings → Trusted Publisher names GitHub Actions, `abektes` / `lumaform-orb`, and `publish.yml`. All fields are case-sensitive, and npm doesn't check them when you save, so a mismatch only surfaces as a failed publish. **Renaming the workflow file breaks publishing** until that setting is updated.
 - **No token exists.** Each run, GitHub hands npm a short-lived OIDC token proving which repository and workflow is asking. Nothing is stored in the repository or its secrets that could leak.
 - **Provenance comes with it.** npm records a signed statement linking each version to the commit and workflow run that built it, and shows it on the package page.
-- **It guards the version before spending it.** The run fails before publishing if the tag doesn't match `packages/orb/package.json`, if the tagged commit isn't on `main`, or if the changelog has no dated section for that version. It then runs `npm ci`, `npm test` and `npm run verify:package`, publishes, and creates the GitHub release with that changelog section as its notes.
+- **It guards the version before spending it.** The run fails before publishing if the tag doesn't match `packages/orb/package.json`, if the tagged commit isn't on `main`, if the changelog has no dated section for that version, or if that version is already on npm. It then runs `npm ci`, `npm test` and `npm run verify:package`, publishes, and creates the GitHub release with that changelog section as its notes.
 - **It runs on npm 11.5.1+ and Node 24.** Trusted publishing needs npm 11.5.1+ and Node 22.14+. The regular CI stays on Node 20.
 
-Run it by hand (Actions → Publish → Run workflow) to rehearse everything except the upload: without a tag it ends in `npm publish --dry-run`.
+Run it by hand (Actions → Publish → Run workflow) to rehearse everything except the upload. Without a tag it ends in `npm publish --dry-run`, or, when `main` still names a version that is already on npm, in `npm pack --dry-run`, since npm refuses even a dry run over a published version.
 
 ## Who owns what
 
