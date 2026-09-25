@@ -26,6 +26,17 @@ subpath it declares. Run that one yourself if you touched the runtime package's
 manifest, its `exports` map or its `files` list; a packaging mistake is
 otherwise invisible until after publish.
 
+## Changelog and releases
+
+If your change affects what a user of `@lumaform/orb` sees — an export, an
+engine's look or behaviour, a parameter, the config format — add a line under
+`## [Unreleased]` in [packages/orb/CHANGELOG.md](packages/orb/CHANGELOG.md).
+Studio-only changes don't need one.
+
+Merging does not publish anything to npm. A maintainer cuts releases by hand,
+following [docs/RELEASING.md](docs/RELEASING.md), which also explains how the
+version number is chosen.
+
 ## Adding an engine
 
 [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) is the full contract —

@@ -246,6 +246,8 @@ RAILPACK_SPA_OUTPUT_DIR=packages/studio/dist
 
 It has to be a service variable rather than a `railpack.json` entry — Railpack reads it from the environment only. It is not a secret.
 
+Every merge to `main` redeploys the studio automatically. Releasing the runtime to npm is separate and manual. Merging never publishes; see [docs/RELEASING.md](docs/RELEASING.md).
+
 ## Status
 
 This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips and it carries a `version` field, but it has no stability guarantee, and it will be redesigned around named states once exploration has actually produced a vocabulary. Don't build anything on its shape yet — the version field exists so that redesign can migrate your files rather than break them, not to promise the shape will hold. See [docs/VISION.md](docs/VISION.md) §6.

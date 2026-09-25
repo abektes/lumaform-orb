@@ -2,6 +2,8 @@
 
 All notable changes to `@lumaform/orb` are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package follows [Semantic Versioning](https://semver.org/) with the usual pre-1.0 rule: **a minor release may break the API**; a patch release will not. `@lumaform/orb/internal` is outside semver entirely, as its header says.
 
+Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://github.com/abektes/lumaform-orb/blob/main/docs/RELEASING.md) turns that section into a version.
+
 ## [Unreleased]
 
 ## [0.1.0] - 2026-09-25

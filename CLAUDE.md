@@ -12,6 +12,8 @@ Vanilla JS (ES modules), Vite 5, Three.js 0.160. **No framework** — the UI is 
 
 Two npm workspaces: `packages/orb` (`@lumaform/orb`, the runtime — engines, catalog, modulation, framing, config I/O, the frame loop) and `packages/studio` (the instrument — UI, grid, capture, rehearsal, presets). `three` is a peer dependency of the runtime.
 
+`@lumaform/orb` is **published on npm**. Merging to `main` redeploys the studio (Railway) but never publishes; a release is a manual, irreversible step in [docs/RELEASING.md](docs/RELEASING.md) that needs the maintainer's npm 2FA. A change a runtime user would notice adds a line under `## [Unreleased]` in `packages/orb/CHANGELOG.md`. `main` is protected: direct pushes are refused, so work on a branch and open a pull request; CI's `test` check must pass before it can merge.
+
 ```bash
 npm run dev        # http://localhost:5173
 npm run build      # must pass
