@@ -66,6 +66,10 @@ jobs:
             echo "::error::packages/orb/CHANGELOG.md has no dated [$version] section."
             exit 1
           fi
+          if [ -n "$(npm view "@lumaform/orb@$version" version 2>/dev/null)" ]; then
+            echo "::error::@lumaform/orb@$version is already on npm. Bump the version in a pull request first."
+            exit 1
+          fi
 
       - run: npm ci
       - run: npm test
@@ -75,9 +79,18 @@ jobs:
         if: github.ref_type == 'tag'
         run: npm publish -w @lumaform/orb
 
+      # Between releases main still names the published version, and npm refuses
+      # even a dry run over it, so show the tarball instead of failing.
       - name: Rehearse the publish
         if: github.ref_type != 'tag'
-        run: npm publish -w @lumaform/orb --dry-run
+        run: |
+          version=$(node -p "require('./packages/orb/package.json').version")
+          if [ -n "$(npm view "@lumaform/orb@$version" version 2>/dev/null)" ]; then
+            echo "::notice::@lumaform/orb@$version is already on npm, so this shows the tarball rather than rehearsing a publish over it."
+            npm pack --dry-run -w @lumaform/orb
+          else
+            npm publish -w @lumaform/orb --dry-run
+          fi
 
       - name: GitHub release from the changelog
         if: github.ref_type == 'tag'
