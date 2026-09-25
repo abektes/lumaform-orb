@@ -146,6 +146,10 @@ export const BODIES_ENGINES = [
       // Uniform writes on the slit card, so both stay modulatable.
       slitAngle: { type: 'number', label: 'Slit Angle (mouth ↔ folds)', min: 0, max: 180, step: 1, default: 0, section: 'motion' },
       slitLength: { type: 'number', label: 'Slit Length', min: 0.3, max: 1, step: 0.01, default: 0.7, section: 'motion' },
+      // A select, not a new on/off type: selects already work everywhere a
+      // parameter goes (panel, config files, randomise), so this adds nothing
+      // for a host or the studio to learn.
+      mouth: { type: 'select', label: 'Mouth', options: ['on', 'off'], default: 'on', section: 'motion' },
     },
   },
   {

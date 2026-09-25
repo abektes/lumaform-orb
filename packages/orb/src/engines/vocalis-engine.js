@@ -95,6 +95,7 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
     glottisDarkness: 0.8,
     slitAngle: 0,
     slitLength: 0.7,
+    mouth: 'on',
     ...params,
   };
 
@@ -140,6 +141,13 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
   group.add(slit);
   // Card-space radius the slit is measured against: the innermost ring.
   let slitReference = 0.5;
+
+  // The whole mouth is this one card, so hiding it removes the lens, its rim
+  // and glow, and the dark pool together, leaving the rings over an empty centre.
+  function applyMouth() {
+    slit.visible = currentParams.mouth !== 'off';
+  }
+  applyMouth();
 
   function buildRings() {
     for (const r of rings) {
@@ -335,6 +343,7 @@ export function createVocalisEngine({ scene, camera, renderer, params }) {
       if (patch.glottisDarkness !== undefined) {
         slitUniforms.uDark.value = Number(patch.glottisDarkness);
       }
+      if (patch.mouth !== undefined) applyMouth();
 
       if (needsRebuild) {
         buildRings();

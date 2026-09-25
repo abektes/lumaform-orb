@@ -89,6 +89,35 @@ testEngineContract(ENGINE_TYPES.SUPERPOSITION, createSuperpositionEngine);
 testEngineContract(ENGINE_TYPES.SYNTHESIS, createSynthesisEngine);
 testEngineContract(ENGINE_TYPES.FERRO_TRAILS, createFerroTrailsEngine);
 
+// Vocalis's mouth, the glottal slit, can be switched off for a face-less orb.
+// It is one card, so "off" has to hide all of it: lens, rim, glow and pool.
+{
+  const mouthCard = (scene) => {
+    let card = null;
+    scene.traverse((o) => { if (o.material?.uniforms?.uLength && o.material.uniforms.uWidth) card = o; });
+    return card;
+  };
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  const params = getDefaultEngineParams(ENGINE_TYPES.VOCALIS);
+  assert.equal(params.mouth, 'on', 'the mouth is on by default');
+  const engine = createVocalisEngine({ scene, camera, renderer: mockRenderer(), params });
+  engine.update({ time: 0.1, delta: 0.016 });
+  assert.ok(mouthCard(scene)?.visible, 'the mouth shows by default');
+  engine.setParams({ mouth: 'off' });
+  engine.update({ time: 0.2, delta: 0.016 });
+  assert.equal(mouthCard(scene).visible, false, 'mouth off hides the slit');
+  engine.setParams({ mouth: 'on' });
+  assert.equal(mouthCard(scene).visible, true, 'mouth on shows it again');
+  engine.dispose();
+
+  const quiet = new THREE.Scene();
+  const faceless = createVocalisEngine({ scene: quiet, camera, renderer: mockRenderer(), params: { ...params, mouth: 'off' } });
+  assert.equal(mouthCard(quiet).visible, false, 'a config saved with the mouth off starts without it');
+  faceless.dispose();
+  console.log('PASS  vocalis mouth switches off and on');
+}
+
 // 2. Ten engine switch cycles to ensure no accumulated memory leaks
 console.log('\nTesting 10 switch cycles for memory stability...');
 const scene = new THREE.Scene();

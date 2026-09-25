@@ -66,7 +66,7 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `echorings` — Echo Rings | Signal memory | 16 |
 | `ferrotrails` — Ferro Trails | Magnetic fluid & arc trails | 18 |
 | `chromasphere` — Chromasphere | Liquid chrome | 20 |
-| `vocalis` — Vocalis | Vocal diaphragm | 19 |
+| `vocalis` — Vocalis | Vocal diaphragm | 20 |
 | `aetheria` — Aetheria | Iridescent luminescence | 14 |
 | `superposition` — Superposition | Quantum wavepacket | 14 |
 | `synthesis` — Synthesis | Harmonic fluid fusion | 15 |
