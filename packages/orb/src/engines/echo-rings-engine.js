@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 const TAU = Math.PI * 2;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -53,8 +54,9 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
   let driftPhase = 0;
   let idlePhase = 0;
 
-  const resolution = new THREE.Vector2(1, 1);
-  renderer?.getDrawingBufferSize?.(resolution);
+  // CSS pixels, as onResize gives them; the drawing buffer is larger by the
+  // pixel ratio and would halve every line on a 2× display until a resize.
+  const resolution = canvasSize(renderer);
 
   const zAxis = new THREE.Vector3(0, 0, 1);
   const ringNormal = new THREE.Vector3();

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { canvasSize } from '../core/canvas-size.js';
 import {
   advectShellPoint,
   bandLimits,
@@ -101,8 +102,9 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
   scene.add(group);
 
   const frame = { radius: currentParams.shellRadius * 1.5 };
-  const resolution = new THREE.Vector2(1, 1);
-  renderer?.getDrawingBufferSize?.(resolution);
+  // CSS pixels, as onResize gives them; the drawing buffer is larger by the
+  // pixel ratio and would halve every line on a 2× display until a resize.
+  const resolution = canvasSize(renderer);
 
   let streams = [];
   let lineMaterial = null;

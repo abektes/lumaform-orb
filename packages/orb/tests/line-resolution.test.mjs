@@ -5,8 +5,10 @@
 // a smaller container Auris and Moiré drew thinner lines — by the ratio between
 // the two — after any geometry change, and Quantum reset it every frame.
 //
-// Every engine is built into a 300×200 canvas under a 1440×900 window, rebuilt
-// by a geometry change, and stepped; every line material must still say 300×200.
+// Every engine is built into a 300×200 canvas under a 1440×900 window at a
+// pixel ratio of 2, checked as constructed (studio grid cells never receive
+// onResize), then rebuilt by a geometry change and stepped; every line
+// material must say 300×200 throughout — CSS pixels, not the drawing buffer.
 
 import * as THREE from 'three';
 import * as ENGINES from '../src/engines/index.js';
@@ -21,7 +23,12 @@ function ok(name, condition, extra = '') {
 // A window that disagrees with the canvas, so reading it cannot pass by accident.
 globalThis.window = { innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2 };
 const CANVAS = new THREE.Vector2(300, 200);
-const renderer = { getSize: (v) => v.copy(CANVAS), getPixelRatio: () => 1, info: { memory: { geometries: 0, textures: 0 } } };
+const renderer = {
+  getSize: (v) => v.copy(CANVAS),
+  getPixelRatio: () => 2,
+  getDrawingBufferSize: (v) => v.copy(CANVAS).multiplyScalar(2),
+  info: { memory: { geometries: 0, textures: 0 } },
+};
 
 // Moves every geometry param off its default, which is what makes engines rebuild.
 function geometryChange(id) {
@@ -41,22 +48,25 @@ for (const [id, factory] of Object.entries(ENGINES)) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, CANVAS.x / CANVAS.y, 0.1, 100);
   const engine = factory({ scene, camera, renderer, params: getDefaultEngineParams(id) });
-  engine.onResize?.(CANVAS.x, CANVAS.y); // what the runtime does after mounting
+  const check = (when) => {
+    const wrong = [];
+    let lines = 0;
+    scene.traverse((o) => {
+      const res = o.material?.resolution;
+      if (!o.material?.isLineMaterial || !res) return;
+      lines++;
+      if (!res.equals(CANVAS)) wrong.push(`${res.x}×${res.y}`);
+    });
+    if (lines) ok(`${id}: line resolution is the canvas ${when}`, wrong.length === 0,
+      wrong.length ? `${wrong.length}/${lines} at ${[...new Set(wrong)].join(', ')}` : `${lines} line material(s)`);
+  };
 
   engine.update(frame(0));
+  check('as constructed');
+  engine.onResize?.(CANVAS.x, CANVAS.y); // what the runtime does after mounting
   engine.setParams({ ...getDefaultEngineParams(id), ...geometryChange(id) });
   engine.update(frame(1 / 60));
-
-  const wrong = [];
-  let lines = 0;
-  scene.traverse((o) => {
-    const res = o.material?.resolution;
-    if (!o.material?.isLineMaterial || !res) return;
-    lines++;
-    if (!res.equals(CANVAS)) wrong.push(`${res.x}×${res.y}`);
-  });
-  if (lines) ok(`${id}: line resolution is the canvas after a rebuild`, wrong.length === 0,
-    wrong.length ? `${wrong.length}/${lines} at ${[...new Set(wrong)].join(', ')}` : `${lines} line material(s)`);
+  check('after a rebuild');
   engine.dispose();
 }
 
