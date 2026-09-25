@@ -36,7 +36,7 @@ npm run build
 npm test
 ```
 
-Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 51 of them, 24 covering the runtime and 27 the studio.
+Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 52 of them, 25 covering the runtime and 27 the studio.
 
 ## Stack
 
