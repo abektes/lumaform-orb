@@ -160,8 +160,8 @@ These are genuinely unresolved. If your work bears on one, say so.
 
 | Area | State |
 | --- | --- |
-| Engines | 17 registered vocabularies: analytic wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations |
-| Stateful motion | Murmuration, Curl Drift, Filament Lattice and Echo Rings carry bounded history so settle and propagation emerge from motion |
+| Engines | 23 registered vocabularies: analytic wireframes, raymarchers, physical bodies, particles, membranes, stateful simulations, and one engine with a front (Regard) |
+| Stateful motion | Murmuration, Curl Drift, Filament Lattice, Echo Rings and Regard carry bounded history so settle, propagation and hesitation emerge from motion |
 | Parameter schema | Derived from `packages/orb/src/engine-catalog.js` — drives the entire UI |
 | Parameter controls | Shared numeric rows with formatted and typed exact values, visible ranges, and one-click reset |
 | Modulation | LFO / fbm noise / envelope / live mic or test tone → parameters and tempo; Motion Lab tab |
