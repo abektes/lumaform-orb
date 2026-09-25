@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 const MAX_FRAME_DELTA = 1 / 60;
 const MAX_SUBSTEP = 1 / 120;
@@ -166,13 +167,9 @@ export function createFilamentEngine({ scene, renderer, params }) {
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  const drawingBufferSize = new THREE.Vector2();
-  if (renderer?.getDrawingBufferSize) {
-    renderer.getDrawingBufferSize(drawingBufferSize);
-    lineMaterial.resolution.copy(drawingBufferSize);
-  } else {
-    lineMaterial.resolution.set(globalThis.innerWidth ?? 1, globalThis.innerHeight ?? 1);
-  }
+  // CSS pixels, as onResize gives them; the drawing buffer is larger by the
+  // pixel ratio and would halve every line on a 2× display until a resize.
+  lineMaterial.resolution.copy(canvasSize(renderer));
 
   const nodeGeometry = new THREE.SphereGeometry(1, 10, 8);
   const nodeMaterial = new THREE.MeshBasicMaterial({
