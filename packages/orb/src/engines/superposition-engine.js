@@ -1,11 +1,26 @@
 import * as THREE from 'three';
+import { createSoftDotTexture } from '../core/soft-dot.js';
+import { densityPeak, modeIndex, sampleMeasurement } from './superposition-orbitals.js';
 
-const FRAME_RADIUS = 2.28;
-const GOLDEN_RATIO = (1 + Math.sqrt(5)) / 2;
+// A probability cloud: two orbital states held in superposition, beating as
+// their relative phase turns, and collapsing to one place on a click. Every
+// sample used to sit on one of two fixed Fibonacci shells, so whatever the
+// state the orb read as a dotted sphere with a wireframe ball inside. Samples
+// now fill the lobes, so the cloud is the orbital's shape.
+
+// Frame radius per unit of orbital scale: the default lobe reach with room for
+// the widest excursion, which is 2.25 at the default scale, as before.
+const FRAME_PER_SCALE = 1.55;
+
+// Timing of a measurement, in seconds of virtual time: a quick fall onto the
+// measured spot, a beat held there, then decoherence back into the cloud over
+// a span that collapseStrength stretches.
+const COLLAPSE_IN = 0.14;
+const COLLAPSE_HOLD = 0.12;
 
 const SUPERPOSITION_VERTEX_SHADER = /* glsl */ `
-  attribute float aShellIndex;
-  attribute float aPhaseOffset;
+  attribute float aRadial;
+  attribute float aSeed;
 
   uniform float uScale;
   uniform float uPointSize;
@@ -13,8 +28,10 @@ const SUPERPOSITION_VERTEX_SHADER = /* glsl */ `
   uniform float uCoherence;
   uniform float uWaveExcursion;
   uniform float uPhaseAngle;
+  uniform float uDensityPeak;
   uniform float uCollapse;
-  uniform int uMode; // 0: hybrid_sp, 1: d_orbital, 2: f_orbital, 3: chiral_vortex
+  uniform vec3 uCollapseDir;
+  uniform int uMode; // 0 hybrid_sp, 1 d_orbital, 2 f_orbital, 3 chiral_vortex
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform vec3 uNodalColor;
@@ -22,89 +39,70 @@ const SUPERPOSITION_VERTEX_SHADER = /* glsl */ `
 
   varying vec3 vColor;
   varying float vAlpha;
-  varying float vDensity;
+
+  // The two eigenstates, ψ1 and ψ2, with ψ2 carrying the phase. Mirrors
+  // eigenstates() in superposition-orbitals.js.
+  void eigenstates(vec3 n, out vec2 p1, out vec2 p2) {
+    float c = clamp(n.y, -0.999, 0.999);
+    float s = sqrt(max(0.0, 1.0 - c * c));
+    float phi = atan(n.z, n.x);
+    vec2 turn = vec2(cos(uPhaseAngle), sin(uPhaseAngle));
+    if (uMode == 0) {
+      float pz = c * 1.2;
+      p1 = vec2(0.6 + pz, 0.0);
+      p2 = (0.6 - pz) * turn;
+    } else if (uMode == 1) {
+      p1 = vec2((3.0 * c * c - 1.0) * 0.7, 0.0);
+      p2 = s * s * cos(2.0 * phi) * 1.1 * turn;
+    } else if (uMode == 2) {
+      p1 = vec2(c * (5.0 * c * c - 3.0) * 0.6, 0.0);
+      p2 = s * s * c * sin(2.0 * phi) * 1.5 * turn;
+    } else {
+      float ring = s * 0.9;
+      p1 = ring * vec2(cos(2.0 * phi), sin(2.0 * phi));
+      p2 = ring * vec2(cos(3.0 * phi + uPhaseAngle), sin(3.0 * phi + uPhaseAngle));
+    }
+  }
 
   void main() {
-    vec3 nPos = normalize(position);
-    float cosTheta = clamp(nPos.y, -0.999, 0.999);
-    float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
-    float phi = atan(nPos.z, nPos.x);
+    vec3 n = normalize(position);
+    vec2 p1;
+    vec2 p2;
+    eigenstates(n, p1, p2);
 
-    // Evaluate complex quantum orbital harmonics
-    vec2 psi1 = vec2(0.0);
-    vec2 psi2 = vec2(0.0);
+    // |ψ1 + ψ2|² / 4 with the interference term scaled by coherence: at 0 the
+    // two states just add and stop beating.
+    float density = max(0.0, (dot(p1, p1) + dot(p2, p2) + 2.0 * uCoherence * dot(p1, p2)) * 0.25);
+    float amp = sqrt(clamp(density / uDensityPeak, 0.0, 1.0));
 
-    if (uMode == 0) {
-      // SP Hybrid: s-orbital + p_z directional lobe
-      float s = 0.6;
-      float pz = cosTheta * 1.2;
-      psi1 = vec2(s + pz, 0.0);
-      psi2 = vec2(s - pz * cos(uPhaseAngle), -pz * sin(uPhaseAngle));
-    } else if (uMode == 1) {
-      // D-Orbital: d_{z^2} (torus collar + polar lobes) + d_{x^2-y^2} (4-leaf clover)
-      float dz2 = (3.0 * cosTheta * cosTheta - 1.0) * 0.7;
-      float dx2y2 = (sinTheta * sinTheta) * cos(2.0 * phi) * 1.1;
-      psi1 = vec2(dz2, 0.0);
-      psi2 = vec2(dx2y2 * cos(uPhaseAngle), dx2y2 * sin(uPhaseAngle));
-    } else if (uMode == 2) {
-      // F-Orbital: cubic octupole 8-lobed symmetry
-      float f1 = cosTheta * (5.0 * cosTheta * cosTheta - 3.0) * 0.6;
-      float f2 = (sinTheta * sinTheta * cosTheta) * sin(2.0 * phi) * 1.5;
-      psi1 = vec2(f1, 0.0);
-      psi2 = vec2(f2 * cos(uPhaseAngle), f2 * sin(uPhaseAngle));
-    } else {
-      // Chiral vortex: azimuthal angular momentum winding
-      float ring = sinTheta * 0.9;
-      psi1 = vec2(ring * cos(2.0 * phi), ring * sin(2.0 * phi));
-      psi2 = vec2(ring * cos(3.0 * phi + uPhaseAngle), ring * sin(3.0 * phi + uPhaseAngle));
-    }
+    // How far the cloud reaches in this direction. The cube root spreads the
+    // samples evenly through that volume, so a lobe reads as a filled body.
+    float reach = uScale * (0.25 + amp * (0.75 + 0.8 * uWaveExcursion));
+    vec3 pos = n * reach * (0.2 + 0.8 * pow(aRadial, 0.3333));
 
-    // Coherent superposition state
-    vec2 psi = mix(psi1, psi2, 0.5);
+    // A measurement draws every sample onto the spot it found.
+    vec3 scatter = vec3(fract(aSeed * 17.13), fract(aSeed * 31.71), fract(aSeed * 47.37)) - 0.5;
+    vec3 spot = uCollapseDir * uScale * (0.9 + 0.35 * uWaveExcursion) + scatter * uScale * 0.35 * pow(aRadial, 0.3333);
+    pos = mix(pos, spot, uCollapse);
 
-    // Wavefunction collapse: concentrates onto positive detector lobe
-    if (uCollapse > 0.0) {
-      float detector = max(0.0, nPos.y);
-      float collapsed = pow(detector, 4.0) * 2.5;
-      psi = mix(psi, vec2(collapsed, 0.0), uCollapse * 0.9);
-    }
-
-    // Probability density |Psi|^2
-    float density = dot(psi, psi);
-    vDensity = density;
-
-    // Complex phase angle arg(Psi)
-    float phase = atan(psi.y, psi.x); // [-pi, pi]
-    float phaseNorm = phase / 3.14159265;
-
-    // Structured orbital deformation: surface expands into physical probability lobes!
-    float baseR = 1.0 + aShellIndex * 0.35;
-    float lobeDisplacement = sqrt(density) * uWaveExcursion * 0.9;
-    vec3 displaced = nPos * (baseR + lobeDisplacement) * uScale;
-
-    vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
+    float depthScale = clamp(8.0 / max(0.5, -mvPosition.z), 0.6, 2.2);
+    gl_PointSize = max(1.0, uPointSize * uPixelRatio * depthScale * (0.7 + 0.9 * amp));
 
-    // Point size scaled by probability density
-    float depthScale = clamp(8.0 / max(0.5, -mvPosition.z), 0.6, 2.5);
-    float pointFactor = clamp(density * 1.6 + 0.4, 0.5, 3.2);
-    gl_PointSize = max(1.0, uPointSize * uPixelRatio * depthScale * pointFactor);
+    // Colour by the sign of the wave, as orbital plots do: arg 0 is one colour,
+    // π the other. The cosine keeps the blend seamless all the way round.
+    vec2 psi = p1 + p2;
+    float sign = 0.5 - 0.5 * cos(atan(psi.y, psi.x));
+    vec3 color = mix(uColorA, uColorB, sign);
+    color = mix(color, uNodalColor, smoothstep(0.75, 1.0, amp) * 0.6);
+    color = mix(color, uNodalColor, uCollapse * 0.5);
+    vColor = color * uGlowIntensity;
 
-    // Color gradient mapped to quantum phase
-    float phaseT = clamp(phaseNorm * 0.5 + 0.5, 0.0, 1.0);
-    vec3 phaseColor = mix(uColorA, uColorB, phaseT);
-
-    // Nodal sparkle at highest probability peaks
-    float peakGlow = smoothstep(0.8, 2.2, density);
-    vec3 finalColor = mix(phaseColor, uNodalColor, peakGlow);
-
-    // Flash on collapse
-    finalColor = mix(finalColor, vec3(1.0, 1.0, 1.0), uCollapse * 0.6);
-
-    vColor = finalColor * uGlowIntensity;
-
-    float nearMix = 1.0 - smoothstep(2.5, 8.5, -mvPosition.z);
-    vAlpha = clamp(0.35 + density * 0.8, 0.2, 0.95) * mix(0.55, 1.0, nearMix);
+    // Nodes are empty and lobes full. The shimmer rides the phase, so it stops
+    // with everything else when the orb is paused.
+    float shimmer = 0.8 + 0.2 * sin(uPhaseAngle * 2.0 + aSeed * 6.2831853);
+    vAlpha = mix(pow(amp, 1.2), 1.0, uCollapse) * shimmer;
   }
 `;
 
@@ -113,7 +111,6 @@ const SUPERPOSITION_FRAGMENT_SHADER = /* glsl */ `
 
   varying vec3 vColor;
   varying float vAlpha;
-  varying float vDensity;
 
   void main() {
     vec2 coord = gl_PointCoord - vec2(0.5);
@@ -128,6 +125,23 @@ const SUPERPOSITION_FRAGMENT_SHADER = /* glsl */ `
     gl_FragColor = vec4(light, alpha);
   }
 `;
+
+// Samples are placed from a fixed seed, so a rebuild or a grid cell with the
+// same settings shows the same cloud.
+function seededRandom(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const smoothstep = (edge0, edge1, x) => {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
 
 export function createSuperpositionEngine({ scene, renderer, params }) {
   const currentParams = {
@@ -151,26 +165,28 @@ export function createSuperpositionEngine({ scene, renderer, params }) {
   const group = new THREE.Group();
   scene.add(group);
 
+  const frame = { radius: (Number(currentParams.orbitalScale) || 1.45) * FRAME_PER_SCALE };
+  const glowTexture = createSoftDotTexture();
+
   let points = null;
   let pointsGeometry = null;
   let pointsMaterial = null;
   let nucleus = null;
-  let nucleusGeometry = null;
   let nucleusMaterial = null;
 
   let phaseAngle = 0;
-  let collapseTimer = 0;
+  let breathPhase = 0;
+  // A measurement in progress: seconds since the click, and how hard it pulls.
+  let collapseAge = Infinity;
+  let collapsePull = 0;
+  const collapseDir = new THREE.Vector3(0, 1, 0);
 
   const colorA = new THREE.Color(currentParams.psiColorA);
   const colorB = new THREE.Color(currentParams.psiColorB);
   const nodalRGB = new THREE.Color(currentParams.nodalColor);
 
-  function getModeIndex(modeStr) {
-    if (modeStr === 'hybrid_sp') return 0;
-    if (modeStr === 'd_orbital') return 1;
-    if (modeStr === 'f_orbital') return 2;
-    if (modeStr === 'chiral_vortex') return 3;
-    return 1;
+  function currentMode() {
+    return modeIndex(currentParams.stateMode);
   }
 
   function buildOrbital() {
@@ -182,40 +198,30 @@ export function createSuperpositionEngine({ scene, renderer, params }) {
     }
     if (nucleus) {
       group.remove(nucleus);
-      nucleusGeometry.dispose();
       nucleusMaterial.dispose();
       nucleus = null;
     }
 
     const count = parseInt(currentParams.sampleDensity, 10) || 6144;
-    const positions = new Float32Array(count * 3);
-    const shellIndices = new Float32Array(count);
-    const phaseOffsets = new Float32Array(count);
-
-    // Two nested coherent shells structured on Fibonacci spheres
-    const halfCount = Math.floor(count / 2);
+    const directions = new Float32Array(count * 3);
+    const radials = new Float32Array(count);
+    const seeds = new Float32Array(count);
+    const random = seededRandom(0x5eed);
     for (let i = 0; i < count; i++) {
-      const shell = i < halfCount ? 0 : 1;
-      const idx = shell === 0 ? i : i - halfCount;
-      const total = shell === 0 ? halfCount : count - halfCount;
-
-      const theta = 2 * Math.PI * idx / GOLDEN_RATIO;
-      const phi = Math.acos(1 - 2 * (idx + 0.5) / total);
-
-      positions[i * 3] = Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = Math.cos(phi);
-      positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta);
-
-      shellIndices[i] = shell;
-      phaseOffsets[i] = (idx / total) * Math.PI * 2.0;
+      const y = random() * 2 - 1;
+      const a = random() * Math.PI * 2;
+      const r = Math.sqrt(1 - y * y);
+      directions[i * 3] = r * Math.cos(a);
+      directions[i * 3 + 1] = y;
+      directions[i * 3 + 2] = r * Math.sin(a);
+      radials[i] = random();
+      seeds[i] = random();
     }
 
     pointsGeometry = new THREE.BufferGeometry();
-    pointsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    pointsGeometry.setAttribute('aShellIndex', new THREE.BufferAttribute(shellIndices, 1));
-    pointsGeometry.setAttribute('aPhaseOffset', new THREE.BufferAttribute(phaseOffsets, 1));
-
-    const pixelRatio = renderer?.getPixelRatio ? renderer.getPixelRatio() : 1.0;
+    pointsGeometry.setAttribute('position', new THREE.BufferAttribute(directions, 3));
+    pointsGeometry.setAttribute('aRadial', new THREE.BufferAttribute(radials, 1));
+    pointsGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 
     pointsMaterial = new THREE.ShaderMaterial({
       vertexShader: SUPERPOSITION_VERTEX_SHADER,
@@ -223,12 +229,14 @@ export function createSuperpositionEngine({ scene, renderer, params }) {
       uniforms: {
         uScale: { value: Number(currentParams.orbitalScale) || 1.45 },
         uPointSize: { value: Number(currentParams.pointSize) || 2.8 },
-        uPixelRatio: { value: pixelRatio },
-        uCoherence: { value: Number(currentParams.coherence) || 0.85 },
+        uPixelRatio: { value: renderer?.getPixelRatio ? renderer.getPixelRatio() : 1 },
+        uCoherence: { value: Number(currentParams.coherence) },
         uWaveExcursion: { value: Number(currentParams.waveExcursion) || 0.45 },
-        uPhaseAngle: { value: 0.0 },
-        uCollapse: { value: 0.0 },
-        uMode: { value: getModeIndex(currentParams.stateMode) },
+        uPhaseAngle: { value: phaseAngle },
+        uDensityPeak: { value: densityPeak(currentMode()) },
+        uCollapse: { value: 0 },
+        uCollapseDir: { value: collapseDir },
+        uMode: { value: currentMode() },
         uColorA: { value: colorA },
         uColorB: { value: colorB },
         uNodalColor: { value: nodalRGB },
@@ -240,110 +248,103 @@ export function createSuperpositionEngine({ scene, renderer, params }) {
     });
 
     points = new THREE.Points(pointsGeometry, pointsMaterial);
+    // The geometry holds unit directions; the shader moves them out to the
+    // lobes, so the bounding sphere three.js computes would be wrong.
+    points.frustumCulled = false;
     group.add(points);
 
-    // Glowing quantum nucleus at origin
-    const nucleusR = Number(currentParams.nucleusRadius) || 0.38;
-    nucleusGeometry = new THREE.IcosahedronGeometry(nucleusR, 2);
-    nucleusMaterial = new THREE.MeshBasicMaterial({
+    // The nucleus is a soft glow, not a mesh: the cloud is the subject.
+    nucleusMaterial = new THREE.SpriteMaterial({
+      map: glowTexture,
       color: nodalRGB,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.5,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      wireframe: true,
     });
-    nucleus = new THREE.Mesh(nucleusGeometry, nucleusMaterial);
+    nucleus = new THREE.Sprite(nucleusMaterial);
     group.add(nucleus);
   }
 
   buildOrbital();
 
   return {
-    frame: { radius: FRAME_RADIUS },
+    frame,
 
     update({ time, delta }) {
-      const dt = Math.min(delta || 0, 1 / 30);
-      const rate = Number(currentParams.phaseRate) || 1.1;
-      phaseAngle += dt * rate * 2.6;
+      const dt = Math.min(Math.max(0, delta || 0), 1 / 30);
+      phaseAngle = (phaseAngle + dt * (Number(currentParams.phaseRate) || 1.1) * 2.6) % (Math.PI * 2);
+      breathPhase = (breathPhase + dt * 1.8) % (Math.PI * 2);
 
-      if (collapseTimer > 0) {
-        collapseTimer = Math.max(0, collapseTimer - dt * 1.8);
+      let collapse = 0;
+      if (collapseAge < Infinity) {
+        collapseAge += dt;
+        const out = 0.35 + 0.55 * (Number(currentParams.collapseStrength) || 1.4);
+        const release = COLLAPSE_IN + COLLAPSE_HOLD;
+        collapse = collapsePull * smoothstep(0, COLLAPSE_IN, collapseAge) * (1 - smoothstep(release, release + out, collapseAge));
+        if (collapseAge > release + out) collapseAge = Infinity;
       }
 
-      // Precession & rotation
+      // Precession of the whole cloud.
       group.rotation.y = time * 0.16;
       group.rotation.z = Math.sin(time * 0.1) * 0.15;
 
-      const breathe = 1.0 + Math.sin(time * 1.8) * (Number(currentParams.breatheAmp) || 0.04);
-
       if (pointsMaterial) {
         pointsMaterial.uniforms.uPhaseAngle.value = phaseAngle;
-        pointsMaterial.uniforms.uCollapse.value = collapseTimer;
+        pointsMaterial.uniforms.uCollapse.value = collapse;
       }
 
       if (nucleus) {
-        nucleus.rotation.x = -time * 0.4;
-        nucleus.rotation.y = time * 0.6;
-        const nScale = breathe * (1.0 + collapseTimer * 0.3);
-        nucleus.scale.set(nScale, nScale, nScale);
+        const breathe = 1 + Math.sin(breathPhase) * (Number(currentParams.breatheAmp) || 0.04);
+        // Sized so the bright part of the soft falloff matches nucleusRadius;
+        // bloom widens it further.
+        const size = (Number(currentParams.nucleusRadius) || 0.38) * 1.6 * breathe;
+        nucleus.scale.set(size, size, 1);
+        // The cloud leaves the nucleus when it collapses onto the measured spot.
+        nucleusMaterial.opacity = 0.5 * (1 - collapse * 0.6);
       }
     },
 
     setParams(patch) {
       let needsRebuild = false;
-      if (patch.sampleDensity !== undefined && patch.sampleDensity !== currentParams.sampleDensity) {
-        currentParams.sampleDensity = patch.sampleDensity;
-        needsRebuild = true;
-      }
-      if (patch.orbitalScale !== undefined && patch.orbitalScale !== currentParams.orbitalScale) {
-        currentParams.orbitalScale = patch.orbitalScale;
-        if (pointsMaterial) pointsMaterial.uniforms.uScale.value = patch.orbitalScale;
-      }
-      if (patch.nucleusRadius !== undefined && patch.nucleusRadius !== currentParams.nucleusRadius) {
-        currentParams.nucleusRadius = patch.nucleusRadius;
-        needsRebuild = true;
-      }
-      if (patch.stateMode !== undefined && patch.stateMode !== currentParams.stateMode) {
-        currentParams.stateMode = patch.stateMode;
-        if (pointsMaterial) pointsMaterial.uniforms.uMode.value = getModeIndex(patch.stateMode);
-      }
+      if (patch.sampleDensity !== undefined && patch.sampleDensity !== currentParams.sampleDensity) needsRebuild = true;
 
       Object.assign(currentParams, patch);
 
-      if (pointsMaterial) {
-        if (patch.pointSize !== undefined) pointsMaterial.uniforms.uPointSize.value = patch.pointSize;
-        if (patch.coherence !== undefined) pointsMaterial.uniforms.uCoherence.value = patch.coherence;
-        if (patch.waveExcursion !== undefined) pointsMaterial.uniforms.uWaveExcursion.value = patch.waveExcursion;
-        if (patch.glowIntensity !== undefined) pointsMaterial.uniforms.uGlowIntensity.value = patch.glowIntensity;
-        if (patch.psiColorA !== undefined) {
-          colorA.set(patch.psiColorA);
-          pointsMaterial.uniforms.uColorA.value = colorA;
-        }
-        if (patch.psiColorB !== undefined) {
-          colorB.set(patch.psiColorB);
-          pointsMaterial.uniforms.uColorB.value = colorB;
-        }
-        if (patch.nodalColor !== undefined) {
-          nodalRGB.set(patch.nodalColor);
-          pointsMaterial.uniforms.uNodalColor.value = nodalRGB;
-        }
+      if (patch.orbitalScale !== undefined) {
+        frame.radius = (Number(currentParams.orbitalScale) || 1.45) * FRAME_PER_SCALE;
       }
-
-      if (patch.nodalColor !== undefined && nucleusMaterial) {
-        nucleusMaterial.color = nodalRGB;
-      }
+      if (patch.nodalColor !== undefined) nodalRGB.set(patch.nodalColor);
+      if (patch.psiColorA !== undefined) colorA.set(patch.psiColorA);
+      if (patch.psiColorB !== undefined) colorB.set(patch.psiColorB);
 
       if (needsRebuild) {
         buildOrbital();
+        return;
       }
+      if (!pointsMaterial) return;
+      const u = pointsMaterial.uniforms;
+      if (patch.orbitalScale !== undefined) u.uScale.value = Number(patch.orbitalScale) || 1.45;
+      if (patch.stateMode !== undefined) {
+        u.uMode.value = currentMode();
+        u.uDensityPeak.value = densityPeak(currentMode());
+      }
+      if (patch.pointSize !== undefined) u.uPointSize.value = Number(patch.pointSize);
+      if (patch.coherence !== undefined) u.uCoherence.value = Number(patch.coherence);
+      if (patch.waveExcursion !== undefined) u.uWaveExcursion.value = Number(patch.waveExcursion);
+      if (patch.glowIntensity !== undefined) u.uGlowIntensity.value = Number(patch.glowIntensity);
     },
 
+    // A click measures the state: the cloud falls onto one place, chosen with
+    // the probabilities the cloud shows, and then decoheres back out.
     onPulse() {
-      collapseTimer = Number(currentParams.collapseStrength) || 1.4;
+      const [x, y, z] = sampleMeasurement(currentMode(), phaseAngle, Number(currentParams.coherence));
+      collapseDir.set(x, y, z);
+      collapsePull = Math.min(1, 0.55 + 0.25 * (Number(currentParams.collapseStrength) || 1.4));
+      collapseAge = 0;
     },
 
-    onResize(width, height) {
+    onResize() {
       if (pointsMaterial && renderer?.getPixelRatio) {
         pointsMaterial.uniforms.uPixelRatio.value = renderer.getPixelRatio();
       }
@@ -351,16 +352,10 @@ export function createSuperpositionEngine({ scene, renderer, params }) {
 
     dispose() {
       scene.remove(group);
-      if (points) {
-        group.remove(points);
-        pointsGeometry?.dispose();
-        pointsMaterial?.dispose();
-      }
-      if (nucleus) {
-        group.remove(nucleus);
-        nucleusGeometry?.dispose();
-        nucleusMaterial?.dispose();
-      }
+      pointsGeometry?.dispose();
+      pointsMaterial?.dispose();
+      nucleusMaterial?.dispose();
+      glowTexture.dispose();
     },
   };
 }
