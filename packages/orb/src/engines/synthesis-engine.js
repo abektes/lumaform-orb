@@ -2,9 +2,14 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { createSoftDotTexture } from '../core/soft-dot.js';
 
 const FRAME_RADIUS = 2.30;
 const FILAMENT_SEGMENTS = 24;
+// World units, as PointsMaterial reads `size` with its default attenuation. It
+// was 2.4, written as if pixels, and each mote drew as a ~160 px square that
+// buried the cores; point-size.test.mjs measures it against the orb.
+const STARDUST_SIZE = 0.08;
 
 const CORE_VERTEX_SHADER = /* glsl */ `
   uniform float uRadius;
@@ -103,6 +108,8 @@ export function createSynthesisEngine({ scene, camera, renderer, params }) {
   let stardustGeom = null;
   let stardustMat = null;
   let stardustVelocities = null;
+  // Outlives rebuilds: a density change replaces the material, not the sprite.
+  const dotTexture = createSoftDotTexture();
 
   let atmosphere = null;
   let atmosphereGeom = null;
@@ -257,7 +264,8 @@ export function createSynthesisEngine({ scene, camera, renderer, params }) {
     stardustGeom.setAttribute('color', new THREE.BufferAttribute(dustColors, 3));
 
     stardustMat = new THREE.PointsMaterial({
-      size: 2.4,
+      size: STARDUST_SIZE,
+      map: dotTexture,
       vertexColors: true,
       transparent: true,
       opacity: 0.75,
@@ -455,6 +463,7 @@ export function createSynthesisEngine({ scene, camera, renderer, params }) {
         stardustMat?.dispose();
         stardust = null;
       }
+      dotTexture.dispose();
       if (atmosphere) {
         group.remove(atmosphere);
         atmosphereGeom?.dispose();

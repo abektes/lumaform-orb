@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { createSoftDotTexture } from '../core/soft-dot.js';
 
 const FRAME_RADIUS = 2.30;
 
@@ -190,24 +191,12 @@ const FERRO_FRAGMENT_SHADER = /* glsl */ `
 `;
 
 // Circular particle texture helper (guarded for Node.js test environment)
-function createCircleTexture() {
-  if (typeof document === 'undefined') return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = 64;
-  canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-  gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.8)');
-  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.2)');
-  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 64, 64);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.generateMipmaps = false;
-  return texture;
-}
+// World units, as PointsMaterial reads `size` with its default attenuation.
+// These were 7 (pulsing to 12) and 4.5 as if they were pixels, which drew each
+// head wider than the whole orb; point-size.test.mjs measures them against it.
+const HEAD_SIZE = 0.16;
+const HEAD_PULSE = 0.12;
+const MOTE_SIZE = 0.1;
 
 export function createFerroTrailsEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -308,7 +297,7 @@ export function createFerroTrailsEngine({ scene, camera, renderer, params }) {
     const size = renderer?.getSize ? renderer.getSize(new THREE.Vector2()) : new THREE.Vector2(1024, 768);
 
     if (!circleTexture) {
-      circleTexture = createCircleTexture();
+      circleTexture = createSoftDotTexture();
     }
 
     // 2. Build Ferrofluid Ellipsoid
@@ -411,12 +400,12 @@ export function createFerroTrailsEngine({ scene, camera, renderer, params }) {
     headsGeometry.setAttribute('position', new THREE.BufferAttribute(headPositions, 3));
     const headsMatOptions = {
       color: colorTrail1RGB,
-      size: 7.0,
+      size: HEAD_SIZE,
+      map: circleTexture,
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     };
-    if (circleTexture) headsMatOptions.map = circleTexture;
     headsMaterial = new THREE.PointsMaterial(headsMatOptions);
     headsPoints = new THREE.Points(headsGeometry, headsMaterial);
     group.add(headsPoints);
@@ -437,13 +426,13 @@ export function createFerroTrailsEngine({ scene, camera, renderer, params }) {
     motesGeometry.setAttribute('position', new THREE.BufferAttribute(motesPositions, 3));
     const motesMatOptions = {
       color: colorCrestRGB,
-      size: 4.5,
+      size: MOTE_SIZE,
+      map: circleTexture,
       transparent: true,
       opacity: 0.65,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     };
-    if (circleTexture) motesMatOptions.map = circleTexture;
     motesMaterial = new THREE.PointsMaterial(motesMatOptions);
     motesPoints = new THREE.Points(motesGeometry, motesMaterial);
     group.add(motesPoints);
@@ -530,7 +519,7 @@ export function createFerroTrailsEngine({ scene, camera, renderer, params }) {
 
       // Pulse head particle size
       if (headsMaterial) {
-        headsMaterial.size = 7.0 + pulseNormalized * 5.0;
+        headsMaterial.size = HEAD_SIZE + pulseNormalized * HEAD_PULSE;
       }
 
       // Update magnetic motes

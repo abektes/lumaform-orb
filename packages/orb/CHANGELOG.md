@@ -30,6 +30,7 @@ The first published version. Everything below is new.
 
 - The background colour reaches the screen exactly as specified, independent of exposure and tone mapping. The scene is composited over it after tone mapping.
 - A transparent background is truly transparent even with bloom on, and additive glow adds light over the host page without darkening it.
+- Engines size themselves from the orb's own canvas, never the browser window, so an orb in a small container draws its lines and particles at the width they were designed at.
 
 ### Requirements
 
