@@ -86,7 +86,7 @@ orb.setAudioSource(mySpeechAnalyser);
 
 ## Status
 
-Pre-release. `OrbRuntime` is exported as a real escape hatch but is the widest part of the surface and may move behind a subpath before `0.1.0`. Anything under `/internal` may change in a minor.
+Pre-release: `0.1.0` is prepared but not yet published. What it contains is in [CHANGELOG.md](CHANGELOG.md). `OrbRuntime` stays on the root export as the escape hatch for hosts that drive their own loop; `createOrb` is the path for everyone else. Before 1.0 a minor release may break the API, and anything under `/internal` may change in any release.
 
 Known limitation: a handful of engines still pass an unbounded `time` to a float32 uniform, which quantises motion over multi-day sessions. The periodic terms are fixed by phase accumulation; the remaining cases are aperiodic noise domains that need tileable noise. See `src/core/phase.js`.
 
