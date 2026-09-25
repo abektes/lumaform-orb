@@ -24,7 +24,7 @@ import { ENGINE_PARAM_DEFINITIONS } from '../engine-catalog.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { cameraDistanceForRadius, engineFrameRadius } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
-import { resolveRuntimeOptions } from './runtime-options.js';
+import { resolveRuntimeOptions, resolvePixelRatio } from './runtime-options.js';
 import { createBackgroundPass, preserveBloomAlpha, lightCarriesNoCoverage } from './background-pass.js';
 
 export class OrbRuntime {
@@ -54,6 +54,8 @@ export class OrbRuntime {
       preserveDrawingBuffer,
       powerPreference: 'high-performance',
     });
+    // Before setSize, which sizes the drawing buffer by it.
+    this.renderer.setPixelRatio(resolvePixelRatio(options.pixelRatio, globalThis.devicePixelRatio));
     this.renderer.setSize(width, height);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;

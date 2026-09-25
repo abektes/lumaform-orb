@@ -72,6 +72,11 @@ export interface RuntimeOptions {
   enableZoom?: boolean;
   /** Needed only to read pixels back with toDataURL. Costs memory every frame. */
   preserveDrawingBuffer?: boolean;
+  /**
+   * Render density. Defaults to the device's `devicePixelRatio`, capped at 2.
+   * A config file never sets it: `dpr` in a file's `global` is ignored.
+   */
+  pixelRatio?: number;
   audioSource?: AudioSource | null;
 }
 

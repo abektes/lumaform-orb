@@ -9,6 +9,10 @@
 // want is probably missing from the root export. Say so rather than depending
 // on this path.
 
+// Which global settings a config file carries. The studio's export writes
+// through this so it cannot disagree with what readConfig keeps.
+export { lookGlobal, SESSION_GLOBAL_KEYS } from '../core/config-io.js';
+
 // Dispatches the optional lifecycle methods an engine factory may return.
 export { notifyParams, notifyPulse, notifyResize } from '../core/engine-notify.js';
 

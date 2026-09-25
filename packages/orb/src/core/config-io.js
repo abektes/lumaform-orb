@@ -154,6 +154,20 @@ export function sanitizeParams(params, defs) {
   return { params: out, dropped };
 }
 
+// Global settings that describe the session a file was exported from, not the
+// look. `dpr` is the render quality the author picked for their own screen;
+// `paused` is whether they had stopped the orb to inspect it. Played back, the
+// first forced one person's choice onto every viewer's device and the second
+// shipped a frozen orb. Reading drops them and the studio no longer writes them.
+export const SESSION_GLOBAL_KEYS = Object.freeze(['dpr', 'paused']);
+
+export function lookGlobal(global) {
+  if (!isPlainObject(global)) return null;
+  const out = { ...global };
+  for (const key of SESSION_GLOBAL_KEYS) delete out[key];
+  return out;
+}
+
 // Writes in place into the store-owned containers. Callers pass store.state.
 // Reads a parsed config into a playback record. Pure: it returns what the file
 // asked for and touches nothing.
@@ -175,7 +189,7 @@ export function readConfig(config, defs) {
   return {
     engine: config.engine,
     params,
-    global: isPlainObject(config.global) ? { ...config.global } : null,
+    global: isPlainObject(config.global) ? lookGlobal(config.global) : null,
     // Detached, so a later edit to the parsed file cannot reach into whatever
     // the caller installs this in.
     modulation: isPlainObject(config.modulation) ? structuredClone(config.modulation) : null,

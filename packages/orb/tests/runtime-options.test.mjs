@@ -6,7 +6,7 @@
 // responded to drag. The package's own design doc said "OrbitControls: off by
 // default" while the constructor turned them on, which is the shape of the
 // problem: nobody reads a constructor, everybody reads a default.
-import { EMBED_DEFAULTS, resolveRuntimeOptions } from '../src/core/runtime-options.js';
+import { EMBED_DEFAULTS, resolveRuntimeOptions, resolvePixelRatio } from '../src/core/runtime-options.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -60,6 +60,20 @@ ok('explicit false is honoured over a true default',
   const r = resolveRuntimeOptions({ nonsense: true });
   ok('unknown keys are dropped', r.nonsense === undefined, Object.keys(r).join(','));
 }
+
+// --- pixel ratio ---
+//
+// The renderer was left at three.js's default of 1 unless a config carried the
+// studio's `dpr`, so an embed rendered soft on every high-density screen, or at
+// whatever density the file's author happened to pick.
+
+ok('pixel ratio follows the device', resolvePixelRatio(undefined, 1.5) === 1.5);
+ok('pixel ratio is capped at 2 by default', resolvePixelRatio(undefined, 3) === 2, String(resolvePixelRatio(undefined, 3)));
+ok('a low-density device stays at its ratio', resolvePixelRatio(undefined, 1) === 1);
+ok('an unknown device ratio reads as 1', resolvePixelRatio(undefined, undefined) === 1);
+ok('a nonsense device ratio reads as 1', resolvePixelRatio(undefined, 0) === 1 && resolvePixelRatio(undefined, NaN) === 1);
+ok('an explicit pixelRatio wins, cap included', resolvePixelRatio(3, 1) === 3);
+ok('an invalid explicit pixelRatio falls back to the device', resolvePixelRatio(-1, 1.5) === 1.5 && resolvePixelRatio('2', 1.5) === 1.5);
 
 console.log(failures ? `\n${failures} failure(s)` : '\nall passed');
 process.exit(failures ? 1 : 0);
