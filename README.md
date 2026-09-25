@@ -247,6 +247,8 @@ It has to be a service variable rather than a `railpack.json` entry — Railpack
 
 This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips and it carries a `version` field, but it has no stability guarantee, and it will be redesigned around named states once exploration has actually produced a vocabulary. Don't build anything on its shape yet — the version field exists so that redesign can migrate your files rather than break them, not to promise the shape will hold. See [docs/VISION.md](docs/VISION.md) §6.
 
+The runtime, `@lumaform/orb`, has its first version prepared: [packages/orb/CHANGELOG.md](packages/orb/CHANGELOG.md) lists what `0.1.0` contains, and [docs/RELEASING.md](docs/RELEASING.md) is the checklist for publishing it.
+
 ## Privacy
 
 No backend, no accounts, no telemetry by default. Configurations, findings and custom presets live in `localStorage` on your machine. Microphone audio never leaves the page. Analytics load only when `VITE_GA_ID` is set at build time — unset in this repository, so a clone or fork makes no analytics requests at all. See [.env.example](.env.example) and [SECURITY.md](SECURITY.md).

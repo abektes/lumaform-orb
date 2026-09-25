@@ -1,6 +1,6 @@
 {
   "name": "@lumaform/orb",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "WebGL runtime for ambient, reactive AI-assistant orbs: 23 shader engines, a modulation rack, and a versioned config format.",
   "keywords": [
@@ -39,7 +39,8 @@
     "src",
     "index.d.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "engines": {
