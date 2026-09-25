@@ -13,7 +13,7 @@ Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the
 
 It is **not** a component library and not (yet) a design system. It is an instrument for finding out what's possible.
 
-The repo is two workspaces. `packages/orb` holds the runtime — engines, catalog, modulation, framing, config I/O and the frame loop. `packages/studio` holds the instrument built on it. That split is a consequence of §6, not a departure from §3: the runtime exists so a finding can be played back, and its config format is versioned precisely so specifying it stays reversible. It is unpublished and its API is not stable.
+The repo is two workspaces. `packages/orb` holds the runtime — engines, catalog, modulation, framing, config I/O and the frame loop. `packages/studio` holds the instrument built on it. That split is a consequence of §6, not a departure from §3: the runtime exists so a finding can be played back, and its config format is versioned precisely so specifying it stays reversible. It is published as `@lumaform/orb`, pre-1.0, and its API is not stable.
 
 ## 2. The question we are trying to answer
 

@@ -2,9 +2,11 @@
 
 The runtime behind [Lumaform Orb](https://github.com/abektes/lumaform-orb): twenty-three WebGL shader engines for ambient, reactive assistant orbs, a modulation rack that drives their parameters, and a versioned config format that round-trips a look between the studio and your app.
 
-> **Not yet published.** This package is `private` while its API settles. The surface documented here is the one the studio already uses; see [Status](#status).
+```bash
+npm install @lumaform/orb three
+```
 
-Requires [three](https://threejs.org) as a peer, a browser with WebGL2, and Node 20+ to build.
+Requires [three](https://threejs.org) as a peer, a browser with WebGL2, and Node 20+ to build. Pre-1.0, so a minor release may break the API; see [Status](#status).
 
 ## Quick start
 
@@ -86,7 +88,7 @@ orb.setAudioSource(mySpeechAnalyser);
 
 ## Status
 
-Pre-release: `0.1.0` is prepared but not yet published. What it contains is in [CHANGELOG.md](CHANGELOG.md). `OrbRuntime` stays on the root export as the escape hatch for hosts that drive their own loop; `createOrb` is the path for everyone else. Before 1.0 a minor release may break the API, and anything under `/internal` may change in any release.
+`0.1.0` is the first published version. What each version contains is in [CHANGELOG.md](CHANGELOG.md). `OrbRuntime` stays on the root export as the escape hatch for hosts that drive their own loop; `createOrb` is the path for everyone else. Before 1.0 a minor release may break the API, and anything under `/internal` may change in any release.
 
 Known limitation: a handful of engines still pass an unbounded `time` to a float32 uniform, which quantises motion over multi-day sessions. The periodic terms are fixed by phase accumulation; the remaining cases are aperiodic noise domains that need tileable noise. See `src/core/phase.js`.
 

@@ -2,7 +2,9 @@
 
 All notable changes to `@lumaform/orb` are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package follows [Semantic Versioning](https://semver.org/) with the usual pre-1.0 rule: **a minor release may break the API**; a patch release will not. `@lumaform/orb/internal` is outside semver entirely, as its header says.
 
-## [0.1.0] - Unreleased
+## [Unreleased]
+
+## [0.1.0] - 2026-09-25
 
 The first published version. Everything below is new.
 
@@ -40,4 +42,5 @@ The first published version. Everything below is new.
 
 - Three engines still feed raw, unbounded time into some shader terms (`singularity`'s Keplerian disk shear, the noise drift in `aqueous` and `nebula`). After many hours of continuous running, float32 precision makes that part of the motion step instead of flowing. Fixing it needs tileable noise; see `src/core/phase.js`.
 
+[Unreleased]: https://github.com/abektes/lumaform-orb/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.1.0
