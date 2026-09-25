@@ -4,7 +4,7 @@ A WebGL exploration tool for designing animated AI-assistant orbs — the kind o
 
 It is **not** a component library and not a design system. It is an instrument for finding out what is possible.
 
-The repo is two workspaces: `packages/studio` is that instrument, and `packages/orb` is the runtime it renders through. The runtime is not published yet and its API is not stable — see [Status](#status).
+The repo is two workspaces: `packages/studio` is that instrument, and `packages/orb` is the runtime it renders through. The runtime is published on npm as [`@lumaform/orb`](https://www.npmjs.com/package/@lumaform/orb); it is pre-1.0, so its API may still change — see [Status](#status).
 
 ---
 
@@ -116,9 +116,12 @@ Motion Lab → **Mic** (or **Test Tone** if you just want to see it work). Enabl
 
 ## Using the runtime in your own app
 
-The studio is one consumer of `@lumaform/orb`; your app can be another. The
-package is not published yet — see [Status](#status) — but the API it will
-publish is the one the studio already uses.
+The studio is one consumer of `@lumaform/orb`; your app can be another, through
+the same API the studio uses.
+
+```bash
+npm install @lumaform/orb three
+```
 
 ```js
 import { createOrb } from '@lumaform/orb';
@@ -247,7 +250,7 @@ It has to be a service variable rather than a `railpack.json` entry — Railpack
 
 This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips and it carries a `version` field, but it has no stability guarantee, and it will be redesigned around named states once exploration has actually produced a vocabulary. Don't build anything on its shape yet — the version field exists so that redesign can migrate your files rather than break them, not to promise the shape will hold. See [docs/VISION.md](docs/VISION.md) §6.
 
-The runtime, `@lumaform/orb`, has its first version prepared: [packages/orb/CHANGELOG.md](packages/orb/CHANGELOG.md) lists what `0.1.0` contains, and [docs/RELEASING.md](docs/RELEASING.md) is the checklist for publishing it.
+The runtime, [`@lumaform/orb`](https://www.npmjs.com/package/@lumaform/orb), is published on npm and is pre-1.0: a minor release may break its API. [packages/orb/CHANGELOG.md](packages/orb/CHANGELOG.md) lists what each version contains, and [docs/RELEASING.md](docs/RELEASING.md) is the checklist for the next one.
 
 ## Privacy
 

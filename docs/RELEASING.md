@@ -12,8 +12,8 @@ Everything up to step 4 is reversible. **Step 5 is not**: a published version ca
 ## Every release
 
 1. **`main` is green.** CI runs `npm ci`, `npm test`, `npm run build` and `npm run verify:package`. Run them locally too if anything changed since the last CI run.
-2. **Date the changelog entry.** In `packages/orb/CHANGELOG.md`, change `## [0.1.0] - Unreleased` to today's date, `## [0.1.0] - YYYY-MM-DD`. For later releases, bump `version` in `packages/orb/package.json` to match. Pre-1.0 rule: a breaking change bumps the minor.
-3. **Make the package publishable.** Set `"private": false` in `packages/orb/package.json`. `package-metadata.test.mjs` then refuses a `0.0.0` version. Remove the "Not yet published" note from `packages/orb/README.md` and the "not published yet" wording in the root `README.md` (the opening paragraph and "Using the runtime in your own app"). Commit.
+2. **Name the version.** In `packages/orb/CHANGELOG.md`, rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD`, open a fresh empty `## [Unreleased]` above it, and update the link references at the bottom. Set `version` in `packages/orb/package.json` to match. Pre-1.0 rule: a breaking change bumps the minor.
+3. **Land it on `main`.** Open a pull request with those two files, let CI pass, merge, and publish from an up-to-date `main`, so what is on npm is what is on `main`. (`"private"` has been `false` since 0.1.0; `package-metadata.test.mjs` still refuses a `0.0.0` version.)
 4. **Read what will ship:**
    ```bash
    npm run verify:package
@@ -24,10 +24,10 @@ Everything up to step 4 is reversible. **Step 5 is not**: a published version ca
    ```bash
    npm publish -w @lumaform/orb
    ```
-6. **Tag and release.** Push the release commit, then tag it and push the tag:
+6. **Tag and release.** Tag the published commit on `main` and push the tag:
    ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag vx.y.z
+   git push origin vx.y.z
    ```
    Create a GitHub release from the tag and paste in the changelog section. The link at the bottom of the changelog points at that release.
 7. **Check it from the outside.** Open the npm page and confirm the README renders. Then install the package into an empty directory next to `three` and import `@lumaform/orb` and `@lumaform/orb/engines`.
