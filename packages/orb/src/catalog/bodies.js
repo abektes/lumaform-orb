@@ -76,6 +76,8 @@ export const BODIES_ENGINES = [
       pulseStrength: { type: 'number', label: 'Echo Strength', min: 0.4, max: 2.2, step: 0.05, default: 1.35, section: 'motion' },
       driftSpeed: { type: 'number', label: 'Ring Drift Speed', min: -0.4, max: 0.4, step: 0.01, default: 0.14, section: 'motion' },
       propagationSpeed: { type: 'number', label: 'Propagation Speed', min: 0.55, max: 1.45, step: 0.02, default: 1, section: 'motion' },
+      pingRate: { type: 'number', label: 'Spontaneous Pings', min: 0, max: 1, step: 0.01, default: 0.18, section: 'motion' },
+      memoryHold: { type: 'number', label: 'Memory Hold', min: 0, max: 30, step: 0.5, default: 10, section: 'motion' },
       baseColor: { type: 'color', label: 'Resting Rings', default: '#123039', section: 'colors', paletteRole: 'fixed' },
       echoColor: { type: 'color', label: 'Active Echo', default: '#42d9ff', section: 'colors' },
       coreColor: { type: 'color', label: 'Signal Core', default: '#e8fdff', section: 'colors', paletteRole: 'fixed' },

@@ -63,7 +63,7 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `filament` — Filament Lattice | Spring network | 14 |
 | `prismbloom` — Prism Bloom | Crystalline flora | 14 |
 | `coronaveil` — Corona Veil | Aurora membrane | 16 |
-| `echorings` — Echo Rings | Signal memory | 14 |
+| `echorings` — Echo Rings | Signal memory | 16 |
 | `ferrotrails` — Ferro Trails | Magnetic fluid & arc trails | 18 |
 | `chromasphere` — Chromasphere | Liquid chrome | 20 |
 | `vocalis` — Vocalis | Vocal diaphragm | 19 |
