@@ -23,11 +23,15 @@ export function visibleHalfHeight(distance, fovDegrees) {
   return Math.tan((fovDegrees * Math.PI / 180) / 2) * distance;
 }
 
-export function cameraDistanceForRadius(radius, fovDegrees, fill = DEFAULT_FRAME_FILL) {
+// `aspect` is width / height. The field of view is vertical, so in a view
+// narrower than it is tall the half-width is the smaller extent and has to be
+// the one filled; fitting the height alone ran a portrait orb off both sides.
+export function cameraDistanceForRadius(radius, fovDegrees, fill = DEFAULT_FRAME_FILL, aspect = 1) {
   const r = Number.isFinite(radius) && radius > 0 ? radius : DEFAULT_FRAME_RADIUS;
   const f = Number.isFinite(fill) && fill > 0 ? Math.min(fill, 1) : DEFAULT_FRAME_FILL;
+  const narrow = Number.isFinite(aspect) && aspect > 0 ? Math.min(aspect, 1) : 1;
   const halfFov = (fovDegrees * Math.PI / 180) / 2;
-  return r / (f * Math.tan(halfFov));
+  return r / (f * Math.tan(halfFov) * narrow);
 }
 
 // The fraction of the visible half-height a radius occupies at a distance. This
