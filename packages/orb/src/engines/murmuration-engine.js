@@ -127,6 +127,7 @@ export function createMurmurationEngine({ scene, renderer, params }) {
     alignment: 0.35,
     neighbourRadius: 0.55,
     attractorPull: 0.5,
+    gathering: 0.45,
     shellBinding: 0.8,
     agentSpeed: 1,
     damping: 0.96,

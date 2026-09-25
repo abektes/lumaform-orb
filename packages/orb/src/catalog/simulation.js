@@ -109,6 +109,7 @@ export const SIMULATION_ENGINES = [
       alignment: { type: 'number', label: 'Alignment', min: 0, max: 1, step: 0.01, default: 0.35, section: 'motion' },
       neighbourRadius: { type: 'number', label: 'Neighbour Radius', min: 0.1, max: 1.5, step: 0.05, default: 0.55, section: 'motion' },
       attractorPull: { type: 'number', label: 'Attractor Pull', min: 0, max: 2, step: 0.05, default: 0.5, section: 'motion' },
+      gathering: { type: 'number', label: 'Gathering', min: 0, max: 1, step: 0.01, default: 0.45, section: 'motion' },
       shellBinding: { type: 'number', label: 'Shell Binding', min: 0, max: 2, step: 0.05, default: 0.8, section: 'motion' },
       agentSpeed: { type: 'number', label: 'Agent Speed', min: 0.1, max: 3, step: 0.05, default: 1, section: 'motion' },
       damping: { type: 'number', label: 'Collective Damping', min: 0.8, max: 0.995, step: 0.005, default: 0.96, section: 'motion' },
