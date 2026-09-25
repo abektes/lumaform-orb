@@ -36,7 +36,7 @@ npm run build
 npm test
 ```
 
-Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 38 of them, 15 covering the runtime and 23 the studio.
+Tests are plain Node scripts with no framework — pure logic (mutation maths, modulation, config parsing, palettes) is deliberately extracted into DOM-free modules so it can be run this way. There are 51 of them, 24 covering the runtime and 27 the studio.
 
 ## Stack
 
@@ -48,7 +48,7 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 
 | Engine | Character | Params |
 | --- | --- | --- |
-| `tesseract` — 4D Tesseract | Hypercube projection | 18 |
+| `tesseract` — 4D Tesseract | Hypercube projection | 19 |
 | `moire` — Chiral Moiré | Optical string art | 19 |
 | `auris` — Auris Light | Sacred crystallography | 18 |
 | `hopf` — Hopf Fibration | Clifford torus | 11 |
@@ -58,15 +58,15 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `singularity` — Chrono Singularity | Relativistic black hole | 13 |
 | `flux` — Flux Ribbon | Travelling wave | 19 |
 | `aqueous` — Aqueous | Refractive body | 17 |
-| `curldrift` — Curl Drift | Advected flow | 14 |
-| `murmuration` — Murmuration | Emergent swarm | 16 |
+| `curldrift` — Curl Drift | Advected flow | 17 |
+| `murmuration` — Murmuration | Emergent swarm | 17 |
 | `filament` — Filament Lattice | Spring network | 14 |
 | `prismbloom` — Prism Bloom | Crystalline flora | 14 |
-| `coronaveil` — Corona Veil | Aurora membrane | 14 |
+| `coronaveil` — Corona Veil | Aurora membrane | 16 |
 | `echorings` — Echo Rings | Signal memory | 14 |
 | `ferrotrails` — Ferro Trails | Magnetic fluid & arc trails | 18 |
 | `chromasphere` — Chromasphere | Liquid chrome | 20 |
-| `vocalis` — Vocalis | Vocal diaphragm | 16 |
+| `vocalis` — Vocalis | Vocal diaphragm | 19 |
 | `aetheria` — Aetheria | Iridescent luminescence | 14 |
 | `superposition` — Superposition | Quantum wavepacket | 14 |
 | `synthesis` — Synthesis | Harmonic fluid fusion | 15 |
