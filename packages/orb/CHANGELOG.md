@@ -6,6 +6,8 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
 ### Added
 
 - A `pixelRatio` option for `createOrb` and `OrbRuntime`, to choose the render density yourself.
@@ -58,5 +60,6 @@ The first published version. Everything below is new.
 
 - Three engines still feed raw, unbounded time into some shader terms (`singularity`'s Keplerian disk shear, the noise drift in `aqueous` and `nebula`). After many hours of continuous running, float32 precision makes that part of the motion step instead of flowing. Fixing it needs tileable noise; see `src/core/phase.js`.
 
-[Unreleased]: https://github.com/abektes/lumaform-orb/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/abektes/lumaform-orb/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.2.0
 [0.1.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.1.0
