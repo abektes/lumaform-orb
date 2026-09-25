@@ -9,6 +9,7 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 ### Added
 
 - A `pixelRatio` option for `createOrb` and `OrbRuntime`, to choose the render density yourself.
+- [A guide](https://github.com/abektes/lumaform-orb/blob/main/docs/GUIDE.md) from a look designed in the studio to an orb in your app, including how to drive it from your assistant's voice, and a runnable example in `examples/embed`.
 
 ### Fixed
 
