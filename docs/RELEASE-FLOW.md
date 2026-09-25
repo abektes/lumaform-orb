@@ -18,7 +18,9 @@ flowchart LR
   G --> H[Merge to main]
   H --> I[Push tag v0.2.0]
   I --> J[Publish workflow]
-  J --> K[npm: @lumaform/orb 0.2.0]
+  J --> K[npm: 0.2.0 staged]
+  K --> M{You approve with 2FA}
+  M --> N[npm: @lumaform/orb 0.2.0 live]
   J --> L[GitHub release]
 ```
 
@@ -116,15 +118,23 @@ Open the repository's **Actions** tab, then **Publish**. The run for `v0.2.0` go
 
 | Step | What it does |
 |---|---|
-| npm is new enough | Trusted publishing needs npm 11.5.1 or later; upgrades it if needed. |
+| npm is new enough to stage | Staging needs npm 11.15 or later; upgrades it if needed. |
 | The tag, the package version and the changelog agree | Stops **before anything is spent** if the tag isn't `v` + the package version, the commit isn't on `main`, the changelog has no dated section for the version, or the version is already on npm. |
 | `npm ci`, `npm test`, `npm run verify:package` | The same checks as CI, once more, on exactly the tagged commit. |
-| Publish to npm | `npm publish`. **The irreversible moment.** |
+| Stage on npm for approval | `npm stage publish`: uploads the version to npm's staging area. Nobody can install it yet. |
 | GitHub release from the changelog | Creates the release page, using the version's changelog section as its notes. |
 
-A green run means the version is on npm and the GitHub release exists.
+A green run means the version is **staged** on npm and the GitHub release exists. It isn't live yet.
 
-### Step 4: check it like a user would
+### Step 4: approve it on npm
+
+This is **the irreversible moment**, and it's yours: the workflow is only allowed to stage (see Part 5), so nothing reaches users until you say so.
+
+On npmjs.com, open `@lumaform/orb` → **Staged Packages**. Check that it's the version you expect, then click **Approve** and confirm with your 2FA. From a terminal it's `npx npm@11 stage list @lumaform/orb`, then `npx npm@11 stage approve <id>`.
+
+If something looks wrong, don't approve. Fix it, bump to the next version, and release that instead. Delete the unwanted GitHub release and its tag.
+
+### Step 5: check it like a user would
 
 ```bash
 npm view @lumaform/orb version           # should print 0.2.0
@@ -134,11 +144,13 @@ The [npm page](https://www.npmjs.com/package/@lumaform/orb) should show 0.2.0 wi
 
 ## Part 5. Why publishing needs no password or token
 
-The workflow publishes with npm's **trusted publishing**:
+The workflow stages releases with npm's **trusted publishing**:
 
-1. On npmjs.com, the package's settings say: *trust GitHub Actions, repository `abektes/lumaform-orb`, workflow file `publish.yml`, permission **npm publish**, no environment*.
+1. On npmjs.com, the package's settings say: *trust GitHub Actions, repository `abektes/lumaform-orb`, workflow file `publish.yml`, permission **npm stage publish**, no environment*.
 2. When the workflow runs, GitHub gives it a short-lived signed token (OIDC) that says "this is `publish.yml` in `abektes/lumaform-orb`".
-3. npm checks that token against its settings and accepts the upload. No long-lived npm token exists anywhere, so there's nothing to leak.
+3. npm checks that token against its settings and accepts the upload into staging. No long-lived npm token exists anywhere, so there's nothing to leak.
+
+**Why staged and not straight to `latest`:** npm recommends it, and so does this project. With only **npm stage publish** allowed, the workflow can prepare a release but can't make it live. Even someone who took over your GitHub account, or slipped a change into the workflow, could only stage a version for you to reject. The cost is one **Approve** click per release. The first release through this workflow was refused with `E403 … OIDC permission denied for this action`: the workflow still ran `npm publish`, and the setting allowed only staging. That's exactly the protection working.
 
 npm also records **provenance**: a signed statement linking the published tarball to the exact commit and workflow run that built it. That's the badge on the npm page, and it lets anyone check that the package came from this repository.
 
@@ -153,9 +165,11 @@ Two consequences:
 |---|---|---|
 | PR shows **Blocked** | CI hasn't finished, or failed. | Open the PR's **Checks** tab. Fix the failure, push again, and the check reruns. |
 | `git push` to `main` is rejected | `main` is protected. | Push a branch and open a PR. |
-| Publish fails at "The tag, the package version and the changelog agree" | A guard caught a mistake (the log says which). **Nothing was published.** | Fix it in a PR, then move the tag (below). |
-| Publish fails at "Publish to npm" with an auth error (403 or 404) | npm didn't accept the workflow's identity. | Check the trusted publisher settings: `abektes`, `lumaform-orb`, `publish.yml`, permission **npm publish**, Environment **empty**. Then rerun the job from the Actions page. |
-| Publish fails only at the GitHub release step | The package **is** published; only the release page is missing. | Create it by hand (the command is in [RELEASING.md](RELEASING.md#if-the-workflow-fails)). |
+| Publish fails at "The tag, the package version and the changelog agree" | A guard caught a mistake (the log says which). **Nothing was staged.** For 0.2.0 this happened when the tag was pushed before the version PR was merged. | Fix it in a PR, then move the tag (below). |
+| Publish fails at "Stage on npm" with `E403 … OIDC permission denied for this action` | npm recognised the workflow, but its permission doesn't cover the command. | On npmjs.com, the Trusted Publisher must allow **npm stage publish**. Fix it, then **Re-run failed jobs**; the tag can stay. |
+| Publish fails at "Stage on npm" with another auth error (403 or 404) | npm didn't match the workflow's identity. | Check the Trusted Publisher: `abektes`, `lumaform-orb`, `publish.yml`, Environment **empty**. Then re-run. |
+| The run is green but `npm view` still shows the old version | It's staged, waiting for you. | Approve it (Part 4, step 4). |
+| Publish fails only at the GitHub release step | The version **is** staged; only the release page is missing. | Create it by hand (the command is in [RELEASING.md](RELEASING.md#if-the-workflow-fails)). |
 | A published version has a bug | Versions can't be replaced. | Release a fixed patch version, then warn people off the bad one with `npm deprecate @lumaform/orb@0.2.0 "Broken X; use 0.2.1"`. |
 | The studio didn't update after a merge | The Railway build failed or is still running. | Check the latest deploy's build log in Railway. |
 
@@ -198,5 +212,6 @@ gh pr merge --rebase --delete-branch     # once the test check has passed
 git checkout main && git pull
 git tag -a vX.Y.Z -m "@lumaform/orb X.Y.Z"
 git push origin vX.Y.Z                   # then watch Actions → Publish
+# approve: npmjs.com → @lumaform/orb → Staged Packages → Approve (2FA)
 npm view @lumaform/orb version
 ```

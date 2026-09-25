@@ -1,11 +1,15 @@
 name: Publish
 
-# Publishes @lumaform/orb to npm when a version tag is pushed, through npm's
-# trusted publishing. npm trusts this workflow file in this repository (the
+# Stages @lumaform/orb on npm when a version tag is pushed, through npm's
+# trusted publishing, and a maintainer approves it on npmjs.com with 2FA
+# before it goes live. npm trusts this workflow file in this repository (the
 # package's Settings on npmjs.com name `publish.yml` exactly: renaming this
-# file breaks publishing until that setting is updated). GitHub proves the
-# run's identity with a short-lived OIDC token, so no npm token is stored
-# anywhere, and npm attaches provenance linking the tarball to this commit.
+# file breaks publishing until that setting is updated) and only to stage:
+# publishing straight to `latest` is not permitted, so even someone holding
+# this repository cannot release a version without that approval. GitHub
+# proves the run's identity with a short-lived OIDC token, so no npm token is
+# stored anywhere, and npm attaches provenance linking the tarball to this
+# commit.
 #
 # Run it by hand (Actions → Publish → Run workflow) to rehearse everything
 # except the upload: without a tag it ends in `npm publish --dry-run`.
@@ -39,12 +43,13 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      # Trusted publishing needs npm 11.5.1 or later; an older npm falls back
-      # to token auth and fails with a confusing 404.
-      - name: npm is new enough for trusted publishing
+      # Staging needs npm 11.15.0 or later (trusted publishing alone needs
+      # 11.5.1); an older npm has no `npm stage`, or falls back to token auth
+      # and fails with a confusing 404.
+      - name: npm is new enough to stage
         run: |
           npm --version
-          node -e "const [a,b,c]=process.argv[1].split('.').map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)" "$(npm --version)" || npm install -g npm@11
+          node -e "const [a,b,c]=process.argv[1].split('.').map(Number); process.exit(a>11||(a===11&&(b>15||(b===15&&c>=0)))?0:1)" "$(npm --version)" || npm install -g npm@11
           npm --version
 
       # A version can never be reused, so everything that decides which one
@@ -75,23 +80,28 @@ jobs:
       - run: npm test
       - run: npm run verify:package
 
-      - name: Publish to npm
+      # Uploads the version to npm's staging area. It is not installable until
+      # a maintainer approves it: npmjs.com → @lumaform/orb → Staged Packages →
+      # Approve, or `npm stage approve <id>`, both with 2FA.
+      - name: Stage on npm for approval
         if: github.ref_type == 'tag'
-        run: npm publish -w @lumaform/orb
+        run: npm stage publish -w @lumaform/orb
 
       # Between releases main still names the published version, and npm refuses
       # even a dry run over it, so show the tarball instead of failing.
-      - name: Rehearse the publish
+      - name: Rehearse the release
         if: github.ref_type != 'tag'
         run: |
           version=$(node -p "require('./packages/orb/package.json').version")
           if [ -n "$(npm view "@lumaform/orb@$version" version 2>/dev/null)" ]; then
-            echo "::notice::@lumaform/orb@$version is already on npm, so this shows the tarball rather than rehearsing a publish over it."
+            echo "::notice::@lumaform/orb@$version is already on npm, so this shows the tarball rather than rehearsing a release over it."
             npm pack --dry-run -w @lumaform/orb
           else
-            npm publish -w @lumaform/orb --dry-run
+            npm stage publish -w @lumaform/orb --dry-run
           fi
 
+      # Created now rather than after approval, which happens outside this run.
+      # If a staged version is rejected instead, delete this release and the tag.
       - name: GitHub release from the changelog
         if: github.ref_type == 'tag'
         env:
