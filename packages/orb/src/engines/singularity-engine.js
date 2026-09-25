@@ -27,12 +27,6 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0.0 },
-      uResolution: {
-        value: new THREE.Vector2(
-          window.innerWidth * (window.devicePixelRatio || 1),
-          window.innerHeight * (window.devicePixelRatio || 1)
-        ),
-      },
       cameraWorldMatrix: { value: camera.matrixWorld },
       cameraProjectionMatrixInverse: {
         value: camera.projectionMatrixInverse,
@@ -61,7 +55,6 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
       }
     `,
     fragmentShader: `
-      uniform vec2 uResolution;
       uniform float uTime;
       uniform mat4 cameraWorldMatrix;
       uniform mat4 cameraProjectionMatrixInverse;
@@ -330,13 +323,6 @@ export function createSingularityEngine({ scene, camera, renderer, params }) {
 
     onPulse() {
       pulseValue = 1.0;
-    },
-
-    onResize(width, height) {
-      material.uniforms.uResolution.value.set(
-        width * (window.devicePixelRatio || 1),
-        height * (window.devicePixelRatio || 1)
-      );
     },
 
     dispose() {

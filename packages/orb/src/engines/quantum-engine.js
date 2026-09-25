@@ -3,6 +3,7 @@ import { createPhaseTracker, decay } from '../core/phase.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 function hexToVec3(hex) {
   const color = new THREE.Color(hex);
@@ -59,12 +60,6 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
       uMorphXZPhase: { value: 0.0 },
       uSparkPhase: { value: 0.0 },
       uScanPhase: { value: 0.0 },
-      uResolution: {
-        value: new THREE.Vector2(
-          window.innerWidth * (window.devicePixelRatio || 1),
-          window.innerHeight * (window.devicePixelRatio || 1)
-        ),
-      },
       cameraWorldMatrix: { value: camera.matrixWorld },
       cameraProjectionMatrixInverse: {
         value: camera.projectionMatrixInverse,
@@ -88,7 +83,6 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
       }
     `,
     fragmentShader: `
-      uniform vec2 uResolution;
       uniform float uRotXPhase;
       uniform float uRotYPhase;
       uniform float uRotXBackPhase;
@@ -344,7 +338,7 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  orbitLineMaterial.resolution.set(window.innerWidth, window.innerHeight);
+  orbitLineMaterial.resolution.copy(canvasSize(renderer));
 
   const orbitLine = new Line2(orbitLineGeometry, orbitLineMaterial);
   orbitLine.frustumCulled = false;
@@ -436,7 +430,6 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
         camera.projectionMatrixInverse
       );
 
-      orbitLineMaterial.resolution.set(window.innerWidth, window.innerHeight);
       updateOrbitTrail(time);
     },
 
@@ -474,10 +467,6 @@ export function createQuantumEngine({ scene, camera, renderer, params }) {
     },
 
     onResize(width, height) {
-      material.uniforms.uResolution.value.set(
-        width * (window.devicePixelRatio || 1),
-        height * (window.devicePixelRatio || 1)
-      );
       orbitLineMaterial.resolution.set(width, height);
     },
 

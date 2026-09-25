@@ -4,6 +4,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { buildShell, resolveShells } from '../core/moire-sphere.js';
 import { decay } from '../core/phase.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 // Chiral Moiré — two nested spherical line grids of slightly different pitch.
 //
@@ -83,7 +84,7 @@ export function createMoireEngine({ studio, scene, camera, renderer, pointerTrac
       // the blend mode, so nothing is lost by staying compatible with both.
       blending: THREE.NormalBlending,
     });
-    material.resolution.set(window.innerWidth || 1440, window.innerHeight || 900);
+    material.resolution.copy(canvasSize(renderer));
     return material;
   }
 
