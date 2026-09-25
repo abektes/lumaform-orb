@@ -42,6 +42,7 @@ const orb = createOrb(document.querySelector('#orb'), {
 | `controls` | `false` | OrbitControls. An ambient orb rarely wants drag-to-rotate. |
 | `autoRotate` | `false` | Camera auto-rotation. Motion belongs to the engine. |
 | `preserveDrawingBuffer` | `false` | Only needed to read pixels back with `toDataURL`. |
+| `pixelRatio` | device, max 2 | Render density. A config file never sets it. |
 
 The returned orb exposes `start()`, `stop()`, `isRunning`, `setEngine()`, `setParams()`, `loadConfig()`, `setAudioSource()`, `dispose()`, and `dropped` — the config keys the engine's schema does not define, which is usually a version mismatch worth surfacing.
 

@@ -6,6 +6,15 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ## [Unreleased]
 
+### Added
+
+- A `pixelRatio` option for `createOrb` and `OrbRuntime`, to choose the render density yourself.
+
+### Fixed
+
+- The orb renders at the device's pixel density, capped at 2. It used to render at 1 on every screen unless a config said otherwise, which looked soft on high-density displays.
+- A config file no longer sets the render density or pauses the orb. Files exported from the studio carried the author's quality setting (`dpr`) and pause state (`paused`), and both were applied on playback: every viewer got one person's density, and a file exported while paused played frozen. `readConfig` now ignores both, and the studio no longer writes them.
+
 ## [0.1.0] - 2026-09-25
 
 The first published version. Everything below is new.

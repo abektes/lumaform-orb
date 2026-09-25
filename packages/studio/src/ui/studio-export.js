@@ -4,6 +4,7 @@ import {
 } from '../core/state.js';
 import { formatParamValue, parseParamValue } from '../core/param-format.js';
 import { stampVersion } from '@lumaform/orb';
+import { lookGlobal } from '@lumaform/orb/internal';
 import { SHORTCUT_GROUPS, formatKey, shortcutsInGroup } from '../core/shortcuts.js';
 import { applyPalette } from '../core/palette.js';
 import { highlightJs } from './highlight.js';
@@ -12,7 +13,8 @@ import { ICONS } from './icons.js';
 export function exportConfig() {
   return stampVersion({
     engine: this.state.engine,
-    global: this.state.global,
+    // The look only: render quality and pause are this session's, not the file's.
+    global: lookGlobal(this.state.global),
     params: this.state.engines[this.state.engine],
     modulation: this.state.modulation,
   });
@@ -338,7 +340,7 @@ export function openExportModal() {
       </div>
 
       <div class="modal-tabs">
-        <button class="modal-tab-btn active" data-modaltab="code">Three.js Embed Snippet</button>
+        <button class="modal-tab-btn active" data-modaltab="code">Code for your app</button>
         <button class="modal-tab-btn" data-modaltab="json">JSON Config</button>
         <button class="modal-tab-btn" data-modaltab="snapshot">High-Res Render</button>
       </div>
@@ -348,7 +350,7 @@ export function openExportModal() {
         <div id="pane-code">
           <div class="code-preview custom-scroll">${highlightJs(embedCode)}</div>
           <div class="modal-footer-row">
-            <button class="btn-primary" id="btn-copy-code">Copy Three.js Code</button>
+            <button class="btn-primary" id="btn-copy-code">Copy Code</button>
           </div>
         </div>
 
@@ -411,7 +413,7 @@ export function openExportModal() {
   this.modalOverlay.querySelector('#btn-copy-code')?.addEventListener('click', (e) => {
     navigator.clipboard.writeText(embedCode);
     e.target.textContent = 'Copied to Clipboard! ✓';
-    setTimeout(() => (e.target.textContent = 'Copy Three.js Code'), 2000);
+    setTimeout(() => (e.target.textContent = 'Copy Code'), 2000);
   });
 
   // Copy JSON button
@@ -490,12 +492,22 @@ export function generateEmbedSnippet() {
   return `// ===============================================
 // Generated with Lumaform Orb Studio
 // Engine: ${ENGINE_INFO[engine].name} (${ENGINE_INFO[engine].badge})
+//
+// npm install @lumaform/orb three
 // ===============================================
 
+import { createOrb } from '@lumaform/orb';
+import { ${engine} } from '@lumaform/orb/engines';
+
+// The same document the JSON tab writes; it loads back into the studio
+// unchanged. \`version\` identifies the format so a future redesign can
+// migrate this file rather than break it.
 export const ORB_CONFIG = ${JSON.stringify(this.exportConfig(), null, 2)};
 
-// This is the same document the Export tab's JSON tab writes, and it loads back
-// into the studio unchanged. \`version\` identifies the format so a future
-// redesign can migrate this file rather than break it.
+// The orb fills this element, so give it a size in your CSS.
+const orb = createOrb(document.querySelector('#orb'), {
+  engines: { ${engine} },
+  config: ORB_CONFIG,
+});
 `;
 }

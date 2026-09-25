@@ -21,6 +21,19 @@ export const EMBED_DEFAULTS = Object.freeze({
   preserveDrawingBuffer: false,
 });
 
+// Past 2 the extra pixels stop being visible on a glow and start costing
+// frames: a 3x phone would shade 2.25 times the pixels of 2x, mostly inside a
+// bloom nobody can resolve.
+export const MAX_DEFAULT_PIXEL_RATIO = 2;
+
+// Density is the host's and the device's decision, never a config file's. Left
+// alone, three.js renders at 1, which is soft on every high-density screen.
+export function resolvePixelRatio(requested, deviceRatio) {
+  if (typeof requested === 'number' && Number.isFinite(requested) && requested > 0) return requested;
+  const device = Number.isFinite(deviceRatio) && deviceRatio > 0 ? deviceRatio : 1;
+  return Math.min(device, MAX_DEFAULT_PIXEL_RATIO);
+}
+
 export function resolveRuntimeOptions(options = {}) {
   const source = options && typeof options === 'object' ? options : {};
   const resolved = { ...EMBED_DEFAULTS };

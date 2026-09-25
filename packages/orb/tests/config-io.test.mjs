@@ -1,4 +1,4 @@
-import { parseConfigFile, sanitizeParams, readConfig } from '../src/core/config-io.js';
+import { parseConfigFile, sanitizeParams, readConfig, lookGlobal } from '../src/core/config-io.js';
 
 let failures = 0;
 function ok(name, condition, extra = '') {
@@ -100,6 +100,21 @@ ok('carries modulation', res.modulation.routes.length === 1);
 const legacy = readConfig({ engine: 'quantum', params: { edgeGlow: 1 } }, DEFS);
 ok('absent modulation reads as null', legacy.modulation === null);
 ok('absent global reads as null', legacy.global === null);
+
+// A file describes a look, not the machine it was exported on. `dpr` is the
+// render quality the author picked on their screen and `paused` is whether they
+// had stopped the orb to look at it; applied on playback, the first forced one
+// person's choice onto every viewer and the second shipped a frozen orb.
+const session = readConfig({
+  engine: 'quantum',
+  global: { dpr: 1.2, paused: true, bloomStrength: 0.9, background: '#101010' },
+  params: {},
+}, DEFS);
+ok('readConfig drops dpr from a file', !('dpr' in session.global), JSON.stringify(session.global));
+ok('readConfig drops paused from a file', !('paused' in session.global));
+ok('readConfig keeps the look', session.global.bloomStrength === 0.9 && session.global.background === '#101010');
+ok('lookGlobal strips the same keys', JSON.stringify(lookGlobal({ dpr: 2, paused: false, exposure: 1 })) === '{"exposure":1}');
+ok('lookGlobal passes null through', lookGlobal(null) === null);
 
 // The record must not alias the parsed file.
 const incoming = { enabled: true, sources: {}, routes: [{ source: 'lfo1', dest: 'edgeGlow', amount: 0.5 }] };
