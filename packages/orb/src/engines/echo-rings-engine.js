@@ -8,6 +8,8 @@ const TAU = Math.PI * 2;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const ECHO_DURATION = 2.7;
 const MAX_ECHOES = 6;
+// How long a resting ring takes to swing onto a remembered wavefront.
+const SETTLE_IN = 0.6;
 
 // Pulse origins deliberately use a fixed sequence. Replaying the same clicks
 // should produce the same composition in every variation-grid cell.
@@ -33,6 +35,8 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
     pulseStrength: 1.35,
     driftSpeed: 0.14,
     propagationSpeed: 1,
+    pingRate: 0.18,
+    memoryHold: 10,
 
     baseColor: '#123039',
     echoColor: '#42d9ff',
@@ -53,6 +57,16 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
   let pulseSerial = 0;
   let driftPhase = 0;
   let idlePhase = 0;
+  // Spontaneous pings accumulate on a clock rather than a random draw, so every
+  // grid cell with the same settings pings at the same moments.
+  let pingClock = 0;
+
+  // The memory: each resting ring can hold one remembered wavefront. An echo
+  // at its widest is a great circle; the ring it lands on swings round to lie
+  // along it, holds, and eases back into the drift, so the stack of rings is a
+  // record of the recent pulses rather than decoration.
+  let memories = [];
+  let memoryCursor = 0;
 
   // CSS pixels, as onResize gives them; the drawing buffer is larger by the
   // pixel ratio and would halve every line on a 2× display until a resize.
@@ -65,6 +79,8 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
   const basisV = new THREE.Vector3();
   const echoPoint = new THREE.Vector3();
   const referenceAxis = new THREE.Vector3();
+  const rememberedNormal = new THREE.Vector3();
+  const rememberedQuaternion = new THREE.Quaternion();
 
   function makeMaterial(width, opacity) {
     const material = new LineMaterial({
@@ -265,6 +281,38 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
     }
 
     echoCursor = 0;
+    memories = idleRings.map(() => ({ axis: new THREE.Vector3(0, 1, 0), age: Infinity }));
+    memoryCursor = 0;
+  }
+
+  // 0 before a memory lands, rising to 1 as the ring swings onto it, and back
+  // to 0 across the last part of the hold.
+  function memoryWeight(age) {
+    const hold = Number(currentParams.memoryHold) || 0;
+    if (!(hold > 0) || !Number.isFinite(age)) return 0;
+    return THREE.MathUtils.smoothstep(age, 0, SETTLE_IN)
+      * (1 - THREE.MathUtils.smoothstep(age, hold * 0.6, hold + SETTLE_IN));
+  }
+
+  function remember(axis) {
+    if (!memories.length) return;
+    const slot = memories[memoryCursor];
+    slot.axis.copy(axis);
+    slot.age = 0;
+    memoryCursor = (memoryCursor + 1) % memories.length;
+  }
+
+  function emitEcho() {
+    const ring = echoes[echoCursor];
+    ring.active = true;
+    ring.settled = false;
+    ring.age = 0;
+    ring.phase = 0;
+    ring.axis.copy(ECHO_DIRECTIONS[pulseSerial % ECHO_DIRECTIONS.length]);
+    ring.container.visible = true;
+    ring.container.scale.setScalar(1);
+    echoCursor = (echoCursor + 1) % echoes.length;
+    pulseSerial++;
   }
 
   function refreshColors() {
@@ -300,6 +348,17 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
         Math.sin(inclination) * Math.sin(azimuth)
       ).normalize();
       ringQuaternion.setFromUnitVectors(zAxis, ringNormal);
+
+      // A ring holding a memory lies along that wavefront instead. Either face
+      // of the circle is the same ring, so turn to whichever is nearer.
+      const memory = memories[i];
+      const weight = memory ? memoryWeight(memory.age) : 0;
+      if (weight > 0) {
+        rememberedNormal.copy(memory.axis);
+        if (rememberedNormal.dot(ringNormal) < 0) rememberedNormal.negate();
+        rememberedQuaternion.setFromUnitVectors(zAxis, rememberedNormal);
+        ringQuaternion.slerp(rememberedQuaternion, weight);
+      }
       ring.container.quaternion.copy(ringQuaternion);
 
       const wave = Math.sin(
@@ -307,10 +366,15 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
       );
       const breathing = 1 + wave * currentParams.idleWave * 0.018;
       ring.container.scale.setScalar(breathing);
+      // A ring catching a wavefront flares, then keeps a little extra light
+      // for as long as it remembers.
+      const flare = memory && Number.isFinite(memory.age) ? Math.exp(-memory.age * 1.2) : 0;
       ring.haloMaterial.opacity = 0.045
-        + currentParams.idleWave * (0.035 + 0.035 * (wave * 0.5 + 0.5));
+        + currentParams.idleWave * (0.035 + 0.035 * (wave * 0.5 + 0.5))
+        + weight * (0.08 + 0.25 * flare);
       ring.coreMaterial.opacity = 0.24
-        + currentParams.idleWave * (0.13 + 0.12 * (wave * 0.5 + 0.5));
+        + currentParams.idleWave * (0.13 + 0.12 * (wave * 0.5 + 0.5))
+        + weight * (0.3 + 0.6 * flare);
     }
   }
 
@@ -356,6 +420,12 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
       // That small geometric overshoot plus the damped brightness overshoot
       // keeps a pulse from feeling like a linear scale animation.
       const theta = Math.min(Math.PI * 1.08, ring.phase);
+      // At a quarter turn the front is a great circle, its widest: that is the
+      // shape a resting ring takes on to remember it.
+      if (!ring.settled && ring.phase >= Math.PI / 2) {
+        ring.settled = true;
+        remember(ring.axis);
+      }
       const spring = Math.exp(-5.5 * life) * Math.sin(life * 24);
       const lift = 0.018
         + currentParams.pulseStrength * (0.045 + 0.025 * spring)
@@ -391,6 +461,13 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
         : 0;
       driftPhase += dt * currentParams.driftSpeed;
       idlePhase += dt;
+      for (const memory of memories) memory.age += dt;
+
+      pingClock += dt * Math.max(0, Number(currentParams.pingRate) || 0);
+      if (pingClock >= 1) {
+        pingClock %= 1;
+        emitEcho();
+      }
 
       if (orbMaterial) orbMaterial.uniforms.uIdle.value = idlePhase;
       updateIdleRings();
@@ -420,15 +497,7 @@ export function createEchoRingsEngine({ scene, renderer, params }) {
     },
 
     onPulse() {
-      const ring = echoes[echoCursor];
-      ring.active = true;
-      ring.age = 0;
-      ring.phase = 0;
-      ring.axis.copy(ECHO_DIRECTIONS[pulseSerial % ECHO_DIRECTIONS.length]);
-      ring.container.visible = true;
-      ring.container.scale.setScalar(1);
-      echoCursor = (echoCursor + 1) % echoes.length;
-      pulseSerial++;
+      emitEcho();
     },
 
     onResize(width, height) {
