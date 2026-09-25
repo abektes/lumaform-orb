@@ -2,6 +2,8 @@
 
 Only the runtime is published, as [`@lumaform/orb`](https://www.npmjs.com/package/@lumaform/orb). The studio stays `private` for good: it is the instrument, not a dependency.
 
+This is the checklist. [RELEASE-FLOW.md](RELEASE-FLOW.md) explains the whole flow, from a branch to npm, for someone doing it for the first time.
+
 ## What happens automatically, and what doesn't
 
 | Event | What runs | Automatic? |

@@ -205,7 +205,8 @@ packages/
   */tests/                 plain Node scripts, no framework
 docs/
   GUIDE.md                 using @lumaform/orb in an app, from studio export to audio
-  RELEASING.md             how a version reaches npm
+  RELEASING.md             how a version reaches npm: the checklist
+  RELEASE-FLOW.md          the whole flow from branch to npm, explained
   VISION.md                why this exists and why several decisions are not arbitrary
   ENGINE-AUTHORING.md      the engine contract
   engine-briefs/           proposed engines
