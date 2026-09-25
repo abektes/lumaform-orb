@@ -13,6 +13,7 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 - A `pixelRatio` option for `createOrb` and `OrbRuntime`, to choose the render density yourself.
 - `echorings` pings on its own and remembers. `pingRate` (Spontaneous Pings, default 0.18 a second) sends an echo on a fixed schedule, so the orb is alive without clicks. `memoryHold` (default 10 s) makes a resting ring swing onto each wavefront at its widest and hold it, so the ring stack records the recent pulses. Set either to 0 for the old behaviour.
 - `murmuration` gathers. `gathering` (default 0.45) draws the flock toward three roosts that wander over the shell, so it condenses into clouds that travel, merge and split, where local flocking alone spread it evenly over the shell. Set it to 0 for the old behaviour.
+- `vocalis` has a **Mouth** switch (`mouth`: `on` or `off`). Off hides the glottal slit entirely, leaving the rings around an empty centre, for an orb without a face.
 - [A guide](https://github.com/abektes/lumaform-orb/blob/main/docs/GUIDE.md) from a look designed in the studio to an orb in your app, including how to drive it from your assistant's voice, and a runnable example in `examples/embed`.
 
 ### Fixed
