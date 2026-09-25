@@ -11,6 +11,24 @@ const MAX_FRAME_DELTA = 1 / 30;
 const MAX_SUBSTEP = 1 / 60;
 const MAX_NEIGHBOURS = 96;
 
+// Roosts: points that wander over the shell and draw the flock into clouds.
+// Local flocking alone only reaches its neighbours, a small patch of a large
+// shell, so without them the agents spread evenly, like a gas, and nothing
+// ever gathers, separates or regroups. Each roost's path is a fixed function
+// of simulated time, so a replay or a grid cell sees the same flight. Their
+// turning rates differ so that roosts drift together (the clouds merge) and
+// apart again (they split).
+const ROOSTS = [
+  { lat: 0.13, latPhase: 0.4, lon: 0.21, lonPhase: 0 },
+  { lat: 0.19, latPhase: 2.1, lon: -0.16, lonPhase: 2.3 },
+  { lat: 0.11, latPhase: 4.0, lon: 0.12, lonPhase: 4.4 },
+];
+// The pull fades to nothing inside this many shell radii of a roost, so a
+// cloud stays wide and keeps its own churn. At 0.3, with three times the pull,
+// every flock collapsed into a knot a tenth of the shell across.
+const ROOST_CORE = 1.1;
+const ROOST_GAIN = 0.8;
+
 function mulberry32(seed) {
   let value = seed >>> 0;
   return () => {
@@ -81,6 +99,26 @@ export function createMurmurationSimulation({
   };
 }
 
+// Where each roost is at simulated time `t`: a direction wandering in latitude
+// and longitude, carried onto the shell's surface whatever its shape.
+export function roostPositions(t, shellRadius, shape, agentSpeed = 1) {
+  return ROOSTS.map((roost) => {
+    const lat = 0.9 * Math.sin(t * roost.lat * agentSpeed + roost.latPhase);
+    const lon = t * roost.lon * agentSpeed + roost.lonPhase;
+    let x = Math.cos(lat) * Math.cos(lon) * shellRadius;
+    let y = Math.sin(lat) * shellRadius;
+    let z = Math.cos(lat) * Math.sin(lon) * shellRadius;
+    for (let i = 0; i < 4; i++) {
+      const distance = shellSdf(x, y, z, shellRadius, shape);
+      const [nx, ny, nz] = shellNormal(x, y, z, shellRadius, shape);
+      x -= nx * distance;
+      y -= ny * distance;
+      z -= nz * distance;
+    }
+    return [x, y, z];
+  });
+}
+
 function integrateSubstep(simulation, params, dt) {
   const { positions, velocities, accelerations, phases } = simulation;
   const count = positions.length / 3;
@@ -100,6 +138,9 @@ function integrateSubstep(simulation, params, dt) {
   const shellGain = Math.max(0, Number(params.shellBinding) || 0) * 2.2;
   const attractorGain = Math.max(0, Number(params.attractorPull) || 0) * 1.45;
   const shape = resolveShellShape(params.shellShape);
+  const gatherGain = Math.max(0, Number(params.gathering) || 0) * ROOST_GAIN * motionScale;
+  const roosts = gatherGain > 0 ? roostPositions(simulation.elapsed, shellRadius, shape, agentSpeed) : null;
+  const roostCore = shellRadius * ROOST_CORE;
 
   for (let i = 0; i < count; i++) {
     const p = i * 3;
@@ -186,8 +227,36 @@ function integrateSubstep(simulation, params, dt) {
     ay += tangentY * drift;
     az += tangentZ * drift;
 
+    // Toward the nearest roost, at a steady pull that fades inside its core.
+    if (roosts) {
+      let rx = 0;
+      let ry = 0;
+      let rz = 0;
+      let nearest = Infinity;
+      for (const roost of roosts) {
+        const dx = roost[0] - px;
+        const dy = roost[1] - py;
+        const dz = roost[2] - pz;
+        const distanceSq = dx * dx + dy * dy + dz * dz;
+        if (distanceSq < nearest) {
+          nearest = distanceSq;
+          rx = dx;
+          ry = dy;
+          rz = dz;
+        }
+      }
+      const distance = Math.sqrt(nearest);
+      if (distance > 1e-5) {
+        const t = Math.min(1, distance / roostCore);
+        const pull = gatherGain * t * t * (3 - 2 * t) / distance;
+        ax += rx * pull;
+        ay += ry * pull;
+        az += rz * pull;
+      }
+    }
+
     const accelerationLength = Math.hypot(ax, ay, az);
-    const maxAcceleration = 7 + attractorGain;
+    const maxAcceleration = 7 + attractorGain + gatherGain;
     if (accelerationLength > maxAcceleration) {
       const scale = maxAcceleration / accelerationLength;
       ax *= scale;

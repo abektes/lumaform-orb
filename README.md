@@ -59,7 +59,7 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `flux` — Flux Ribbon | Travelling wave | 19 |
 | `aqueous` — Aqueous | Refractive body | 17 |
 | `curldrift` — Curl Drift | Advected flow | 17 |
-| `murmuration` — Murmuration | Emergent swarm | 17 |
+| `murmuration` — Murmuration | Emergent swarm | 18 |
 | `filament` — Filament Lattice | Spring network | 14 |
 | `prismbloom` — Prism Bloom | Crystalline flora | 14 |
 | `coronaveil` — Corona Veil | Aurora membrane | 16 |
