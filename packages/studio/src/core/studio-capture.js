@@ -42,6 +42,10 @@ export const captureMethods = {
     const composerHeight = this.composer._height;
     const composerPixelRatio = this.composer._pixelRatio;
     const cameraAspect = this.camera.aspect;
+    // Refitting for the snapshot's shape moves the camera, so the live view's
+    // position and framing are put back afterwards rather than refitted again.
+    const cameraPosition = this.camera.position.clone();
+    const framedDistance = this.framedDistance;
     const targetWidth = Math.max(1, Math.round(width ?? rendererSize.x));
     const targetHeight = Math.max(1, Math.round(height ?? rendererSize.y));
     const prevClearColor = new THREE.Color();
@@ -96,6 +100,8 @@ export const captureMethods = {
       this.composer.setSize(targetWidth, targetHeight);
       this.camera.aspect = targetWidth / targetHeight;
       this.camera.updateProjectionMatrix();
+      // A portrait snapshot is framed by its width, as the live view would be.
+      this.refitCamera();
       notifyResize(this.activeEngine, targetWidth, targetHeight);
 
       this.composer.render();
@@ -111,6 +117,9 @@ export const captureMethods = {
       this.composer.setSize(composerWidth, composerHeight);
       this.camera.aspect = cameraAspect;
       this.camera.updateProjectionMatrix();
+      this.camera.position.copy(cameraPosition);
+      this.framedDistance = framedDistance;
+      this.controls?.update();
       notifyResize(this.activeEngine, rendererSize.x, rendererSize.y);
     }
 

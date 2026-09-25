@@ -13,6 +13,7 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ### Fixed
 
+- An orb in a portrait container fits its width. Framing used only the vertical field of view, so a view narrower than it is tall (a phone held upright, a tall sidebar) put the orb past both sides. Resizing now re-frames too, keeping any zoom the viewer set.
 - The orb renders at the device's pixel density, capped at 2. It used to render at 1 on every screen unless a config said otherwise, which looked soft on high-density displays.
 - A config file no longer sets the render density or pauses the orb. Files exported from the studio carried the author's quality setting (`dpr`) and pause state (`paused`), and both were applied on playback: every viewer got one person's density, and a file exported while paused played frozen. `readConfig` now ignores both, and the studio no longer writes them.
 

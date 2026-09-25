@@ -89,5 +89,30 @@ ok('a null engine falls back', engineFrameRadius(null) === DEFAULT_FRAME_RADIUS)
 ok('a malformed hint falls back', engineFrameRadius({ frame: { radius: 'big' } }) === DEFAULT_FRAME_RADIUS);
 ok('a zero hint falls back', engineFrameRadius({ frame: { radius: 0 } }) === DEFAULT_FRAME_RADIUS);
 
+// --- the narrower side limits ---
+//
+// Distance came from the vertical field of view alone. In a view narrower than
+// it is tall, a phone held upright or a tall sidebar, the half-width is the
+// smaller extent, and an orb at 0.8 of the half-height ran off both sides.
+
+ok('a landscape view frames exactly as before', (() => {
+  for (const aspect of [1, 4 / 3, 16 / 9, 3]) {
+    if (!near(cameraDistanceForRadius(1.84, FOV, DEFAULT_FRAME_FILL, aspect), cameraDistanceForRadius(1.84, FOV))) return false;
+  }
+  return true;
+})());
+
+ok('a portrait view fits the orb to its width', (() => {
+  for (const aspect of [0.5, 0.5625, 0.8]) {
+    const d = cameraDistanceForRadius(1.84, FOV, DEFAULT_FRAME_FILL, aspect);
+    const halfWidth = visibleHalfHeight(d, FOV) * aspect;
+    if (!near(1.84 / halfWidth, DEFAULT_FRAME_FILL, 1e-9)) return false;
+  }
+  return true;
+})());
+
+ok('a nonsense aspect reads as square', near(cameraDistanceForRadius(2, FOV, DEFAULT_FRAME_FILL, 0), cameraDistanceForRadius(2, FOV))
+  && near(cameraDistanceForRadius(2, FOV, DEFAULT_FRAME_FILL, NaN), cameraDistanceForRadius(2, FOV)));
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);

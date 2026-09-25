@@ -22,7 +22,7 @@ import { createPointerTracker, createClickPulse } from '../shared/pointer.js';
 import { createFpsTracker } from '../shared/fps.js';
 import { ENGINE_PARAM_DEFINITIONS } from '../engine-catalog.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
-import { cameraDistanceForRadius, engineFrameRadius } from './framing.js';
+import { cameraDistanceForRadius, engineFrameRadius, DEFAULT_FRAME_FILL } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
 import { resolveRuntimeOptions, resolvePixelRatio } from './runtime-options.js';
 import { createBackgroundPass, preserveBloomAlpha, lightCarriesNoCoverage } from './background-pass.js';
@@ -241,7 +241,7 @@ export class OrbRuntime {
       notifyParams(this.activeEngine, p);
       // After the engine has seen the params, so a size change it reports is read
       // from the updated frame hint rather than the stale one.
-      this.reframeForRadiusChange();
+      this.refitCamera();
     }
   }
 
@@ -351,6 +351,14 @@ export class OrbRuntime {
     this.composer.setSize(width, height);
 
     notifyResize(this.activeEngine, width, height);
+    // A new shape can change which side limits the framing.
+    this.refitCamera();
+  }
+
+  // The camera distance that frames `radius` at the standard fill in the current
+  // view, whichever of its sides is narrower.
+  framingDistance(radius = engineFrameRadius(this.activeEngine)) {
+    return cameraDistanceForRadius(radius, this.camera.fov, DEFAULT_FRAME_FILL, this.camera.aspect);
   }
 
   // Frames the active engine at a consistent fraction of the viewport. Engines
@@ -359,30 +367,33 @@ export class OrbRuntime {
   frameActiveEngine() {
     const radius = engineFrameRadius(this.activeEngine);
     this.framedRadius = radius;
-    this.camera.position.set(0, 0, cameraDistanceForRadius(radius, this.camera.fov));
+    this.framedDistance = this.framingDistance(radius);
+    this.camera.position.set(0, 0, this.framedDistance);
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(0, 0, 0);
     this.controlsTarget.set(0, 0, 0);
     this.controls?.update();
   }
 
-  // Engines whose size parameters change how much space they occupy report a new
-  // frame.radius from setParams. Nothing consumed it: frameActiveEngine only ran on
-  // engine switch and resize, so dragging a size slider grew the orb past the frame
-  // edge and left it there. Re-framing wholesale is not the fix — it snaps the camera
-  // back to the front and resets the orbit target, discarding whatever view the user
-  // had set up. Only the distance is rescaled, along the direction they are already
-  // looking from.
-  reframeForRadiusChange() {
-    if (!this.activeEngine) return;
+  // The distance framing asks for changes when an engine reports a new
+  // frame.radius from setParams (a size slider) or when the view changes shape.
+  // Nothing used to follow either: a size slider grew the orb past the frame edge
+  // and left it there, and a resize to portrait ran it off the sides. Re-framing
+  // wholesale is not the fix: it snaps the camera back to the front and resets
+  // the orbit target, discarding whatever view the user had set up. The distance
+  // is scaled along the direction they already look from, by the ratio the
+  // framing changed, so a zoom they set is kept.
+  refitCamera() {
+    if (!this.activeEngine || !(this.framedDistance > 0)) return;
     const radius = engineFrameRadius(this.activeEngine);
-    if (Math.abs(radius - (this.framedRadius ?? radius)) < 1e-3) return;
+    const wanted = this.framingDistance(radius);
     this.framedRadius = radius;
+    if (Math.abs(wanted - this.framedDistance) < 1e-6) return;
 
     const offset = this.camera.position.clone().sub(this.controlsTarget);
-    const current = offset.length();
-    if (current < 1e-6) return;
-    offset.multiplyScalar(cameraDistanceForRadius(radius, this.camera.fov) / current);
+    if (offset.length() < 1e-6) return;
+    offset.multiplyScalar(wanted / this.framedDistance);
+    this.framedDistance = wanted;
     this.camera.position.copy(this.controlsTarget.clone().add(offset));
     this.controls?.update();
   }
