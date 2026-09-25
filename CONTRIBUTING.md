@@ -33,9 +33,10 @@ engine's look or behaviour, a parameter, the config format — add a line under
 `## [Unreleased]` in [packages/orb/CHANGELOG.md](packages/orb/CHANGELOG.md).
 Studio-only changes don't need one.
 
-Merging does not publish anything to npm. A maintainer cuts releases by hand,
-following [docs/RELEASING.md](docs/RELEASING.md), which also explains how the
-version number is chosen.
+Merging does not publish anything to npm. A maintainer cuts a release by
+pushing a version tag, which runs the Publish workflow; see
+[docs/RELEASING.md](docs/RELEASING.md), which also explains how the version
+number is chosen.
 
 ## Adding an engine
 

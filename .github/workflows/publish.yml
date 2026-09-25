@@ -1,0 +1,90 @@
+name: Publish
+
+# Publishes @lumaform/orb to npm when a version tag is pushed, through npm's
+# trusted publishing. npm trusts this workflow file in this repository (the
+# package's Settings on npmjs.com name `publish.yml` exactly: renaming this
+# file breaks publishing until that setting is updated). GitHub proves the
+# run's identity with a short-lived OIDC token, so no npm token is stored
+# anywhere, and npm attaches provenance linking the tarball to this commit.
+#
+# Run it by hand (Actions → Publish → Run workflow) to rehearse everything
+# except the upload: without a tag it ends in `npm publish --dry-run`.
+# See docs/RELEASING.md.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write # the GitHub release
+  id-token: write # the OIDC token npm trusts
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Trusted publishing accepts GitHub-hosted runners only.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # to check the tagged commit is on main
+
+      # No npm cache: a release installs exactly what the lockfile says.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later; an older npm falls back
+      # to token auth and fails with a confusing 404.
+      - name: npm is new enough for trusted publishing
+        run: |
+          npm --version
+          node -e "const [a,b,c]=process.argv[1].split('.').map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)" "$(npm --version)" || npm install -g npm@11
+          npm --version
+
+      # A version can never be reused, so everything that decides which one
+      # is spent is checked before anything else runs.
+      - name: The tag, the package version and the changelog agree
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(node -p "require('./packages/orb/package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match packages/orb/package.json version $version."
+            exit 1
+          fi
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at a commit that is not on main. Publish only merged commits."
+            exit 1
+          fi
+          if ! grep -q "^## \[$version\] - [0-9]" packages/orb/CHANGELOG.md; then
+            echo "::error::packages/orb/CHANGELOG.md has no dated [$version] section."
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run verify:package
+
+      - name: Publish to npm
+        if: github.ref_type == 'tag'
+        run: npm publish -w @lumaform/orb
+
+      - name: Rehearse the publish
+        if: github.ref_type != 'tag'
+        run: npm publish -w @lumaform/orb --dry-run
+
+      - name: GitHub release from the changelog
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" 'index($0, heading) == 1 { on = 1; next } /^## \[|^\[[^]]+\]: / { on = 0 } on' \
+            packages/orb/CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" --title "@lumaform/orb $version" --notes-file notes.md --verify-tag
