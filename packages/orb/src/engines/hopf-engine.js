@@ -3,6 +3,7 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { createPhaseTracker, decay } from '../core/phase.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 export function createHopfEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -47,7 +48,7 @@ export function createHopfEngine({ scene, camera, renderer, params }) {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    mat.resolution.set(window.innerWidth, window.innerHeight);
+    mat.resolution.copy(canvasSize(renderer));
 
     const mesh = new Line2(geom, mat);
     mesh.renderOrder = 1;

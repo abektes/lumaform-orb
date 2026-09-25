@@ -3,6 +3,7 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { createPhaseTracker, decay } from '../core/phase.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 const PHI = (1 + Math.sqrt(5)) / 2; // Golden ratio 1.6180339887
 
@@ -198,7 +199,7 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  lineMat.resolution.set(window.innerWidth, window.innerHeight);
+  lineMat.resolution.copy(canvasSize(renderer));
 
   function buildMeshes() {
     // Clean up existing

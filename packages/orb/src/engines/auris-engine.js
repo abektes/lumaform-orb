@@ -3,6 +3,7 @@ import { decay } from '../core/phase.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 export function createAurisEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -432,7 +433,7 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
       depthWrite: false,
       blending: isSolid ? THREE.NormalBlending : THREE.AdditiveBlending,
     });
-    lineMaterial.resolution.set(window.innerWidth, window.innerHeight);
+    lineMaterial.resolution.copy(canvasSize(renderer));
 
     lineMesh = new Line2(lineGeometry, lineMaterial);
     lineMesh.renderOrder = 2;

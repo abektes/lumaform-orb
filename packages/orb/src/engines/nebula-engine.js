@@ -29,12 +29,6 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
       uWarpPhaseA: { value: 0.0 },
       uWarpPhaseB: { value: 0.0 },
       uColorPhase: { value: 0.0 },
-      uResolution: {
-        value: new THREE.Vector2(
-          window.innerWidth * (window.devicePixelRatio || 1),
-          window.innerHeight * (window.devicePixelRatio || 1)
-        ),
-      },
       cameraWorldMatrix: { value: camera.matrixWorld },
       cameraProjectionMatrixInverse: {
         value: camera.projectionMatrixInverse,
@@ -66,7 +60,6 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
       uniform float uWarpPhaseA;
       uniform float uWarpPhaseB;
       uniform float uColorPhase;
-      uniform vec2 uResolution;
       uniform vec3 uColor1;
       uniform vec3 uColor2;
       uniform float uSphereRadius;
@@ -341,13 +334,6 @@ export function createNebulaEngine({ scene, camera, renderer, params }) {
 
     onPulse() {
       pulseValue = 1.0;
-    },
-
-    onResize(width, height) {
-      material.uniforms.uResolution.value.set(
-        width * (window.devicePixelRatio || 1),
-        height * (window.devicePixelRatio || 1)
-      );
     },
 
     dispose() {

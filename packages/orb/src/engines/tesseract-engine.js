@@ -9,6 +9,7 @@ import {
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { canvasSize } from '../core/canvas-size.js';
 
 export function createTesseractEngine({ scene, camera, renderer, params }) {
   const currentParams = {
@@ -135,7 +136,7 @@ export function createTesseractEngine({ scene, camera, renderer, params }) {
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  lineMaterial.resolution.set(window.innerWidth, window.innerHeight);
+  lineMaterial.resolution.copy(canvasSize(renderer));
 
   const lineMesh = new Line2(lineGeometry, lineMaterial);
   lineMesh.renderOrder = 2;
