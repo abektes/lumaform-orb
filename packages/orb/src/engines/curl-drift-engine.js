@@ -130,7 +130,11 @@ export function createCurlDriftEngine({ scene, renderer, params }) {
   }
 
   function spawnPosition(stream, generation) {
-    const count = Math.max(1, streams.length || Number(currentParams.streamCount));
+    // The configured count, not streams.length: the build spawns each stream as
+    // it is pushed, so the array is still growing and stream i would see i + 1 —
+    // every stream then landed at the bottom of its band, which for the default
+    // full-coverage preset meant a single streak at the south pole.
+    const count = Math.max(1, Math.floor(Number(currentParams.streamCount)) || streams.length || 1);
     const u = (stream.index + 0.5) / count;
     // Spawning across the whole sphere and then dragging the strays into the band
     // would leave the first seconds after a change looking like a collapse.
