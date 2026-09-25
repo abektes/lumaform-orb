@@ -4,20 +4,48 @@
     {
       "name": "orb-animation",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "orb-dev-alt",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "packages/studio", "run", "dev", "--", "--port", "5190", "--strictPort", "--force"],
+      "runtimeArgs": [
+        "--prefix",
+        "packages/studio",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5190",
+        "--strictPort",
+        "--force"
+      ],
       "port": 5190
     },
     {
       "name": "orb-preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "preview"],
+      "runtimeArgs": [
+        "run",
+        "preview"
+      ],
       "port": 4173
+    },
+    {
+      "name": "orb-example",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "examples/embed",
+        "--port",
+        "5191",
+        "--strictPort"
+      ],
+      "port": 5191
     }
   ]
 }

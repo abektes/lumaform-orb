@@ -6,6 +6,8 @@ The runtime behind [Lumaform Orb](https://github.com/abektes/lumaform-orb): twen
 npm install @lumaform/orb three
 ```
 
+**New here?** The [guide](https://github.com/abektes/lumaform-orb/blob/main/docs/GUIDE.md) goes from a look designed in the studio to an orb in your app, with audio.
+
 Requires [three](https://threejs.org) as a peer, a browser with WebGL2, and Node 20+ to build. Pre-1.0, so a minor release may break the API; see [Status](#status).
 
 ## Quick start
@@ -81,10 +83,10 @@ A `{ audio: true }` option could not be tree-shaken — a bundler cannot prove t
 
 **Not importing `@lumaform/orb/audio` is the off switch:** zero bytes, no permission surface, nothing for a security review to find.
 
-It also solves the wrong half. For an assistant orb the interesting signal is usually the assistant's own speech. `setAudioSource()` accepts anything with `read() → 0..1` and `isActive` — an `<audio>` element, a WebAudio node, your own analyser:
+It also solves the wrong half. For an assistant orb the interesting signal is usually the assistant's own speech. `setAudioSource()` accepts any object with `read() → 0..1` and `isActive`. An `<audio>` element or a Web Audio node isn't one by itself, but becomes one in a few lines with `createLevelFollower` and `rmsFromTimeDomain` from this subpath. The [guide](https://github.com/abektes/lumaform-orb/blob/main/docs/GUIDE.md#your-assistants-voice) has the recipe:
 
 ```js
-orb.setAudioSource(mySpeechAnalyser);
+orb.setAudioSource({ isActive, read }); // read() → loudness 0..1, once per frame
 ```
 
 ## Status

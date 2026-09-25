@@ -117,7 +117,9 @@ Motion Lab → **Mic** (or **Test Tone** if you just want to see it work). Enabl
 ## Using the runtime in your own app
 
 The studio is one consumer of `@lumaform/orb`; your app can be another, through
-the same API the studio uses.
+the same API the studio uses. **[docs/GUIDE.md](docs/GUIDE.md)** walks through it
+step by step, from exporting a look in the studio to reacting to your assistant's
+voice, and [examples/embed](examples/embed) is the runnable version.
 
 ```bash
 npm install @lumaform/orb three
@@ -153,9 +155,10 @@ createOrb(el, { engines: { nebula }, controls: true, autoRotate: true });
 ```
 
 Audio is deliberately not a flag. `import` from `@lumaform/orb/audio` to capture
-a microphone, or hand `orb.setAudioSource()` anything exposing `read() → 0..1`
-and `isActive` — an `<audio>` element, a WebAudio node, your assistant's own
-speech. Not importing that subpath is the off switch: no `getUserMedia` in the
+a microphone, or hand `orb.setAudioSource()` any object exposing `read() → 0..1`
+and `isActive`. Your assistant's own speech becomes one in a few lines with that
+subpath's helpers; [docs/GUIDE.md](docs/GUIDE.md#your-assistants-voice) has the
+recipe. Not importing that subpath is the off switch: no `getUserMedia` in the
 bundle and nothing for a security review to flag.
 
 For a host that wants to own its own frame loop, construct `OrbRuntime` directly
@@ -201,9 +204,13 @@ packages/
       presets/             curated looks; preset-library.js is the barrel
   */tests/                 plain Node scripts, no framework
 docs/
+  GUIDE.md                 using @lumaform/orb in an app, from studio export to audio
+  RELEASING.md             how a version reaches npm
   VISION.md                why this exists and why several decisions are not arbitrary
   ENGINE-AUTHORING.md      the engine contract
   engine-briefs/           proposed engines
+examples/
+  embed/                   the guide, runnable: npx vite examples/embed
 ```
 
 **The runtime never calls a studio method directly.** `OrbRuntime` owns no frame

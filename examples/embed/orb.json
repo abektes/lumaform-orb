@@ -1,0 +1,47 @@
+{
+  "engine": "regard",
+  "global": {
+    "exposure": 1,
+    "bloomStrength": 0.22,
+    "bloomRadius": 0.3,
+    "bloomThreshold": 0.35,
+    "autoRotate": true,
+    "autoRotateSpeed": 0,
+    "timeScale": 1,
+    "background": "#05060a",
+    "transparentBg": true,
+    "bgMode": "void"
+  },
+  "params": {
+    "haloSize": 1.18,
+    "irisFibres": 23,
+    "attention": 0.05,
+    "searchSpread": 0.35,
+    "dwell": 1.6,
+    "saccadeSpeed": 0.9,
+    "jitter": 0.3,
+    "blinks": 0.3,
+    "focusSize": 0.4,
+    "lean": 0.55,
+    "focusColor": "#ffc978",
+    "haloColor": "#ff8a4c",
+    "rimColor": "#4f63ff",
+    "bodyColor": "#05070c",
+    "focusGlow": 1.25,
+    "rimGlow": 0.6
+  },
+  "modulation": {
+    "enabled": true,
+    "loopLength": 4,
+    "sources": {
+      "lfo1": { "type": "lfo", "shape": "sine", "rate": 0.5, "phase": 0 },
+      "noise1": { "type": "noise", "rate": 0.35, "octaves": 3, "seed": 1 },
+      "env1": { "type": "env", "attack": 0.08, "hold": 0.06, "decay": 0.9 },
+      "audio1": { "type": "audio", "gain": 1, "attack": 0.5, "release": 0.12 }
+    },
+    "routes": [
+      { "source": "audio1", "dest": "_timeScale", "amount": 0.5 }
+    ]
+  },
+  "version": 1
+}
