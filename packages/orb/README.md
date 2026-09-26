@@ -1,5 +1,8 @@
 # @lumaform/orb
 
+<p align="center"><img src="https://raw.githubusercontent.com/abektes/lumaform-orb/main/docs/media/orbs.webp" width="480" alt="Four Lumaform orbs looping: Gyroid Nebula, Corona Veil, Vocalis and Hopf Fibration"></p>
+<p align="center"><sub>Gyroid Nebula · Corona Veil · Vocalis · Hopf Fibration — <a href="https://orb.lumaform.xyz">try all twenty-three in the studio</a></sub></p>
+
 The runtime behind [Lumaform Orb](https://github.com/abektes/lumaform-orb): twenty-three WebGL shader engines for ambient, reactive assistant orbs, a modulation rack that drives their parameters, and a versioned config format that round-trips a look between the studio and your app.
 
 ```bash
