@@ -1,6 +1,6 @@
 # README Orb Preview Implementation Plan
 
-> **As built:** GIF was replaced by animated WebP (35 MB → 3.0 MB) and Murmuration by Corona Veil; see the spec for why. Steps below are updated to match.
+> **As built:** GIF was replaced by animated WebP (35 MB → 3.0 MB) and Murmuration by Corona Veil, and playback was later slowed to 0.67× at 560 px; see the spec for why. Steps below are updated to match.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Engines, in grid order: `nebula` (top-left), `coronaveil` (top-right), `vocalis` (bottom-left), `hopf` (bottom-right). Schema defaults — none has a built-in preset.
-- Output `docs/media/orbs.webp`, 640×640, 6 s seamless loop, ~3 MB.
+- Output `docs/media/orbs.webp`, 560×560, 9 s seamless loop at 0.67× speed, ~3.8 MB.
 - READMEs reference `https://raw.githubusercontent.com/abektes/lumaform-orb/main/docs/media/orbs.webp`.
 - Studio link: `https://orb.lumaform.xyz`.
 - Frame PNGs live in `scratch/` (gitignored check below) and are never committed.
@@ -50,8 +50,8 @@ studio.clock.getDelta = realDelta;
 ### Task 2: Compose the WebP
 
 - [x] **Step 1:** Per engine: crop to a centred square, scale to 400×400, loop-crossfade the last 0.7 s over the first 0.7 s → `scratch/readme-gif/<id>.mkv` (lossless FFV1 intermediate, 6 s).
-- [x] **Step 2:** `xstack` the four into 800×800, `fps=20`, scale to 640, export PNGs, then `img2webp -loop 0 -lossy -q 60 -m 6 -d 50 frames/*.png -o docs/media/orbs.webp`.
-- [x] **Step 3:** Verify with `webpmux -info` (640×640, 120 frames) and `ls -l` (~3 MB).
+- [x] **Step 2:** `xstack` the four into 800×800, scale to 560, export all 180 PNGs, then `img2webp -loop 0 -lossy -q 60 -m 6 -d 50 frames/*.png -o docs/media/orbs.webp` (30 fps capture played at 20 fps = 0.67×).
+- [x] **Step 3:** Verify with `webpmux -info` (560×560, 180 frames) and `ls -l` (~3.8 MB).
 - [x] **Step 4:** Decode a frame (`webpmux -get frame 1` + `dwebp`) and look at all four quadrants; compare seam PSNR (frame 179→0) with a mid-clip step.
 
 ### Task 3: README placement
