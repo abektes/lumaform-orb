@@ -1,5 +1,8 @@
 # Lumaform Orb
 
+<p align="center"><img src="https://raw.githubusercontent.com/abektes/lumaform-orb/main/docs/media/orbs.webp" width="480" alt="Four Lumaform orbs looping: Gyroid Nebula, Corona Veil, Vocalis and Hopf Fibration"></p>
+<p align="center"><sub>Gyroid Nebula · Corona Veil · Vocalis · Hopf Fibration — <a href="https://orb.lumaform.xyz">try all twenty-three in the studio</a></sub></p>
+
 A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Twenty-three shader engines, one parameter schema, one render loop.
 
 It is **not** a component library and not a design system. It is an instrument for finding out what is possible.
