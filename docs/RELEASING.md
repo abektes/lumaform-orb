@@ -59,8 +59,10 @@ Steps 1–3 are reversible. **Step 4 is not.**
    - Open a fresh, empty `## [Unreleased]` above it.
    - At the bottom, point `[Unreleased]` at `compare/vx.y.z...HEAD` and add an `[x.y.z]` link to its release.
 
-   Then set `version` in `packages/orb/package.json` to match.
-2. **Land it on `main`.** Open a pull request with those two files, let CI pass, and merge it.
+   Then set `version` in `packages/orb/package.json` to match, and the `packages/orb` entry in `package-lock.json` (search for `"name": "@lumaform/orb"`).
+
+   Then **reread `packages/orb/README.md` as the npm page.** It is published inside the package, so npmjs.com shows it exactly as it is at this commit, and it can't be edited afterwards: fixing a typo there takes another release. Check that it describes this version: what's new since the last one, counts, examples, and the studio link. The `description` and `homepage` in `packages/orb/package.json` are frozen the same way. Don't write version numbers into the README; `docs-facts.test.mjs` fails on any version there other than the one in `package.json`, which is how 0.3.0 would have been caught still calling 0.1.0 "the first published version".
+2. **Land it on `main`.** Open a pull request with those files, let CI pass, and merge it.
 3. **Read what will ship.** Pull `main`, then:
    ```bash
    npm run verify:package

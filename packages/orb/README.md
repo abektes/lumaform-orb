@@ -9,6 +9,8 @@ The runtime behind [Lumaform Orb](https://github.com/abektes/lumaform-orb): fort
 npm install @lumaform/orb three
 ```
 
+**Design a look in the studio: [orb.lumaform.xyz](https://orb.lumaform.xyz).** Every engine is there with live controls, a variation grid and an Export tab that writes the config this package loads.
+
 **New here?** The [guide](https://github.com/abektes/lumaform-orb/blob/main/docs/GUIDE.md) goes from a look designed in the studio to an orb in your app, with audio.
 
 Requires [three](https://threejs.org) as a peer, a browser with WebGL2, and Node 20+ to build. Pre-1.0, so a minor release may break the API; see [Status](#status).
@@ -96,7 +98,7 @@ orb.setAudioSource({ isActive, read }); // read() → loudness 0..1, once per fr
 
 ## Status
 
-`0.1.0` is the first published version. What each version contains is in [CHANGELOG.md](CHANGELOG.md). `OrbRuntime` stays on the root export as the escape hatch for hosts that drive their own loop; `createOrb` is the path for everyone else. Before 1.0 a minor release may break the API, and anything under `/internal` may change in any release.
+What each version contains is in [CHANGELOG.md](CHANGELOG.md). `OrbRuntime` stays on the root export as the escape hatch for hosts that drive their own loop; `createOrb` is the path for everyone else. Before 1.0 a minor release may break the API, and anything under `/internal` may change in any release.
 
 Known limitation: a handful of engines still pass an unbounded `time` to a float32 uniform, which quantises motion over multi-day sessions. The periodic terms are fixed by phase accumulation; the remaining cases are aperiodic noise domains that need tileable noise. See `src/core/phase.js`.
 
