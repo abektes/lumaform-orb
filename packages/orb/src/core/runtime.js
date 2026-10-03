@@ -23,7 +23,7 @@ import { createFpsTracker } from '../shared/fps.js';
 import { ENGINE_PARAM_DEFINITIONS } from '../engine-catalog.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { createStatePlayer } from './state-player.js';
-import { cameraDistanceForRadius, engineFrameRadius, DEFAULT_FRAME_FILL } from './framing.js';
+import { cameraDistanceForRadius, engineFrameRadius, visibleHalfHeight, DEFAULT_FRAME_FILL } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
 import { resolveRuntimeOptions, resolvePixelRatio } from './runtime-options.js';
 import { createFinishPass } from './finish-pass.js';
@@ -526,15 +526,17 @@ export class OrbRuntime {
   }
 
   // Where the orb is on screen, for the finish pass's edge fade. The orb sits
-  // at the orbit target; its radius in viewport half-heights follows from the
-  // engine's frame hint and the camera distance, so a zoom or a portrait
-  // container moves the fade with it.
+  // at the world origin, not the orbit target: panning moves the target and the
+  // camera but never the engine. Its radius in viewport half-heights follows
+  // from the engine's frame hint and the camera distance, so a zoom, a pan or a
+  // portrait container moves the fade with it.
   updateFinishFrame() {
     if (!this.finish.pass.enabled) return;
-    const target = this.controlsTarget;
-    const ndc = this.finishProbe.copy(target).project(this.camera);
-    const distance = this.camera.position.distanceTo(target);
-    const halfHeight = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2) * distance;
+    // A caller that moved the camera since render() last ran (a snapshot
+    // refit) has not refreshed the matrices project() reads.
+    this.camera.updateMatrixWorld();
+    const ndc = this.finishProbe.set(0, 0, 0).project(this.camera);
+    const halfHeight = visibleHalfHeight(this.camera.position.length(), this.camera.fov);
     this.finish.frame({
       center: [(ndc.x + 1) / 2, (ndc.y + 1) / 2],
       radius: halfHeight > 0 ? engineFrameRadius(this.activeEngine) / halfHeight : 1,
