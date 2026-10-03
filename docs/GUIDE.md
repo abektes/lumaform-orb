@@ -150,7 +150,7 @@ assistant.on('done', () => orb.setState('idle'));
 
 Only parameters that can be eased without a visible jump survive in a state. Rates, `geometry` parameters and selects are dropped when the config loads and listed in `orb.dropped`. Put speed changes in `tempo` (0.25 to 4, default 1) instead: rate parameters can't be eased without the orb jumping, and `tempo` scales the time step the runtime advances by.
 
-A template (`createOrb(el, { template, state })`) carries its own engine and a config with states already filled in, so it needs no `engines` or `config`.
+`createOrb` also accepts `template` in place of `engines` and `config`: a template is `{ engine, config }`, an engine factory with a config that already has states. Ready-made templates are planned; until then, the `config` form above is the one to use.
 
 ## 7. Sharpness and performance
 
@@ -171,6 +171,6 @@ A config file never sets the density, whatever it contains.
 | Symptom | Likely cause |
 |---|---|
 | Nothing appears | The engine the file names isn't in `engines` (the console says `Engine type "…" not registered`). The container has no height. Or the browser has no WebGL2. |
-| `orb.dropped` isn't empty | The file came from a newer studio than your library version. Update `@lumaform/orb`. |
+| `orb.dropped` isn't empty | The file came from a newer studio than your library version. Update `@lumaform/orb`. It also lists state keys the format doesn't allow in a state (rates, `geometry` parameters, selects), reported as `state.key`. |
 | Audio does nothing | The file has no route from the audio input (step 1), `isActive` is false, the `AudioContext` is still suspended, or the audio is cross-origin without CORS. |
 | The orb looks soft | A `pixelRatio` below the device's density was passed. |
