@@ -70,5 +70,58 @@ ok('no states: no names', empty.names.length === 0);
 ok('no states: start returns false', empty.start('idle', base) === false);
 ok('no states: tempo is 1', empty.tempo === 1);
 
+// Fix round 1: inherited names, stranded tempo, non-finite input, spring overshoot.
+const guard = createStatePlayer();
+guard.configure({ base, states, initialState: 'idle', transition: { durationMs: 1000, easing: 'linear' }, defs: DEFS });
+ok('an inherited name "constructor" is not a state', guard.start('constructor', base) === false);
+ok('an inherited name "toString" is not a state', guard.start('toString', base) === false);
+ok('inherited names change nothing', guard.current === 'idle' && !guard.isRunning);
+ok('targetFor an inherited name patches nothing', !('spread' in guard.targetFor('constructor')) || guard.targetFor('constructor').spread === 0.1);
+const inheritedInit = createStatePlayer();
+inheritedInit.configure({ base, states, initialState: 'constructor', transition: null, defs: DEFS });
+ok('an inherited initialState gives no current state', inheritedInit.current === null);
+const inheritedKey = createStatePlayer();
+inheritedKey.configure({ base: { ...base, spread: 0.1 }, states: { a: { params: { toString: 'x', spread: 0.2 }, tempo: 1 }, b: { params: {}, tempo: 1 } }, initialState: 'b', transition: null, defs: DEFS });
+ok('a patch key is read as own, not inherited', inheritedKey.targetFor('b').spread === 0.1 && inheritedKey.targetFor('b').toString === undefined);
+
+for (const how of ['setBase', 'cancel']) {
+  const p = createStatePlayer();
+  p.configure({ base, states, initialState: 'idle', transition: { durationMs: 1000, easing: 'linear' }, defs: DEFS });
+  p.start('thinking', base, { durationMs: 1000 });
+  p.advance(500);
+  if (how === 'setBase') p.setBase(base); else p.cancel();
+  ok(`${how} snaps tempo to the current state's tempo`, p.tempo === 2 && !p.isRunning, String(p.tempo));
+}
+
+const nan = createStatePlayer();
+nan.configure({ base, states, initialState: 'idle', transition: { durationMs: 1000, easing: 'linear' }, defs: DEFS });
+nan.start('thinking', base, { durationMs: NaN });
+const nanLanded = nan.advance(5000);
+ok('NaN durationMs uses the default and lands', nanLanded.spread === 0.9 && nan.tempo === 2 && !nan.isRunning, JSON.stringify(nanLanded) + ' ' + nan.tempo);
+const inf = createStatePlayer();
+inf.configure({ base, states, initialState: 'idle', transition: { durationMs: 1000, easing: 'linear' }, defs: DEFS });
+inf.start('thinking', base, { durationMs: Infinity });
+const infLanded = inf.advance(5000);
+ok('Infinity durationMs uses the default and lands', infLanded.spread === 0.9 && inf.tempo === 2 && !inf.isRunning);
+const badDelta = createStatePlayer();
+badDelta.configure({ base, states, initialState: 'idle', transition: { durationMs: 1000, easing: 'linear' }, defs: DEFS });
+badDelta.start('thinking', base);
+badDelta.advance(NaN);
+const afterBad = badDelta.advance(5000);
+ok('a NaN delta does not break landing', afterBad && afterBad.spread === 0.9 && badDelta.tempo === 2 && !badDelta.isRunning);
+
+const spring = createStatePlayer();
+spring.configure({ base, states: { lo: { params: {}, tempo: 1 }, hi: { params: {}, tempo: 4 } }, initialState: 'lo', transition: { durationMs: 1000, easing: 'spring' }, defs: DEFS });
+spring.start('hi', base);
+let maxTempo = 0;
+for (let i = 0; i < 100; i++) { spring.advance(10); maxTempo = Math.max(maxTempo, spring.tempo); }
+ok('spring easing never pushes tempo above 4', maxTempo <= 4, String(maxTempo));
+const springDown = createStatePlayer();
+springDown.configure({ base, states: { lo: { params: {}, tempo: 0.25 }, hi: { params: {}, tempo: 1 } }, initialState: 'hi', transition: { durationMs: 1000, easing: 'spring' }, defs: DEFS });
+springDown.start('lo', base);
+let minTempo = 99;
+for (let i = 0; i < 100; i++) { springDown.advance(10); minTempo = Math.min(minTempo, springDown.tempo); }
+ok('spring easing never pushes tempo below 0.25', minTempo >= 0.25, String(minTempo));
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);
