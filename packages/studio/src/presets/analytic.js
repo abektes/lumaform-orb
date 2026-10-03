@@ -477,7 +477,7 @@ export const ANALYTIC_PRESETS = [
     name: "Prismatic Kepler Star",
     engine: ENGINE_TYPES.POLYTOPE,
     badge: "Solar Geometry",
-    description: "Incandescent amber and canary Kepler star with pulsating divine core orb.",
+    description: "Incandescent amber and canary Kepler star with a pulsing glowing core.",
     global: {
       exposure: 1.2,
       bloomStrength: 0.95,

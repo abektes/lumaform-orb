@@ -21,7 +21,7 @@ const BANNED = [
   /\bcyber\w*/i, /\bneon\b/i, /\bvoid\b/i, /\bobsidian\b/i, /\bpristine\b/i,
   /\bethereal\b/i, /\baetheric\b/i, /\bmatrix\b/i, /\bcelestial\b/i, /\bcosmic\b/i,
   /\btranscend\w*/i, /\bmystic\w*/i, /\bsacred\b/i, /\bmerkabah\b/i, /\bquantum\b/i,
-  /\bhyperspace\b/i, /\bhyper-\w+/i,
+  /\bhyperspace\b/i, /\bhyper-\w+/i, /\bdivine\b/i,
 ];
 const ALLOWED = { superposition: [/\bquantum\b/i] };
 
