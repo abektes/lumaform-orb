@@ -14,6 +14,10 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 - `createOrb(el, { template, state })`. A template carries its engine and a config with states; `state` picks where it starts. `loadConfig(config, { state })` takes the same option.
 - Five finishing settings in a config's `global`: `contrast` (0.5–2), `saturation` (0–2), `grain` (0–0.15), `edgeFade` (0–1, a soft falloff around the framed orb) and `lightCoverage` (0–1, transparent backgrounds only: lets glow show on a light page instead of vanishing into it). All default to no change, and the pass costs nothing until one moves.
 
+### Changed
+
+- Plainer catalog copy. Display names: `tesseract` is "Tesseract", `auris` "Auris", `polytope` "Star Polytope", `quantum` "Fractal Lattice", `singularity` "Black Hole". Several descriptions and parameter labels are rewritten, including the Polytope shape selector, now labelled "Shape". Engine ids, parameter keys and option values are unchanged, so configs load as before.
+
 ### Fixed
 
 - `auris` released its geometry but not its two materials each time a `geometry` parameter rebuilt it, so every archetype or scale change left a shader material and a line material behind.

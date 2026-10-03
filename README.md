@@ -51,14 +51,14 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 
 | Engine | Character | Params |
 | --- | --- | --- |
-| `tesseract` — 4D Tesseract | Hypercube projection | 19 |
+| `tesseract` — Tesseract | Hypercube projection | 19 |
 | `moire` — Chiral Moiré | Optical string art | 19 |
-| `auris` — Auris Light | Sacred crystallography | 18 |
+| `auris` — Auris | Lit polyhedra | 18 |
 | `hopf` — Hopf Fibration | Clifford torus | 11 |
-| `polytope` — Sacred Polytope | Merkabah & Kepler star | 12 |
+| `polytope` — Star Polytope | Star tetrahedron | 12 |
 | `nebula` — Gyroid Nebula | Volumetric raymarching | 13 |
-| `quantum` — Quantum Lattice | 4D hyper-fractal | 13 |
-| `singularity` — Chrono Singularity | Relativistic black hole | 13 |
+| `quantum` — Fractal Lattice | IFS fractal | 13 |
+| `singularity` — Black Hole | Accretion disk | 13 |
 | `silkwarp` — Silk Warp | Domain-warped flow | 16 |
 | `kaleido` — Kaleido Sigil | Fold-fractural mandala | 16 |
 | `veil` — Prism Veil | Thin-film iridescence | 18 |
@@ -89,12 +89,12 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `prismbloom` — Prism Bloom | Crystalline flora | 14 |
 | `coronaveil` — Corona Veil | Aurora membrane | 16 |
 | `echorings` — Echo Rings | Signal memory | 16 |
-| `ferrotrails` — Ferro Trails | Magnetic fluid & arc trails | 18 |
+| `ferrotrails` — Ferro Trails | Ferrofluid | 18 |
 | `chromasphere` — Chromasphere | Liquid chrome | 20 |
 | `vocalis` — Vocalis | Vocal diaphragm | 20 |
-| `aetheria` — Aetheria | Iridescent luminescence | 14 |
+| `aetheria` — Aetheria | Fluid pearl | 14 |
 | `superposition` — Superposition | Quantum wavepacket | 14 |
-| `synthesis` — Synthesis | Harmonic fluid fusion | 15 |
+| `synthesis` — Synthesis | Merging bodies | 15 |
 | `regard` — Regard | Attentive gaze — the one engine with a front | 16 |
 
 Load any of them directly with `?engine=<id>`, e.g. `http://localhost:5173/?engine=chromasphere`.

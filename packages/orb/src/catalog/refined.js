@@ -99,7 +99,7 @@ export const REFINED_ENGINES = [
     params: {
       colorEmber: { type: 'color', label: 'Ember Core', default: '#fbbf24', section: 'colors' },
       colorWisp: { type: 'color', label: 'Wisp Body', default: '#6366f1', section: 'colors' },
-      colorBg: { type: 'color', label: 'Void', default: '#07060e', section: 'colors' },
+      colorBg: { type: 'color', label: 'Background', default: '#07060e', section: 'colors' },
       rimColor: { type: 'color', label: 'Rim Sheen', default: '#eef2ff', section: 'colors', paletteRole: 'fixed' },
       densityGain: { type: 'number', label: 'Ink Density', min: 0.3, max: 3, step: 0.05, default: 1.2, section: 'colors' },
       gain: { type: 'number', label: 'Radiance', min: 0.3, max: 2.5, step: 0.05, default: 1.0, section: 'colors' },
