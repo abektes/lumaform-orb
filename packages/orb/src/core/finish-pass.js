@@ -31,6 +31,17 @@ export function resolveFinish(current, patch) {
   return out;
 }
 
+// The contrast curve the shader applies per channel, x^k / (x^k + (1-x)^k).
+// It keeps 0 and 1 fixed, passes through 0.5, is the identity at k = 1 and
+// steepens around mid-grey for k > 1. A linear stretch about 0.5 would crush
+// the low end and clip the high end at contrast 2, posterizing soft glows.
+// Lives here as plain maths so Node can check what the GLSL cannot.
+export function contrastCurve(x, k) {
+  const c = Math.min(1, Math.max(0, x));
+  const xk = Math.pow(c, k);
+  return xk / (xk + Math.pow(1 - c, k));
+}
+
 // lightCoverage only means something over a transparent background: on an
 // opaque one, raising alpha under glow would darken the backdrop behind it.
 export function isIdentityFinish(finish, { transparent }) {
@@ -86,7 +97,13 @@ const FinishShader = {
 
       float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
       rgb = mix(vec3(luma), rgb, uSaturation);
-      vec3 graded = clamp((rgb - 0.5) * uContrast + 0.5, 0.0, 1.0);
+      // An S-curve, not a linear stretch: it keeps 0 and 1 fixed, so soft
+      // glow edges steepen instead of clipping or crushing. Mirrors
+      // contrastCurve() in this file.
+      vec3 x = clamp(rgb, 0.0, 1.0);
+      vec3 xk = pow(x, vec3(uContrast));
+      vec3 yk = pow(1.0 - x, vec3(uContrast));
+      vec3 graded = xk / (xk + yk);
       rgb = mix(rgb, graded, presence);
 
       // Seeded from virtual time, so a paused orb holds still instead of
