@@ -6,7 +6,7 @@
 // snippet printed only the config, without the install line or the createOrb
 // call that uses it, so it was not a snippet anyone could run.
 
-import { readConfig, ENGINE_PARAM_DEFINITIONS, getDefaultEngineParams } from '@lumaform/orb';
+import { readConfig, CONFIG_VERSION, ENGINE_PARAM_DEFINITIONS, getDefaultEngineParams } from '@lumaform/orb';
 import { exportConfig, generateEmbedSnippet } from '../src/ui/studio-export.js';
 
 let failures = 0;
@@ -24,7 +24,7 @@ const state = {
 const studio = { state, exportConfig };
 
 const config = studio.exportConfig();
-ok('the export carries a format version', config.version === 1);
+ok('the export carries a format version', config.version === CONFIG_VERSION);
 ok('the export leaves out the author\'s render quality', !('dpr' in config.global), JSON.stringify(config.global));
 ok('the export leaves out whether the author had paused', !('paused' in config.global));
 ok('the export keeps the look', config.global.exposure === 1.1 && config.global.background === '#05060a');

@@ -9,6 +9,7 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 ### Added
 
 - Twenty-two engines on `@lumaform/orb/engines`, for 45 in all: `silkwarp`, `kaleido`, `veil`, `mosaic`, `kaliset`, `scrolldome`, `nacre`, `quantplasma`, `beads`, `radar`, `ledbox`, `quanttorus`, `chladni`, `phyllotaxis`, `harmonograph`, `attractor`, `maurer`, `inkmarble`, `lavalamp`, `truchet`, `caustics` and `superbloom`. Most are patterns on a shaded sphere or disc, from classical constructions (Chladni figures, phyllotaxis, harmonographs, the Clifford attractor, Maurer roses, suminagashi marbling, Truchet tiles, the Gielis superformula); `ledbox` and `quanttorus` are raymarched solids.
+- Config version 2. A config can carry named `states`, each a patch over its `params` with its own `tempo`, plus `initialState` and `transition` (`durationMs`, `easing`). A state may change only parameters that can be eased safely: rates, `geometry` parameters and selects are dropped on load and listed in `dropped`. Version 1 files load unchanged; a version 2 file is refused by 0.2 with an error naming both versions. `sanitizeStates` is exported.
 
 ### Fixed
 

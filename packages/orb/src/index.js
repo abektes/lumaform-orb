@@ -42,5 +42,6 @@ export {
   migrateConfig,
   parseConfigFile,
   sanitizeParams,
+  sanitizeStates,
   readConfig,
 } from './core/config-io.js';
