@@ -2,7 +2,7 @@ import { ENGINE_TYPES } from '../core/state.js';
 
 export const SIMULATION_PRESETS = [
   {
-    name: "Neon Voice Ribbon",
+    name: "Voice Ribbon",
     engine: ENGINE_TYPES.FLUX,
     badge: "Travelling Wave",
     description: "A wide band of strands streaming past, fanning apart and converging into bright knots. The voice-assistant waveform read.",

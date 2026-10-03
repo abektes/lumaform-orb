@@ -98,7 +98,7 @@ export const ANALYTIC_ENGINES = [
     name: 'Hopf Fibration',
     badge: 'Clifford Torus',
     description: 'Stereographic projection of the 3-sphere S³ to R³ generating nested Villarceau circle fibers and Clifford toroidal inversions.',
-    defaultPreset: 'Clifford Quantum Vortex',
+    defaultPreset: 'Clifford Vortex',
     file: 'hopf-engine.js',
     factoryName: 'createHopfEngine',
     params: {
@@ -121,7 +121,7 @@ export const ANALYTIC_ENGINES = [
     name: 'Star Polytope',
     badge: 'Star Tetrahedron',
     description: 'Two interlocked tetrahedra turning against each other around a Kepler–Poinsot star, with dispersion on the facets.',
-    defaultPreset: 'Lumaform Gold Merkabah',
+    defaultPreset: 'Gold Star Tetrahedron',
     file: 'polytope-engine.js',
     factoryName: 'createPolytopeEngine',
     params: {
@@ -170,7 +170,7 @@ export const ANALYTIC_ENGINES = [
     name: 'Fractal Lattice',
     badge: 'IFS Fractal',
     description: 'A recursive iterated-function lattice folded through four dimensions and traced with glowing orbit lines.',
-    defaultPreset: 'Cyber Matrix',
+    defaultPreset: 'Phosphor Lattice',
     file: 'quantum-engine.js',
     factoryName: 'createQuantumEngine',
     params: {

@@ -200,7 +200,7 @@ for (const engine of engines) {
 
 const fluxState = {
   engine: ENGINE_TYPES.FLUX,
-  activePresetName: 'Neon Voice Ribbon',
+  activePresetName: 'Voice Ribbon',
   global: { bloomStrength: 0.25, bloomRadius: 0.25, bloomThreshold: 0.35 },
   engines: {
     [ENGINE_TYPES.FLUX]: { ...fluxCurrent },

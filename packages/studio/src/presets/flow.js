@@ -72,8 +72,8 @@ export const FLOW_PRESETS = [
   {
     name: "Gilded Rose Window",
     engine: ENGINE_TYPES.KALEIDO,
-    badge: "Sacred Geometry",
-    description: "An eight-fold gilded mandala of luminous contour filaments rotating in stately meditation.",
+    badge: "Eight-Fold",
+    description: "An eight-fold gilded mandala of glowing contour lines, turning slowly.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.5,

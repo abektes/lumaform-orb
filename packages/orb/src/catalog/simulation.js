@@ -6,7 +6,7 @@ export const SIMULATION_ENGINES = [
     name: 'Flux Ribbon',
     badge: 'Travelling Wave',
     description: 'A bundle of glowing strands streaming in a travelling wave, fanning apart and converging into bright knots. Renders as a wide ribbon or wrapped onto an orb.',
-    defaultPreset: 'Neon Voice Ribbon',
+    defaultPreset: 'Voice Ribbon',
     file: 'flux-engine.js',
     factoryName: 'createFluxEngine',
     params: {
