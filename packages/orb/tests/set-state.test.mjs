@@ -171,5 +171,25 @@ function bareRuntime() {
   ok('a partial host edit never sends undefined to the engine', undef.length === 0, JSON.stringify(undef));
 }
 
+{
+  // The route clamps: amount 4 on a 0..1 param with the square LFO high would
+  // add 2, so the modulated value is 1 every frame. The first advance sends it;
+  // the second only re-sends it because the transition's step forgot it. If the
+  // engine's last `spread` is the bare eased value, the modulated one was lost.
+  const { rt, received } = bareRuntime();
+  rt.modulation.setConfig({
+    ...createDefaultModulation(),
+    enabled: true,
+    sources: { ...createDefaultModulation().sources, lfo1: { type: 'lfo', shape: 'square', rate: 0.001, phase: 0 } },
+    routes: [{ source: 'lfo1', dest: 'spread', amount: 4 }],
+  });
+  rt.setState('thinking');
+  rt.advance(0.1);
+  rt.advance(0.1);
+  const last = received.filter((p) => 'spread' in p).at(-1);
+  ok('a clamped route still wins over the eased value mid-transition', last?.spread === 1, JSON.stringify(last));
+  ok('the bare eased value is below the clamp', rt.baseParams.spread < 1 && rt.baseParams.spread > 0.1, String(rt.baseParams.spread));
+}
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);
