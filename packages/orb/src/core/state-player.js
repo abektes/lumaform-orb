@@ -93,8 +93,9 @@ export function createStatePlayer() {
       return tween.isRunning || elapsed < duration;
     },
 
-    start(name, currentParams, options = {}) {
+    start(name, currentParams, options) {
       if (!hasState(name)) return false;
+      options ??= {};
       // A non-finite duration would never land, so it falls back to the default.
       const durationMs = Number.isFinite(options.durationMs) ? options.durationMs : transition.durationMs;
       const easing = options.easing ?? transition.easing;

@@ -104,6 +104,10 @@ export function createOrb(container, options = {}) {
     },
     loadConfig(nextConfig, { state: nextState = null } = {}) {
       const next = planMount({ config: nextConfig, state: nextState });
+      if (!next.engine) {
+        console.error('loadConfig: the config does not name an engine, so there is nothing to mount.');
+        return { engine: null, dropped: next.dropped };
+      }
       look = { ...next.mount.params };
       runtime.mountEngine(next.engine, next.mount);
       return { engine: next.engine, dropped: next.dropped };
