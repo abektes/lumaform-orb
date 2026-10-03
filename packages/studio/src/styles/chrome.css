@@ -198,6 +198,14 @@
   visibility: hidden;
   flex-direction: column;
   gap: 3px;
+  /* One row per engine, and the list only grows: unbounded it ran 3480px tall
+     at 45 engines under a body that does not scroll, so most engines were out
+     of reach. 112px clears the top bar above and leaves a gutter below. */
+  max-height: calc(100dvh - 112px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
   z-index: var(--z-panel-dropdown);
   opacity: 0;
   /* Scales from the trigger it hangs off, not from its own centre. */
@@ -224,6 +232,9 @@
 .engine-dropdown-item {
   display: flex;
   flex-direction: column;
+  /* The menu is a bounded flex column; without this the rows shrink to fit it
+     and their descriptions overlap instead of the menu scrolling. */
+  flex-shrink: 0;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   background: transparent;
