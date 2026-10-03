@@ -209,6 +209,23 @@ export function renderOpticsTab() {
 
     <div class="panel-section">
       <div class="section-header">
+        <span class="section-title">FINISH</span>
+      </div>
+      <div class="controls-list">
+        ${['contrast', 'saturation', 'grain', 'edgeFade', 'lightCoverage'].map((key) =>
+          this.renderNumberRow({
+            key,
+            def: GLOBAL_NUMBER_DEFINITIONS[key],
+            value: g[key],
+            attr: `data-global="${key}"`,
+            scope: 'global',
+          })
+        ).join('')}
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-header">
         <span class="section-title">TONE MAPPING & CAMERA</span>
       </div>
 
