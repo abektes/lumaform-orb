@@ -39,6 +39,8 @@ So the ordering is:
 
 **Practical consequence for anyone working here:** if a proposal starts with "let's define the format for…", it is probably premature. Ask what it lets you *discover* first. The exception is anything needed to keep findings from being lost (see §4, capture).
 
+**Revisited 2026-10-03.** Named states are now built. Two products arrived at the same three states independently — `thinking-orbs` (logged in §9.1) and [shadercn](https://www.shadercn.run/docs/components/orbs/orb-07), both a fixed set of looks with `idle`, `thinking` and `speaking`, consumed in one line — and Reddit feedback read our open-ended sampler as generated. The vocabulary stays open in the format: names are free strings and the runtime gives none of them meaning. What is fixed is only the starter set the templates use. Exploration continues; it now has somewhere to land.
+
 ## 4. What the tool needs to be good at
 
 Four capabilities, in rough priority order:
@@ -112,12 +114,15 @@ None of this makes the format stable. It makes it changeable on purpose rather t
 | Dead code archived, not deleted | `archive/` keeps `src/` readable while the six original demo files stay browsable. It is **tracked in git** — ignoring it would defeat the point. |
 | No React, no component library | See §5. Most of the ecosystem's UI libraries are React-only and therefore unavailable. Accepted. |
 | Shiki loaded via dynamic import | Importing it directly cost 355 kB in the main bundle for one snippet in one modal. |
+| Named states built before exploration produced them (2026-10-03) | Two independent products converged on idle / thinking / speaking; see §3. Names stay open. |
+| A state may change only easable keys, plus colours | Easing a rate or geometry param over 600 ms fails the same way modulating it does. Enforced on load by `sanitizeStates`, not by author discipline. |
+| Speed between states is `tempo`, integrated into the frame step | A rate cannot be eased without the jump; a multiplier on the step can. |
 
 ## 8. Deliberately deferred
 
 Not "forgotten" — actively decided against, for now.
 
-- **The state schema and a `setState()` runtime.** Blocked on §3. This is the eventual destination, not the next step.
+- ~~**The state schema and a `setState()` runtime.**~~ Built 2026-10-03; see §3 and the decision log.
 - **Video / WebM export.** A rendered loop per state ships everywhere with no WebGL cost, and may end up being the honest primary export for non-web targets. Premature until there are states to render.
 - **Bloom in grid cells.** Needs per-cell render targets. See §5.
 - **Re-rooting the tab IA on a state axis.** The current tabs are organised by parameter category, which is right for tuning one look and wrong for authoring behaviour. Correct eventually; premature now.
@@ -135,6 +140,8 @@ These are genuinely unresolved. If your work bears on one, say so.
    What it does change: the burden of proof. "Someone will author five states with transition curves" can no longer be assumed; it needs a user who has actually done it. Until then, treat the fixed-set product as the live alternative hypothesis rather than the fallback.
 
    Their nine verbs are also the best-tested candidate list in existence for the starter template §7 promises. Prior art to steal the vocabulary from, not a format to adopt.
+
+   **Second signal, logged 2026-10-03.** [shadercn](https://www.shadercn.run) ships 33 shader orbs as React components, each with `state: "idle" | "thinking" | "speaking"` easing between built-in presets, plus `volumes` for input and output level. Same product shape as `thinking-orbs`, arrived at independently. Acted on: see §3.
 2. **Can a designer ship without a frontend engineer?** If no, the primary export should be video and the tool aims at designers. If yes, it's a dev tool with a nice preview and the config should be a first-class visible object. Currently leaning toward the second.
 3. **How much does grid fidelity matter?** Cells have no bloom and render at reduced march quality. Is that close enough to judge, or does it mislead?
 4. **Does the tool need a picker for which parameter to sweep**, or is "the last one you touched" sufficient?
