@@ -184,9 +184,12 @@ export class OrbRuntime {
     });
 
     if (this.activeEngineType === type && this.activeEngine) {
+      // The new config goes in first, with a clean copy of the incoming look.
+      // applyParams then sets that as the base and lays the new config's current
+      // state over it; the other order would hard-cut the OLD state's patch into
+      // the base and hand that to the new config as its starting look.
+      configureStates({ ...params });
       this.applyParams({ params, global, modulation });
-      configureStates(this.baseParams);
-      this.applyCurrentState();
       return false;
     }
 
@@ -235,6 +238,9 @@ export class OrbRuntime {
 
     configureStates(this.baseParams);
     this.applyCurrentState();
+    // onWindowResize fitted the bare base look; an initial state may change the
+    // engine's size, so fit again.
+    this.refitCamera();
     return true;
   }
 
