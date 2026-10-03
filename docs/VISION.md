@@ -81,11 +81,11 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 ## 6. What the export format is — and is not
 
-Export emits `{ version, engine, global, params, modulation }`, and the grid emits an array of those.
+Export emits `{ version, engine, global, params, modulation }`, plus `states`, `initialState` and `transition` when the config has states (version 2), and the grid emits an array of those.
 
-**It is a lab notebook.** Its job is to stop good accidents from evaporating. It has no state vocabulary and no guaranteed stability.
+**It is a lab notebook.** Its job is to stop good accidents from evaporating. Its state names are open, with no fixed vocabulary, and it has no guaranteed stability.
 
-**It is not an interop contract.** Do not build anything that depends on its shape staying fixed, and do not publish a schema until §3's exploration phase has actually produced a vocabulary. When that happens the format will be redesigned around states and transitions.
+**It is not an interop contract.** Do not build anything that depends on its shape staying fixed, and do not publish a schema until exploration has produced a vocabulary worth fixing. Named states exist since version 2 (§3), but only their shape, not their names.
 
 **But it must round-trip.** A capture format you cannot load back is not a capture format. Import must restore everything export writes.
 
