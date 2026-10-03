@@ -1,9 +1,9 @@
 # Lumaform Orb
 
 <p align="center"><img src="https://raw.githubusercontent.com/abektes/lumaform-orb/main/docs/media/orbs.webp" width="480" alt="Four Lumaform orbs looping: Gyroid Nebula, Corona Veil, Vocalis and Hopf Fibration"></p>
-<p align="center"><sub>Gyroid Nebula · Corona Veil · Vocalis · Hopf Fibration — <a href="https://orb.lumaform.xyz">try all twenty-three in the studio</a></sub></p>
+<p align="center"><sub>Gyroid Nebula · Corona Veil · Vocalis · Hopf Fibration — <a href="https://orb.lumaform.xyz">try all forty-five in the studio</a></sub></p>
 
-A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Twenty-three shader engines, one parameter schema, one render loop.
+A WebGL exploration tool for designing animated AI-assistant orbs — the kind of ambient, reactive visual an assistant uses to show what it is doing. Forty-five shader engines, one parameter schema, one render loop.
 
 It is **not** a component library and not a design system. It is an instrument for finding out what is possible.
 
@@ -59,6 +59,28 @@ Each is a self-contained factory that builds into a scene it is handed, animates
 | `nebula` — Gyroid Nebula | Volumetric raymarching | 13 |
 | `quantum` — Quantum Lattice | 4D hyper-fractal | 13 |
 | `singularity` — Chrono Singularity | Relativistic black hole | 13 |
+| `silkwarp` — Silk Warp | Domain-warped flow | 16 |
+| `kaleido` — Kaleido Sigil | Fold-fractural mandala | 16 |
+| `veil` — Prism Veil | Thin-film iridescence | 18 |
+| `mosaic` — Luminous Mosaic | Voronoi glass | 17 |
+| `kaliset` — Kaliset Lace | Orbit-trap threads | 18 |
+| `scrolldome` — Scroll Dome | Ornate scrollwork | 18 |
+| `nacre` — Nacre Bands | Mother-of-pearl | 24 |
+| `quantplasma` — Quantized Plasma | Pixel plasma | 17 |
+| `beads` — Bead Field | Packing beads | 24 |
+| `radar` — Radar Mosaic | Weather radar | 27 |
+| `ledbox` — LED Box | LED tile cube | 18 |
+| `quanttorus` — Quantized Torus | Plasma ring | 18 |
+| `chladni` — Chladni Plate | Cymatic resonance | 18 |
+| `phyllotaxis` — Phyllotaxis | Golden spiral | 17 |
+| `harmonograph` — Harmonograph | Damped pendulums | 17 |
+| `attractor` — Clifford Attractor | Strange attractor | 18 |
+| `maurer` — Maurer Rose | Chord web | 15 |
+| `inkmarble` — Ink Marbling | Paper marbling | 18 |
+| `lavalamp` — Lava Lamp | Soft metaballs | 19 |
+| `truchet` — Truchet Weave | Arc weave | 19 |
+| `caustics` — Caustic Pool | Water light | 18 |
+| `superbloom` — Superbloom | Superformula | 17 |
 | `flux` — Flux Ribbon | Travelling wave | 19 |
 | `aqueous` — Aqueous | Refractive body | 17 |
 | `curldrift` — Curl Drift | Advected flow | 17 |
@@ -109,7 +131,7 @@ Eleven tabs: Presets, Findings, Rehearsal, Colors, Geometry, Motion, Motion Lab,
 
 Colors, Geometry and Motion are generated entirely from each engine's schema — there is no per-engine control code. An engine's `section` assignment is a behavioural declaration, not a tab name: `geometry` means "may rebuild geometry, therefore never modulated". See [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) §3.
 
-86 curated presets ship across the engines.
+130 curated presets ship across the engines.
 
 ## Using the microphone
 
@@ -146,7 +168,7 @@ the canvas it added.
 
 **You import the engines you want.** `createOrb` never reaches for the catalog's
 factories, and catalog entries name theirs as a string rather than binding it, so
-reading a parameter schema does not drag in all twenty-three engines and their
+reading a parameter schema does not drag in all forty-five engines and their
 geometry. The import list is the bundle: name one engine, ship one engine.
 
 Defaults are the embed's, not the studio's — no drag-to-rotate, no auto-rotation,

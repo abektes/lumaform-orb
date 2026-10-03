@@ -18,7 +18,7 @@ const readme = readFileSync(new URL('README.md', repo), 'utf8');
 const vision = readFileSync(new URL('docs/VISION.md', repo), 'utf8');
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
   'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-const TENS = { 2: 'twenty', 3: 'thirty' };
+const TENS = { 2: 'twenty', 3: 'thirty', 4: 'forty' };
 const inWords = (n) => (n < 20 ? WORDS[n] : `${TENS[Math.floor(n / 10)]}${n % 10 ? `-${WORDS[n % 10]}` : ''}`);
 
 const engines = ENGINE_CATALOG.length;
