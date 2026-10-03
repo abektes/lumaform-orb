@@ -51,6 +51,12 @@ export function createOrb(container, options = {}) {
   const { dropped } = plan;
   if (plan.engine) runtime.mountEngine(plan.engine, plan.mount);
 
+  // The runtime's applyParams replaces the base look wholesale, so a partial
+  // setParams({ glow: 2 }) would drop every other key and a later state
+  // transition would have nothing to revert to. The handle keeps the full look
+  // and merges edits into it.
+  let look = { ...(plan.mount?.params || {}) };
+
   let rafId = null;
 
   function frame() {
@@ -85,17 +91,20 @@ export function createOrb(container, options = {}) {
     // surfacing rather than swallowing: it is usually a version mismatch.
     dropped,
     setEngine(type, next = {}) {
+      look = { ...getDefaultEngineParams(type), ...(next.params || {}) };
       return runtime.mountEngine(type, {
-        params: { ...getDefaultEngineParams(type), ...(next.params || {}) },
+        params: { ...look },
         global: next.global || {},
         modulation: next.modulation,
       });
     },
     setParams(nextParams, nextGlobal = {}) {
-      runtime.applyParams({ params: nextParams, global: nextGlobal });
+      look = { ...look, ...(nextParams || {}) };
+      runtime.applyParams({ params: { ...look }, global: nextGlobal });
     },
     loadConfig(nextConfig, { state: nextState = null } = {}) {
       const next = planMount({ config: nextConfig, state: nextState });
+      look = { ...next.mount.params };
       runtime.mountEngine(next.engine, next.mount);
       return { engine: next.engine, dropped: next.dropped };
     },
