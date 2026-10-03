@@ -12,6 +12,7 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 - Config version 2. A config can carry named `states`, each a patch over its `params` with its own `tempo`, plus `initialState` and `transition` (`durationMs`, `easing`). A state may change only parameters that can be eased safely: rates, `geometry` parameters and selects are dropped on load and listed in `dropped`. Version 1 files load unchanged; a version 2 file is refused by 0.2 with an error naming both versions. `sanitizeStates` is exported.
 - `setState(name)` on `OrbRuntime` and on the handle `createOrb` returns. It eases toward a named state from the config (default 600 ms, `easeInOut`; override per call), including the state's `tempo`. An interrupted transition starts from what is on screen. An unknown name warns and returns `false`. `state` and `states` report the current state and the names available.
 - `createOrb(el, { template, state })`. A template carries its engine and a config with states; `state` picks where it starts. `loadConfig(config, { state })` takes the same option.
+- Five finishing settings in a config's `global`: `contrast` (0.5–2), `saturation` (0–2), `grain` (0–0.15), `edgeFade` (0–1, a soft falloff around the framed orb) and `lightCoverage` (0–1, transparent backgrounds only: lets glow show on a light page instead of vanishing into it). All default to no change, and the pass costs nothing until one moves.
 
 ### Fixed
 
