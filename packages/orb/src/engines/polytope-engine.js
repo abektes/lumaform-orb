@@ -359,7 +359,9 @@ export function createPolytopeEngine({ scene, camera, renderer, params }) {
       matA.dispose();
       matB.dispose();
       lineMat.dispose();
-      coreGeom.dispose();
+      // Not coreGeom: a coreRadius change replaces the sphere, and coreGeom
+      // then names the first one, already released.
+      coreMesh.geometry.dispose();
       coreMat.dispose();
     },
   };
