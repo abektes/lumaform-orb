@@ -128,7 +128,9 @@ export function sanitizeParams(params, defs) {
   const dropped = [];
 
   for (const [key, value] of Object.entries(params || {})) {
-    const def = defs?.[key];
+    // Own keys only: `defs['constructor']` and `defs['__proto__']` are truthy
+    // through the prototype chain and would read as a schema entry.
+    const def = defs && Object.hasOwn(defs, key) ? defs[key] : undefined;
     if (!def) {
       dropped.push(key);
       continue;
@@ -174,27 +176,38 @@ function isStateSafe(key, def) {
   return isModulatable(key, def);
 }
 
+// Only real numbers and non-empty numeric strings count; Number(null),
+// Number('') and Number([]) are all 0, which would turn junk into a value.
+function finiteNumber(value) {
+  const numeric = typeof value === 'number' || (typeof value === 'string' && value.trim() !== '');
+  const num = numeric ? Number(value) : NaN;
+  return Number.isFinite(num) ? num : null;
+}
+
 export function sanitizeStates(states, defs) {
   if (!isPlainObject(states)) return { states: null, dropped: [] };
   const out = {};
   const dropped = [];
 
+  const safeDefs = {};
+  for (const [key, def] of Object.entries(defs || {})) {
+    if (isStateSafe(key, def)) safeDefs[key] = def;
+  }
+
   for (const [name, state] of Object.entries(states)) {
-    if (!isPlainObject(state)) {
+    // JSON.parse makes `__proto__` an own key, but assigning it to `out` would
+    // set the prototype instead of a property and the state would vanish.
+    if (name === '__proto__' || !isPlainObject(state)) {
       dropped.push(name);
       continue;
-    }
-    const safeDefs = {};
-    for (const [key, def] of Object.entries(defs || {})) {
-      if (isStateSafe(key, def)) safeDefs[key] = def;
     }
     const { params, dropped: droppedKeys } = sanitizeParams(state.params, safeDefs);
     for (const key of droppedKeys) dropped.push(`${name}.${key}`);
 
-    const rawTempo = Number(state.tempo);
-    const tempo = Number.isFinite(rawTempo)
-      ? Math.min(TEMPO_RANGE[1], Math.max(TEMPO_RANGE[0], rawTempo))
-      : 1;
+    const rawTempo = finiteNumber(state.tempo);
+    const tempo = rawTempo === null
+      ? 1
+      : Math.min(TEMPO_RANGE[1], Math.max(TEMPO_RANGE[0], rawTempo));
     out[name] = { params, tempo };
   }
 
@@ -203,11 +216,11 @@ export function sanitizeStates(states, defs) {
 
 export function sanitizeTransition(transition) {
   const raw = isPlainObject(transition) ? transition : {};
-  const duration = Number(raw.durationMs);
+  const duration = finiteNumber(raw.durationMs);
   return {
-    durationMs: Number.isFinite(duration)
-      ? Math.min(10000, Math.max(0, duration))
-      : DEFAULT_TRANSITION.durationMs,
+    durationMs: duration === null
+      ? DEFAULT_TRANSITION.durationMs
+      : Math.min(10000, Math.max(0, duration)),
     easing: EASING_NAMES.includes(raw.easing) ? raw.easing : DEFAULT_TRANSITION.easing,
   };
 }
@@ -245,7 +258,7 @@ export function readConfig(config, defs) {
   const { params, dropped } = sanitizeParams(config.params, defs);
   const { states, dropped: droppedStates } = sanitizeStates(config.states, defs);
   // An initialState that names no state is a broken reference, not a request.
-  const initialState = states && typeof config.initialState === 'string' && states[config.initialState]
+  const initialState = states && typeof config.initialState === 'string' && Object.hasOwn(states, config.initialState)
     ? config.initialState
     : null;
 
