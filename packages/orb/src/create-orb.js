@@ -13,18 +13,24 @@
 //   import { nebula } from '@lumaform/orb/engines';
 //   const orb = createOrb(el, { engines: { nebula }, config });
 //
+//   import { ember } from '@lumaform/orb/templates';
+//   const orb = createOrb(el, { template: ember, state: 'idle' });
+//   orb.setState('thinking');
+//
 // That import list is the bundle. Naming one engine ships one engine.
 import { OrbRuntime } from './core/runtime.js';
-import { ENGINE_PARAM_DEFINITIONS, getDefaultEngineParams } from './engine-catalog.js';
-import { readConfig } from './core/config-io.js';
+import { getDefaultEngineParams } from './engine-catalog.js';
+import { planMount } from './core/mount-plan.js';
 
 export function createOrb(container, options = {}) {
   const {
     engines = {},
+    template = null,
     config = null,
     engine = null,
     params = null,
     global = null,
+    state = null,
     autoStart = true,
     ...runtimeOptions
   } = options;
@@ -32,8 +38,9 @@ export function createOrb(container, options = {}) {
   if (!container) throw new TypeError('createOrb(container, …) needs a container element.');
 
   const runtime = new OrbRuntime(container, runtimeOptions);
+  const plan = planMount({ engines, template, config, engine, params, global, state });
 
-  for (const [id, factory] of Object.entries(engines)) {
+  for (const [id, factory] of Object.entries(plan.engines)) {
     if (typeof factory !== 'function') {
       console.error(`createOrb: engine "${id}" is not a factory function.`);
       continue;
@@ -41,31 +48,8 @@ export function createOrb(container, options = {}) {
     runtime.registerEngine(id, factory);
   }
 
-  // A config names its own engine, so it decides what mounts. Without one, fall
-  // back to an explicit `engine`, then to the only engine that was handed over —
-  // a consumer who passed exactly one clearly meant that one.
-  const registered = Object.keys(engines);
-  const startingEngine = config?.engine ?? engine ?? (registered.length === 1 ? registered[0] : null);
-  let dropped = [];
-
-  if (startingEngine) {
-    const defs = ENGINE_PARAM_DEFINITIONS[startingEngine] || {};
-    // Schema defaults first, so a partial config does not leave an engine
-    // holding undefined for every key it omitted.
-    let startParams = { ...getDefaultEngineParams(startingEngine), ...(params || {}) };
-    let startGlobal = global || {};
-    let modulation;
-
-    if (config) {
-      const record = readConfig(config, defs);
-      dropped = record.dropped;
-      startParams = { ...startParams, ...record.params };
-      if (record.global) startGlobal = { ...startGlobal, ...record.global };
-      if (record.modulation) modulation = record.modulation;
-    }
-
-    runtime.mountEngine(startingEngine, { params: startParams, global: startGlobal, modulation });
-  }
+  const { dropped } = plan;
+  if (plan.engine) runtime.mountEngine(plan.engine, plan.mount);
 
   let rafId = null;
 
@@ -110,15 +94,21 @@ export function createOrb(container, options = {}) {
     setParams(nextParams, nextGlobal = {}) {
       runtime.applyParams({ params: nextParams, global: nextGlobal });
     },
-    loadConfig(nextConfig) {
-      const defs = ENGINE_PARAM_DEFINITIONS[nextConfig.engine] || {};
-      const record = readConfig(nextConfig, defs);
-      runtime.mountEngine(record.engine, {
-        params: { ...getDefaultEngineParams(record.engine), ...record.params },
-        global: record.global || {},
-        modulation: record.modulation,
-      });
-      return { engine: record.engine, dropped: record.dropped };
+    loadConfig(nextConfig, { state: nextState = null } = {}) {
+      const next = planMount({ config: nextConfig, state: nextState });
+      runtime.mountEngine(next.engine, next.mount);
+      return { engine: next.engine, dropped: next.dropped };
+    },
+    // Moves toward a named state from the config or template. Returns false,
+    // and warns, for a name the config does not define.
+    setState(name, opts) {
+      return runtime.setState(name, opts);
+    },
+    get state() {
+      return runtime.state;
+    },
+    get states() {
+      return runtime.stateNames;
     },
     // Anything with `.read() → 0..1` and `.isActive`. Deliberately not a
     // microphone: see the note in ./audio about why consent is the consumer's.
