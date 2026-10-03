@@ -6,6 +6,8 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-03
+
 ### Added
 
 - Twenty-two engines on `@lumaform/orb/engines`, for 45 in all: `silkwarp`, `kaleido`, `veil`, `mosaic`, `kaliset`, `scrolldome`, `nacre`, `quantplasma`, `beads`, `radar`, `ledbox`, `quanttorus`, `chladni`, `phyllotaxis`, `harmonograph`, `attractor`, `maurer`, `inkmarble`, `lavalamp`, `truchet`, `caustics` and `superbloom`. Most are patterns on a shaded sphere or disc, from classical constructions (Chladni figures, phyllotaxis, harmonographs, the Clifford attractor, Maurer roses, suminagashi marbling, Truchet tiles, the Gielis superformula); `ledbox` and `quanttorus` are raymarched solids.
@@ -82,6 +84,7 @@ The first published version. Everything below is new.
 
 - Three engines still feed raw, unbounded time into some shader terms (`singularity`'s Keplerian disk shear, the noise drift in `aqueous` and `nebula`). After many hours of continuous running, float32 precision makes that part of the motion step instead of flowing. Fixing it needs tileable noise; see `src/core/phase.js`.
 
-[Unreleased]: https://github.com/abektes/lumaform-orb/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/abektes/lumaform-orb/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.3.0
 [0.2.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.2.0
 [0.1.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.1.0
