@@ -55,3 +55,6 @@ export { createBackgroundPass, preserveBloomAlpha, lightCarriesNoCoverage } from
 // ones, so a transition previewed in the studio is the one an app gets.
 export { EASINGS, EASING_NAMES, applyEasing } from '../core/easing.js';
 export { lerpHexColor, interpolateParams, createParamTween } from '../core/param-tween.js';
+
+// Named states for one engine: what setState() delegates to.
+export { createStatePlayer } from '../core/state-player.js';
