@@ -52,7 +52,7 @@ export interface OrbConfig {
   modulation?: Record<string, unknown>;
   states?: Record<string, { params?: ParamValues; tempo?: number }>;
   initialState?: string;
-  transition?: { durationMs?: number; easing?: string };
+  transition?: Partial<OrbTransition>;
 }
 
 /** A state as read back: a patch over the base look, plus a tempo. */
@@ -63,7 +63,19 @@ export interface OrbState {
 
 export interface OrbTransition {
   durationMs: number;
-  easing: string;
+  easing: 'linear' | 'easeOut' | 'easeInOut' | 'spring' | 'snap';
+}
+
+/**
+ * A named starting point: its own engine and a config that names it, so
+ * importing one template ships one engine.
+ */
+export interface OrbTemplate {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly engine: EngineFactory;
+  readonly config: OrbConfig;
 }
 
 export interface ConfigRecord {
@@ -137,7 +149,15 @@ export declare class OrbRuntime {
     params?: ParamValues;
     global?: Record<string, unknown>;
     modulation?: Record<string, unknown>;
+    states?: Record<string, OrbState> | null;
+    initialState?: string | null;
+    transition?: Partial<OrbTransition> | null;
   }): boolean;
+  /** Eases toward a named state. Returns false, and warns, for an unknown name. */
+  setState(name: string, options?: Partial<OrbTransition>): boolean;
+  /** The current state's name, or null when the config has none. */
+  readonly state: string | null;
+  readonly stateNames: string[];
   applyParams(state: {
     params?: ParamValues;
     global?: Record<string, unknown>;
@@ -154,6 +174,10 @@ export interface CreateOrbOptions extends RuntimeOptions {
   /** Engine id to factory. Import only the engines you want from './engines'. */
   engines?: Record<string, EngineFactory>;
   config?: OrbConfig | null;
+  /** Brings its own engine and config; wins over `config`. */
+  template?: OrbTemplate | null;
+  /** Starting state; falls back to the config's initialState if unknown. */
+  state?: string | null;
   /** Used when no config is given. Falls back to the sole registered engine. */
   engine?: string | null;
   params?: ParamValues | null;
@@ -175,7 +199,11 @@ export interface Orb {
     modulation?: Record<string, unknown>;
   }): boolean;
   setParams(params: ParamValues, global?: Record<string, unknown>): void;
-  loadConfig(config: OrbConfig): { engine: string; dropped: string[] };
+  loadConfig(config: OrbConfig, options?: { state?: string }): { engine: string; dropped: string[] };
+  /** Eases toward a named state; false, and a warning, for an unknown name. */
+  setState(name: string, options?: Partial<OrbTransition>): boolean;
+  readonly state: string | null;
+  readonly states: string[];
   setAudioSource(source: AudioSource | null): void;
   dispose(): void;
 }
