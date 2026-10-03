@@ -165,14 +165,17 @@ export function createAurisEngine({ scene, camera, renderer, params }) {
   // ────────────────────────────────────────────────────────────────────────
   function buildGeometry() {
     // Clean up previous
+    // Both materials are recreated below, so the old ones go with their meshes.
     if (facetMesh) {
       group.remove(facetMesh);
       facetMesh.geometry.dispose();
+      facetMaterial.dispose();
       facetMesh = null;
     }
     if (lineMesh) {
       group.remove(lineMesh);
       lineGeometry.dispose();
+      lineMaterial.dispose();
       lineMesh = null;
     }
 
