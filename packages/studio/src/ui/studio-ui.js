@@ -291,6 +291,14 @@ export class StudioUI {
         const isOpen = dropdownMenu.classList.toggle('open');
         dropdownBtn.classList.toggle('open', isOpen);
         dropdownBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+        // The list is longer than the menu, so open it on the current engine.
+        // Set scrollTop rather than call scrollIntoView(), which would also
+        // scroll the overflow-hidden ancestors and shift the whole shell.
+        const active = isOpen && dropdownMenu.querySelector('.engine-dropdown-item.active');
+        if (active) {
+          dropdownMenu.scrollTop = active.offsetTop - (dropdownMenu.clientHeight - active.offsetHeight) / 2;
+        }
       });
 
       this.root.querySelectorAll('.engine-dropdown-item').forEach((btn) => {
