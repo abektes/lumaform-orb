@@ -189,7 +189,7 @@ const SPARKLE_FRAGMENT = /* glsl */ `
 
 export function createFluxEngine({ studio, scene, camera, renderer, pointerTracker, params, global }) {
   const currentParams = {
-    layout: 'ribbon',     // 'ribbon' | 'orb'
+    layout: 'orb',        // 'ribbon' | 'orb'; matches the catalog default
     strands: 28,
     segments: 160,
     bandSpread: 1.1,

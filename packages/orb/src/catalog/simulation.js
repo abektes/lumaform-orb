@@ -6,11 +6,11 @@ export const SIMULATION_ENGINES = [
     name: 'Flux Ribbon',
     badge: 'Travelling Wave',
     description: 'A bundle of glowing strands streaming in a travelling wave, fanning apart and converging into bright knots. Renders as a wide ribbon or wrapped onto an orb.',
-    defaultPreset: 'Voice Ribbon',
+    defaultPreset: 'Filament Sphere',
     file: 'flux-engine.js',
     factoryName: 'createFluxEngine',
     params: {
-      layout: { type: 'select', label: 'Layout', options: ['ribbon', 'orb'], default: 'ribbon', section: 'geometry' },
+      layout: { type: 'select', label: 'Layout', options: ['ribbon', 'orb'], default: 'orb', section: 'geometry' },
       strands: { type: 'number', label: 'Strand Count', min: 6, max: 64, step: 1, default: 28, section: 'geometry' },
       segments: { type: 'number', label: 'Strand Resolution', min: 40, max: 300, step: 10, default: 160, section: 'geometry' },
       bandSpread: { type: 'number', label: 'Band Spread', min: 0, max: 3, step: 0.05, default: 1.1, section: 'geometry' },
