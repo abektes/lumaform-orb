@@ -33,6 +33,7 @@ export {
   getDefaultEngineParams,
   getDefaultPresetName,
   defaultEngineBags,
+  optionLabel,
 } from './engine-catalog.js';
 
 // Reading, validating and migrating a config file.

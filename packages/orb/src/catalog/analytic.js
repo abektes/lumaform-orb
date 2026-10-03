@@ -131,7 +131,7 @@ export const ANALYTIC_ENGINES = [
       wireColor: { type: 'color', label: 'Geodesic Wireframe', default: '#00f0ff', section: 'colors' },
       wireGlow: { type: 'number', label: 'Wireframe Luma', min: 0.5, max: 3.5, step: 0.1, default: 1.8, section: 'colors' },
       facetDispersion: { type: 'number', label: 'Prismatic Dispersion', min: 0, max: 1.5, step: 0.05, default: 0.75, section: 'colors' },
-      polytopeType: { type: 'select', label: 'Shape', options: ['merkabah', 'kepler_star', 'icosa_stellation'], default: 'merkabah', section: 'geometry' },
+      polytopeType: { type: 'select', label: 'Shape', options: ['merkabah', 'kepler_star', 'icosa_stellation'], optionLabels: { merkabah: 'Star tetrahedron', kepler_star: 'Kepler star', icosa_stellation: 'Stellated icosahedron' }, default: 'merkabah', section: 'geometry' },
       scale: { type: 'number', label: 'Polytope Outer Radius', min: 0.8, max: 2.6, step: 0.05, default: 1.65, section: 'geometry' },
       coreRadius: { type: 'number', label: 'Divine Core Radius', min: 0.15, max: 0.9, step: 0.05, default: 0.45, section: 'geometry' },
       wireThickness: { type: 'number', label: 'Geodesic Line Width', min: 1, max: 6, step: 0.5, default: 3, section: 'geometry' },

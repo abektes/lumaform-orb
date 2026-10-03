@@ -8,7 +8,7 @@
 // and hyperbolic are what those things are called. `quantum` is allowed only
 // for Superposition, which draws real quantum orbitals.
 import { readFileSync } from 'node:fs';
-import { ENGINE_CATALOG } from '@lumaform/orb';
+import { ENGINE_CATALOG, optionLabel } from '@lumaform/orb';
 import { PRESET_LIBRARY } from '../src/presets/preset-library.js';
 
 let failures = 0;
@@ -40,6 +40,14 @@ for (const entry of ENGINE_CATALOG) {
   }
   for (const [key, def] of Object.entries(entry.params)) {
     for (const word of offences(def.label, entry.id)) found.push(`catalog ${entry.id}.params.${key}.label: "${word}"`);
+    // A select shows its options in a dropdown, so what a user reads there is
+    // copy too. Option values are stored in saved configs and cannot change;
+    // optionLabels is where their wording gets fixed.
+    for (const option of def.type === 'select' ? def.options : []) {
+      for (const word of offences(optionLabel(def, option), entry.id)) {
+        found.push(`catalog ${entry.id}.params.${key} option "${option}": "${word}"`);
+      }
+    }
   }
 }
 for (const preset of PRESET_LIBRARY) {

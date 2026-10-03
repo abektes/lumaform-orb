@@ -18,6 +18,7 @@ import {
   ENGINE_TYPES,
   getDefaultEngineParams,
   getDefaultPresetName,
+  optionLabel,
 } from '../src/engine-catalog.js';
 import { listModulationTargets } from '../src/core/modulation.js';
 
@@ -88,6 +89,15 @@ for (const entry of ENGINE_CATALOG) {
       ) schemaValid = false;
     } else if (def.type === 'select') {
       if (!Array.isArray(def.options) || !def.options.includes(def.default)) schemaValid = false;
+      // A label for a value that is not an option would never show, and
+      // usually means the option was renamed and its label left behind.
+      if (def.optionLabels !== undefined) {
+        const labels = Object.entries(def.optionLabels);
+        if (!labels.every(([value, text]) =>
+          def.options.some((option) => String(option) === value) && typeof text === 'string' && text.trim())) {
+          schemaValid = false;
+        }
+      }
     } else if (def.type === 'color') {
       if (!colorPattern.test(def.default)) schemaValid = false;
     } else {
@@ -119,6 +129,15 @@ for (const entry of ENGINE_CATALOG) {
   ok(`${entry.id} is exported from engines/index.js`,
     barrel.includes(`export { ${entry.factoryName} as ${entry.id} }`));
 }
+
+// optionLabel: what a dropdown shows for a stored select value.
+const labelled = { type: 'select', options: ['merkabah', 'kepler_star', 3], optionLabels: { merkabah: 'Star tetrahedron' } };
+ok('optionLabel uses the label when one is declared', optionLabel(labelled, 'merkabah') === 'Star tetrahedron');
+ok('optionLabel falls back to the value itself', optionLabel(labelled, 'kepler_star') === 'kepler_star');
+ok('optionLabel stringifies numeric options', optionLabel(labelled, 3) === '3');
+ok('optionLabel ignores inherited keys', optionLabel(labelled, 'toString') === 'toString');
+ok('optionLabel copes with no optionLabels', optionLabel({ type: 'select', options: ['a'] }, 'a') === 'a');
+ok('Polytope shows plain shape names', optionLabel(ENGINE_CATALOG.find((e) => e.id === 'polytope').params.polytopeType, 'merkabah') === 'Star tetrahedron');
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);
