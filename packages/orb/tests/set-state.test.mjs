@@ -114,5 +114,45 @@ function bareRuntime() {
   ok('the edit to an unpatched key took', rt.baseParams.glow === 1.5, String(rt.baseParams.glow));
 }
 
+{
+  // Pausing stops virtual time, not a transition: the comment above promises
+  // wall-clock easing, so a paused orb still moves toward the state it was told.
+  const { rt } = bareRuntime();
+  rt.isPaused = true;
+  rt.setState('thinking');
+  rt.advance(0.5);
+  ok('paused: virtual time does not move', rt.frameStep === 0 && rt.virtualTime === 0);
+  ok('paused: the transition still runs', near(rt.baseParams.spread, 0.5), String(rt.baseParams.spread));
+}
+
+{
+  // Re-mounting the same engine type with a new config. The old config's
+  // current state must not leak into the new base look.
+  const sameType = () => {
+    const made = bareRuntime();
+    made.rt.updateGlobalSettings = () => {};
+    made.rt.refitCamera = () => {};
+    made.rt.setState('thinking');
+    made.rt.advance(1.5);
+    return made;
+  };
+
+  const { rt, received } = sameType();
+  ok('same-type: thinking landed first', rt.state === 'thinking' && rt.baseParams.spread === 0.9);
+  rt.mountEngine('x', { params: { spread: 0.1, glow: 1 } });
+  ok('same-type, no states: the old state is gone', rt.state === null, String(rt.state));
+  ok('same-type, no states: base is the incoming look', rt.baseParams.spread === 0.1, String(rt.baseParams.spread));
+  ok('same-type, no states: the engine saw 0.1', received.filter((p) => 'spread' in p).at(-1)?.spread === 0.1, JSON.stringify(received.at(-1)));
+
+  const second = sameType();
+  second.rt.mountEngine('x', {
+    params: { spread: 0.1, glow: 1 },
+    states: { calm: { params: { spread: 0.4 }, tempo: 1 }, bright: { params: { glow: 2 }, tempo: 1 } },
+    initialState: 'calm',
+  });
+  ok('same-type, new states: the initial state is a hard cut', second.rt.state === 'calm' && second.rt.baseParams.spread === 0.4, String(second.rt.baseParams.spread));
+  ok('same-type, new states: the player base stayed clean', second.rt.statePlayer.targetFor('bright').spread === 0.1, JSON.stringify(second.rt.statePlayer.targetFor('bright')));
+}
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);
