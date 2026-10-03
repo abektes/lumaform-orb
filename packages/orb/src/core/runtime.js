@@ -22,6 +22,7 @@ import { createPointerTracker, createClickPulse } from '../shared/pointer.js';
 import { createFpsTracker } from '../shared/fps.js';
 import { ENGINE_PARAM_DEFINITIONS } from '../engine-catalog.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
+import { createStatePlayer } from './state-player.js';
 import { cameraDistanceForRadius, engineFrameRadius, DEFAULT_FRAME_FILL } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
 import { resolveRuntimeOptions, resolvePixelRatio } from './runtime-options.js';
@@ -94,6 +95,8 @@ export class OrbRuntime {
     this.baseParams = {};
     this.paramDefs = {};
     this.lastModulated = {};
+    // Named states for the mounted engine. Empty until a config carries them.
+    this.statePlayer = createStatePlayer();
 
     // Anything with .read() → 0..1 and .isActive. The studio points this at a
     // microphone input from @lumaform/orb/audio; a consumer can supply their
@@ -175,9 +178,15 @@ export class OrbRuntime {
   //
   // Returns true when an engine was actually constructed, so a caller that
   // needs to rebuild something on a real swap can tell that from a no-op.
-  mountEngine(type, { params = {}, global = {}, modulation } = {}) {
+  mountEngine(type, { params = {}, global = {}, modulation, states = null, initialState = null, transition = null } = {}) {
+    const configureStates = (base) => this.statePlayer.configure({
+      base, states, initialState, transition, defs: ENGINE_PARAM_DEFINITIONS[type] || {},
+    });
+
     if (this.activeEngineType === type && this.activeEngine) {
       this.applyParams({ params, global, modulation });
+      configureStates(this.baseParams);
+      this.applyCurrentState();
       return false;
     }
 
@@ -224,6 +233,8 @@ export class OrbRuntime {
     notifyParams(this.activeEngine, params);
     this.onWindowResize();
 
+    configureStates(this.baseParams);
+    this.applyCurrentState();
     return true;
   }
 
@@ -238,11 +249,65 @@ export class OrbRuntime {
       this.baseParams = { ...p };
       this.paramDefs = ENGINE_PARAM_DEFINITIONS[this.activeEngineType] || {};
       this.lastModulated = {};
+      // A direct edit is the new base look. Any transition in flight was
+      // easing toward a target built from the old one.
+      this.statePlayer.setBase(this.baseParams);
       notifyParams(this.activeEngine, p);
+      // The edit replaced the base wholesale, patch included; put the current
+      // state's look back on top so it survives the edit.
+      this.applyCurrentState();
       // After the engine has seen the params, so a size change it reports is read
       // from the updated frame hint rather than the stale one.
       this.refitCamera();
     }
+  }
+
+  // A config that names an initial state starts there, not at the base look.
+  // Also re-run after a direct edit, which replaces the base look and so drops
+  // the current state's patch. Both are a hard cut: in the first case there is
+  // nothing on screen yet to transition from, in the second the host just
+  // asked for exactly these values.
+  applyCurrentState() {
+    const name = this.statePlayer.current;
+    if (!name) return;
+    this.statePlayer.start(name, this.baseParams, { durationMs: 0 });
+    this.stepStateTransition(0);
+  }
+
+  // Moves toward a named state. The host calls this; nothing calls back up.
+  // An unknown name is a typo in someone's app, so it warns and does nothing
+  // rather than throwing inside their render loop.
+  setState(name, options = {}) {
+    const started = this.statePlayer.start(name, this.baseParams, options);
+    if (!started) {
+      const known = this.statePlayer.names;
+      console.warn(`setState: no state named "${name}". ${known.length ? `Known: ${known.join(', ')}.` : 'This config has no states.'}`);
+    }
+    return started;
+  }
+
+  get state() {
+    return this.statePlayer.current;
+  }
+
+  get stateNames() {
+    return this.statePlayer.names;
+  }
+
+  // Applies one step of a running transition to the base params. The pattern
+  // is the studio's own tween step: write base, then send the engine only what
+  // changed. Keys it sends are forgotten by applyModulatedParams so a route on
+  // the same key re-sends its modulated value over the bare eased one.
+  stepStateTransition(deltaMs) {
+    const eased = this.statePlayer.advance(deltaMs);
+    if (!eased || !this.activeEngine) return;
+    const patch = {};
+    for (const [key, value] of Object.entries(eased)) {
+      if (!Object.is(this.baseParams[key], value)) patch[key] = value;
+    }
+    Object.assign(this.baseParams, eased);
+    for (const key of Object.keys(patch)) delete this.lastModulated[key];
+    if (Object.keys(patch).length) notifyParams(this.activeEngine, patch);
   }
 
   // Modulation lives in app state so it round-trips through export and presets.
@@ -422,6 +487,9 @@ export class OrbRuntime {
     if (this.audioSource?.isActive) {
       this.modulation.setAudioLevel(this.audioSource.read());
     }
+    // Wall-clock milliseconds, not virtual time: a 600 ms transition should not
+    // stretch when playback is slowed or paused.
+    this.stepStateTransition(delta * 1000);
     const mod = this.modulation.apply(this.baseParams, this.paramDefs, this.virtualTime);
 
     // virtualTime stays the runtime's. A host passing raw delta still gets the
@@ -431,7 +499,9 @@ export class OrbRuntime {
     // integrates delta — most of them — ignored tempo routes in the main view
     // while grid cells, which fold the multiplier in themselves, obeyed them.
     // A hesitation found in the grid then vanished on promotion.
-    this.frameStep = this.isPaused ? 0 : delta * this.timeScale * mod.timeScale;
+    // The state player's tempo is integrated the same way, which is what lets a
+    // state be faster without a rate parameter changing.
+    this.frameStep = this.isPaused ? 0 : delta * this.timeScale * mod.timeScale * this.statePlayer.tempo;
     this.virtualTime += this.frameStep;
 
     this.applyModulatedParams(mod.params);
