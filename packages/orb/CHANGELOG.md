@@ -16,6 +16,8 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ### Changed
 
+- `flux` defaults to `layout: 'orb'` (it was `'ribbon'`), and its default preset is now "Filament Sphere". A config that sets `layout` renders as before; one that omits it now renders as an orb. Set `layout: 'ribbon'` for the wide band.
+
 - A `select` parameter may carry `optionLabels`, display text keyed by the stored option value, and `optionLabel(def, value)` returns what a picker should show. Polytope's shapes now read "Star tetrahedron", "Kepler star" and "Stellated icosahedron". The stored values (`merkabah`, `kepler_star`, `icosa_stellation`) are unchanged.
 
 - Plainer catalog copy. Display names: `tesseract` is "Tesseract", `auris` "Auris", `polytope` "Star Polytope", `quantum` "Fractal Lattice", `singularity` "Black Hole". Several descriptions and parameter labels are rewritten, including the Polytope shape selector, now labelled "Shape". Engine ids, parameter keys and option values are unchanged, so configs load as before.

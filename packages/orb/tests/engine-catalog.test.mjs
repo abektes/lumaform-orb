@@ -130,6 +130,12 @@ for (const entry of ENGINE_CATALOG) {
     barrel.includes(`export { ${entry.factoryName} as ${entry.id} }`));
 }
 
+// Flux opens as an orb: an assistant orb is the point of the tool, and the
+// ribbon is one choice away. Its default preset has to agree, or the studio
+// highlights a ribbon preset over an orb.
+ok('Flux defaults to the orb layout', getDefaultEngineParams('flux').layout === 'orb');
+ok('Flux\'s default preset is the orb one', getDefaultPresetName('flux') === 'Filament Sphere');
+
 // optionLabel: what a dropdown shows for a stored select value.
 const labelled = { type: 'select', options: ['merkabah', 'kepler_star', 3], optionLabels: { merkabah: 'Star tetrahedron' } };
 ok('optionLabel uses the label when one is declared', optionLabel(labelled, 'merkabah') === 'Star tetrahedron');
