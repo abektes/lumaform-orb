@@ -17,7 +17,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { stampVersion } from '@lumaform/orb';
 import { LFO_SHAPES, TIME_SCALE_DEST, createModulationRack, createDefaultModulation, listModulationTargets } from '@lumaform/orb/internal';
 import { cameraDistanceForRadius, DEFAULT_FRAME_RADIUS } from '@lumaform/orb/internal';
-import { notifyParams, createBackgroundPass, lightCarriesNoCoverage } from '@lumaform/orb/internal';
+import { notifyParams, createBackgroundPass, createFinishPass, lightCarriesNoCoverage } from '@lumaform/orb/internal';
 import { isDrawableRect, readbackRegion, createMeasureQueue } from './grid-measure.js';
 
 // --- colour jitter ---------------------------------------------------------
@@ -245,6 +245,11 @@ export function createVariationGrid({
   const cellRenderPass = new RenderPass(new THREE.Scene(), camera);
   cellComposer.addPass(cellRenderPass);
   cellComposer.addPass(new OutputPass());
+  // The per-pixel part of the main view's finish, so contrast, saturation and
+  // grain read the same in a cell as after promotion. edgeFade needs each
+  // cell's own centre and is left out, like bloom (VISION §5).
+  const cellFinish = createFinishPass();
+  cellComposer.addPass(cellFinish.pass);
   // Same last step as the main view, so a cell sits on exactly the colour its
   // orb will sit on once promoted. Cells used to be cleared with the renderer's
   // clear colour, which three had encoded to sRGB for the screen; OutputPass
@@ -470,6 +475,7 @@ export function createVariationGrid({
       // target, where the same encoding would be wrong.
       const transparent = !!globalSettings?.transparentBg;
       cellBackground.set({ background: globalSettings?.background, transparent });
+      cellFinish.set({ ...globalSettings, edgeFade: 0 }, { transparent });
       const clearAlpha = renderer.getClearAlpha();
       renderer.getClearColor(prevClear);
       if (!transparent && globalSettings?.background) {
@@ -600,6 +606,7 @@ export function createVariationGrid({
       measureQueue.settle();
       for (const cell of cells) disposeCell(cell);
       cells.length = 0;
+      cellFinish.pass.dispose();
       cellBackground.pass.dispose();
       cellComposer.dispose();
     },

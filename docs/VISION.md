@@ -77,7 +77,7 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 **Every control must declare its own fill — never inherit the user agent's.** The UI is dark; browser defaults are light. A `<button>` with no `background`/`color` renders as a light-grey slab with black text, and when disabled it drops to near-black text on translucent grey, which is illegible here. `.btn-sm` had no fill and `.cp-delete-btn` had no rule at all, so both rendered as raw browser buttons (Arial, square, 2px border) until this was fixed. A disabled state needs an explicit `background` and `color`, not just `opacity`. Watch specificity when adding one: variant classes like `.btn-accent` are defined *earlier* in `src/style.css` than the `.btn-sm` base, which is why the base fill is scoped with `:not()` — and why the disabled rule has to repeat that chain to win.
 
-**Bloom is a full-screen pass.** It bleeds across scissored cell boundaries, which is why grid cells render through a RenderPass+OutputPass composer with no bloom. Cells look flatter than the main view; that is deliberate, not a bug. Do not "fix" it without per-cell render targets.
+**Bloom is a full-screen pass.** It bleeds across scissored cell boundaries, which is why grid cells render through a RenderPass+OutputPass composer with no bloom. Cells look flatter than the main view; that is deliberate, not a bug. Do not "fix" it without per-cell render targets. The finish pass's edgeFade is left out of cells for the same reason: it needs each cell's own centre. Contrast, saturation and grain are per-pixel and do run in cells.
 
 ## 6. What the export format is — and is not
 
