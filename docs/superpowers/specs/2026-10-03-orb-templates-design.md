@@ -52,7 +52,7 @@ What developers adopt is someone else's good taste with states attached. We have
 
 ## 4. Runtime
 
-**`state-tween.js`** moves down from `packages/studio/src/core/param-tween.js` into `packages/orb/src/core/`, together with the easing curves it needs. Both are already pure and dependency-free. It is exported from `./internal`, and the studio imports it back from there, so the dependency still runs one way.
+**`param-tween.js`** moves down from `packages/studio/src/core/` into `packages/orb/src/core/`, keeping its name, together with the easing curves it needs (`easing.js`). A small pure `state-player.js` beside it owns the named states, the current state and the eased tempo. Both are already pure and dependency-free. It is exported from `./internal`, and the studio imports it back from there, so the dependency still runs one way.
 
 **`OrbRuntime`**
 - `mountEngine(type, { params, global, modulation, states, initialState, transition })`. Still one engine's params, never a store.
@@ -79,6 +79,8 @@ One `ShaderPass` after `OutputPass` (display-referred sRGB) and before the backg
 | `grain` | 0–0.15 | 0 | Animated fine noise, scaled by coverage so empty background stays clean. Seeded from virtual time, so pausing freezes it. |
 | `edgeFade` | 0–1 | 0 | Radial alpha and light falloff around the framed orb. The radius comes from `framing.js`, so it follows zoom and portrait fit. |
 | `lightCoverage` | 0–1 | 0 | Transparent mode only: raises alpha toward the light's luminance, so additive glow shows on a light page instead of vanishing into white. |
+
+**Studio controls**: a FINISH section on the Optics tab with a slider for each of the five, defaults in `DEFAULT_GLOBAL_SETTINGS`.
 
 **Grid cells** run contrast, saturation and grain, which are per-pixel. `edgeFade` needs each cell's centre and is left out of cells, alongside bloom; VISION §5 records it.
 
@@ -117,9 +119,10 @@ Each template imports only its own engine, so the import list is still the bundl
 ## 7. Copy
 
 - The page `<title>` becomes "Lumaform Orb".
-- All 45 catalog entries get their `name`, `badge` and `description` rewritten in plain language, and parameter labels that read as generated ("Primary Energy", "Quantum Core") are renamed. Labels and descriptions are display text; **parameter keys do not change**, so saved configs keep loading.
-- Preset descriptions are rewritten where the guard flags them.
-- **`copy-hygiene.test.mjs`** (studio): a banned-word list covering quantum, cyber, hyper-, void, obsidian, pristine, ethereal, matrix, celestial, transcendent and the like. It scans catalog names, badges, descriptions and labels, preset names and descriptions, template copy, and the page title. A miss fails with the file, the entry and the word.
+- All 45 catalog entries were reviewed. The newer ones already read plainly; the twelve that don't (tesseract, moire, auris, polytope, nebula, quantum, singularity, kaliset, aetheria, superposition, synthesis, ferrotrails) get their `name`, `badge` and `description` rewritten, and parameter labels that read as generated ("Primary Energy", "Quantum Core") are renamed. Labels and descriptions are display text; **parameter keys do not change**, so saved configs keep loading.
+- Presets the guard flags are rewritten. Renamed presets have every reference updated (catalog `defaultPreset`, tests), and a new check fails when a catalog `defaultPreset` names no preset in the library.
+- The studio's backdrop buttons ("Void Black", "Obsidian", "Violet Void") get plain names.
+- **`copy-hygiene.test.mjs`** (studio): a banned-word list aimed at tone rather than subject: cyber, neon, void, obsidian, pristine, ethereal, aetheric, matrix, celestial, cosmic, transcendent, mystic, sacred, merkabah, quantum, hyperspace and hyphenated hyper- compounds. Mathematics stays allowed (hypercube, hyperboloid, hyperbolic), and `quantum` is allowed for `superposition`, which draws real quantum orbitals. It scans catalog names, badges, descriptions and labels, preset names and descriptions, template copy, and the page title. A miss fails with the file, the entry and the word.
 
 ## 8. Studio
 
@@ -139,7 +142,7 @@ Each template imports only its own engine, so the import list is still the bundl
 ## 9. Tests
 
 **Runtime (`packages/orb/tests`)**
-- `state-tween.test.mjs`: interpolation and range clamping; colours lerp; disallowed keys never interpolate; an interruption starts from the current values; landing exactly on the target.
+- `param-tween.test.mjs` (moved from the studio) and `state-player.test.mjs`: interpolation and range clamping; colours lerp; disallowed keys never interpolate; an interruption starts from the current values; landing exactly on the target.
 - `set-state.test.mjs`, against a stub engine:
   - an unknown name returns `false` and changes nothing;
   - tempo eases without a jump in accumulated virtual time;
