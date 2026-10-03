@@ -6,6 +6,16 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-03
+
+### Fixed
+
+- The package page on npm called 0.1.0 "the first published version", a sentence left over from that release. It no longer names a version.
+
+### Changed
+
+- The package's homepage is the studio, [orb.lumaform.xyz](https://orb.lumaform.xyz), and the README links to it near the top.
+
 ## [0.3.0] - 2026-10-03
 
 ### Added
@@ -84,7 +94,8 @@ The first published version. Everything below is new.
 
 - Three engines still feed raw, unbounded time into some shader terms (`singularity`'s Keplerian disk shear, the noise drift in `aqueous` and `nebula`). After many hours of continuous running, float32 precision makes that part of the motion step instead of flowing. Fixing it needs tileable noise; see `src/core/phase.js`.
 
-[Unreleased]: https://github.com/abektes/lumaform-orb/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/abektes/lumaform-orb/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/abektes/lumaform-orb/releases/tag/v0.3.1
 [0.3.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.3.0
 [0.2.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.2.0
 [0.1.0]: https://github.com/abektes/lumaform-orb/releases/tag/v0.1.0
