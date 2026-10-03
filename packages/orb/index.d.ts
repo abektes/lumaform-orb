@@ -13,7 +13,12 @@ export interface ParamDef {
   min?: number;
   max?: number;
   step?: number;
-  options?: readonly string[];
+  options?: readonly (string | number)[];
+  /**
+   * Display text for select options, keyed by the stored value. The value is
+   * what configs store and never changes; the label is what a picker shows.
+   */
+  optionLabels?: Readonly<Record<string, string>>;
 }
 
 export type ParamSchema = Record<string, ParamDef>;
@@ -218,6 +223,8 @@ export declare function getEngineEntry(id: string): CatalogEntry | undefined;
 export declare function getDefaultEngineParams(engineType: string): ParamValues;
 export declare function getDefaultPresetName(id: string): string;
 export declare function defaultEngineBags(): Record<string, ParamValues>;
+/** What a picker should show for a select value: its `optionLabels` entry, or the value itself. */
+export declare function optionLabel(def: ParamDef, value: string | number): string;
 
 export declare const CONFIG_VERSION: number;
 export declare function stampVersion<T extends object>(config: T): T & { version: number };

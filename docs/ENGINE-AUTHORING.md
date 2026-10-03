@@ -130,6 +130,15 @@ count:   { type: 'select', label: 'Agent Count', options: [128, 256, 512], defau
 cohesion:{ type: 'number', label: 'Cohesion',    min: 0, max: 1, step: 0.01, default: 0.4,             section: 'motion' },
 ```
 
+A `select` stores its option values in every saved config, so a value can never be renamed. Word an option for people with `optionLabels`, keyed by the stored value; the studio shows the label and `optionLabel(def, value)` from `@lumaform/orb` returns it for any other picker:
+
+```js
+shape: { type: 'select', label: 'Shape', options: ['merkabah', 'kepler_star'],
+         optionLabels: { merkabah: 'Star tetrahedron', kepler_star: 'Kepler star' }, default: 'merkabah', section: 'geometry' },
+```
+
+`copy-hygiene.test.mjs` reads what a dropdown shows, so an option value with a banned word needs a label.
+
 ### `section` is a behavioural declaration, not a tab name
 
 Choosing the wrong section is the single most consequential schema mistake.

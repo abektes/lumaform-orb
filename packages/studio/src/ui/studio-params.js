@@ -1,4 +1,5 @@
 import { ENGINE_INFO, ENGINE_PARAM_DEFINITIONS } from '../core/state.js';
+import { optionLabel } from '@lumaform/orb';
 import { formatParamValue, isAtDefault } from '../core/param-format.js';
 import { PALETTES, PALETTE_KEYS } from '../core/palette.js';
 import { escapeHtml, GLOBAL_NUMBER_DEFINITIONS } from './studio-format.js';
@@ -164,7 +165,7 @@ export function renderParamsSection(sectionName) {
                     ${def.options
                       .map(
                         (opt) =>
-                          `<option value="${opt}" ${String(value) === String(opt) ? 'selected' : ''}>${opt.toLocaleString()}</option>`
+                          `<option value="${opt}" ${String(value) === String(opt) ? 'selected' : ''}>${escapeHtml(optionLabel(def, opt))}</option>`
                       )
                       .join('')}
                   </select>

@@ -57,3 +57,14 @@ export function defaultEngineBags() {
   );
 }
 
+
+// What a dropdown shows for a select value. The value itself is stored in
+// saved configs and can never be renamed without breaking them, so a select
+// may carry `optionLabels` to word an option for people while the stored
+// value stays put. Own keys only: a value named `toString` must not read a
+// function off the prototype.
+export function optionLabel(def, value) {
+  const labels = def?.optionLabels;
+  const key = String(value);
+  return labels && Object.hasOwn(labels, key) ? labels[key] : key;
+}
