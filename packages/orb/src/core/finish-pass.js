@@ -36,8 +36,9 @@ export function resolveFinish(current, patch) {
 // steepens around mid-grey for k > 1. A linear stretch about 0.5 would crush
 // the low end and clip the high end at contrast 2, posterizing soft glows.
 // Lives here as plain maths so Node can check what the GLSL cannot.
+const CURVE_EPSILON = 1e-6;
 export function contrastCurve(x, k) {
-  const c = Math.min(1, Math.max(0, x));
+  const c = Math.min(1 - CURVE_EPSILON, Math.max(CURVE_EPSILON, x));
   const xk = Math.pow(c, k);
   return xk / (xk + Math.pow(1 - c, k));
 }
@@ -100,7 +101,9 @@ const FinishShader = {
       // An S-curve, not a linear stretch: it keeps 0 and 1 fixed, so soft
       // glow edges steepen instead of clipping or crushing. Mirrors
       // contrastCurve() in this file.
-      vec3 x = clamp(rgb, 0.0, 1.0);
+      // Kept off exactly 0 and 1: some mobile drivers lower pow() to
+      // exp2(k * log2(x)), which is NaN at 0 and would poison empty pixels.
+      vec3 x = clamp(rgb, 1e-6, 1.0 - 1e-6);
       vec3 xk = pow(x, vec3(uContrast));
       vec3 yk = pow(1.0 - x, vec3(uContrast));
       vec3 graded = xk / (xk + yk);
