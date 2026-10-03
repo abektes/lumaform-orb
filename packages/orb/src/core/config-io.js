@@ -1,12 +1,16 @@
 // Loading exported configurations back in.
 //
-// Export writes { version, engine, global, params, modulation }, and the grid
+// Export writes { version, engine, global, params, modulation }, plus states,
+// initialState and transition when it has them, and the grid
 // writes an array of those — that array is the notebook format, the thing you
 // actually keep. Import has to accept both, restore the motion design as well as
 // the look, and refuse to write junk into state.
 //
 // Pure: takes the engine list and the parameter schema as arguments rather than
 // importing state.js, so it stays a leaf module and tests need no fixtures.
+
+import { isModulatable } from './modulation.js';
+import { EASING_NAMES } from './easing.js';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -22,7 +26,7 @@ function isPlainObject(value) {
 // has to land before anything is published, because afterwards there are
 // unversioned files in the wild whose shape can only be guessed at.
 
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 // Ordered: MIGRATIONS[n] takes a config at version n and returns version n+1.
 const MIGRATIONS = [
@@ -31,6 +35,9 @@ const MIGRATIONS = [
   // chain exists and is exercised, so the first real migration is a one-line
   // addition rather than a redesign of how loading works.
   (config) => ({ ...config, version: 1 }),
+  // v1 → v2. States, initialState and transition are new and optional, so a v1
+  // file is already a valid v2 file with one look and no states.
+  (config) => ({ ...config, version: 2 }),
 ];
 
 // Absent means "written before versioning existed", which is v0. Anything else
@@ -154,6 +161,57 @@ export function sanitizeParams(params, defs) {
   return { params: out, dropped };
 }
 
+export const TEMPO_RANGE = Object.freeze([0.25, 4]);
+export const DEFAULT_TRANSITION = Object.freeze({ durationMs: 600, easing: 'easeInOut' });
+
+// What a state may change: what modulation may change, plus colours that do
+// not rebuild geometry. A state is eased over hundreds of milliseconds, and a
+// rate or a geometry param is exactly as unsafe to ease as to modulate — the
+// first rewrites accumulated angle, the second rebuilds geometry every frame.
+// Selects are left out too: snapping one mid-transition is a cut, not an ease.
+function isStateSafe(key, def) {
+  if (def?.type === 'color') return def.section !== 'geometry';
+  return isModulatable(key, def);
+}
+
+export function sanitizeStates(states, defs) {
+  if (!isPlainObject(states)) return { states: null, dropped: [] };
+  const out = {};
+  const dropped = [];
+
+  for (const [name, state] of Object.entries(states)) {
+    if (!isPlainObject(state)) {
+      dropped.push(name);
+      continue;
+    }
+    const safeDefs = {};
+    for (const [key, def] of Object.entries(defs || {})) {
+      if (isStateSafe(key, def)) safeDefs[key] = def;
+    }
+    const { params, dropped: droppedKeys } = sanitizeParams(state.params, safeDefs);
+    for (const key of droppedKeys) dropped.push(`${name}.${key}`);
+
+    const rawTempo = Number(state.tempo);
+    const tempo = Number.isFinite(rawTempo)
+      ? Math.min(TEMPO_RANGE[1], Math.max(TEMPO_RANGE[0], rawTempo))
+      : 1;
+    out[name] = { params, tempo };
+  }
+
+  return { states: out, dropped };
+}
+
+export function sanitizeTransition(transition) {
+  const raw = isPlainObject(transition) ? transition : {};
+  const duration = Number(raw.durationMs);
+  return {
+    durationMs: Number.isFinite(duration)
+      ? Math.min(10000, Math.max(0, duration))
+      : DEFAULT_TRANSITION.durationMs,
+    easing: EASING_NAMES.includes(raw.easing) ? raw.easing : DEFAULT_TRANSITION.easing,
+  };
+}
+
 // Global settings that describe the session a file was exported from, not the
 // look. `dpr` is the render quality the author picked for their own screen;
 // `paused` is whether they had stopped the orb to inspect it. Played back, the
@@ -185,6 +243,11 @@ export function lookGlobal(global) {
 // object would lose.
 export function readConfig(config, defs) {
   const { params, dropped } = sanitizeParams(config.params, defs);
+  const { states, dropped: droppedStates } = sanitizeStates(config.states, defs);
+  // An initialState that names no state is a broken reference, not a request.
+  const initialState = states && typeof config.initialState === 'string' && states[config.initialState]
+    ? config.initialState
+    : null;
 
   return {
     engine: config.engine,
@@ -193,6 +256,9 @@ export function readConfig(config, defs) {
     // Detached, so a later edit to the parsed file cannot reach into whatever
     // the caller installs this in.
     modulation: isPlainObject(config.modulation) ? structuredClone(config.modulation) : null,
-    dropped,
+    states,
+    initialState,
+    transition: sanitizeTransition(config.transition),
+    dropped: [...dropped, ...droppedStates],
   };
 }

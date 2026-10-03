@@ -50,6 +50,20 @@ export interface OrbConfig {
   global?: Record<string, unknown>;
   params?: ParamValues;
   modulation?: Record<string, unknown>;
+  states?: Record<string, { params?: ParamValues; tempo?: number }>;
+  initialState?: string;
+  transition?: { durationMs?: number; easing?: string };
+}
+
+/** A state as read back: a patch over the base look, plus a tempo. */
+export interface OrbState {
+  params: ParamValues;
+  tempo: number;
+}
+
+export interface OrbTransition {
+  durationMs: number;
+  easing: string;
 }
 
 export interface ConfigRecord {
@@ -59,6 +73,11 @@ export interface ConfigRecord {
   global: Record<string, unknown> | null;
   /** null when the file predates modulation; do not wipe a live rack on null. */
   modulation: Record<string, unknown> | null;
+  /** null when the file has no states: a single look. */
+  states: Record<string, OrbState> | null;
+  /** Names an existing state, or null. */
+  initialState: string | null;
+  transition: OrbTransition;
   /** Keys the file carried that the engine's schema does not define. */
   dropped: string[];
 }
@@ -183,4 +202,8 @@ export declare function sanitizeParams(
   params: ParamValues | undefined,
   defs: ParamSchema
 ): { params: ParamValues; dropped: string[] };
+export declare function sanitizeStates(
+  states: unknown,
+  defs: ParamSchema
+): { states: Record<string, OrbState> | null; dropped: string[] };
 export declare function readConfig(config: OrbConfig, defs: ParamSchema): ConfigRecord;
