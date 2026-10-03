@@ -125,7 +125,11 @@ const FinishShader = {
         a *= mask;
       }
 
-      a = max(a, clamp(max(rgb.r, max(rgb.g, rgb.b)) * uLightCoverage, 0.0, 1.0));
+      // Glow carries colour with little coverage. Scaling by 4, as presence
+      // does, lets a bright halo reach full coverage at lightCoverage 1, so
+      // over a light page it shows as its own colour rather than a pale tint.
+      // rgb is untouched, so over black nothing changes.
+      a = max(a, clamp(max(rgb.r, max(rgb.g, rgb.b)) * 4.0 * uLightCoverage, 0.0, 1.0));
       gl_FragColor = vec4(max(rgb, 0.0), a);
     }
   `,

@@ -104,6 +104,8 @@ export const captureMethods = {
       this.refitCamera();
       notifyResize(this.activeEngine, targetWidth, targetHeight);
 
+      // The finish pass's centre, radius and aspect were set for the live view.
+      this.updateFinishFrame();
       this.composer.render();
       dataUrl = this.renderer.domElement.toDataURL(mimeType, quality);
     } finally {
