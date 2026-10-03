@@ -58,3 +58,7 @@ export { lerpHexColor, interpolateParams, createParamTween } from '../core/param
 
 // Named states for one engine: what setState() delegates to.
 export { createStatePlayer } from '../core/state-player.js';
+
+// The finishing grade. The studio's grid composer runs the per-pixel part of
+// it, so cells and the main view agree on contrast, saturation and grain.
+export { createFinishPass, FINISH_DEFAULTS, FINISH_RANGES } from '../core/finish-pass.js';
