@@ -1,7 +1,7 @@
 // The finish pass must be invisible until asked for: every existing config
 // renders identically, and the pass costs nothing while it is at identity.
 import {
-  FINISH_DEFAULTS, resolveFinish, isIdentityFinish, createFinishPass,
+  FINISH_DEFAULTS, resolveFinish, isIdentityFinish, createFinishPass, contrastCurve,
 } from '../src/core/finish-pass.js';
 
 let failures = 0;
@@ -16,6 +16,9 @@ ok('lightCoverage is ignored on an opaque background',
   isIdentityFinish({ ...FINISH_DEFAULTS, lightCoverage: 0.5 }, { transparent: false }));
 ok('lightCoverage counts on a transparent one',
   !isIdentityFinish({ ...FINISH_DEFAULTS, lightCoverage: 0.5 }, { transparent: true }));
+
+ok('edgeFade alone is non-identity', !isIdentityFinish({ ...FINISH_DEFAULTS, edgeFade: 0.3 }, { transparent: false }));
+ok('grain alone is non-identity', !isIdentityFinish({ ...FINISH_DEFAULTS, grain: 0.05 }, { transparent: false }));
 
 const resolved = resolveFinish(FINISH_DEFAULTS, { contrast: 9, grain: -1, saturation: 'x', unrelated: 5 });
 ok('clamps to the top of a range', resolved.contrast === 2);
@@ -41,6 +44,28 @@ ok('back to identity disables it', finish.pass.enabled === false);
 finish.frame({ center: [0.4, 0.6], radius: 0.8, aspect: 1.5, seed: 3 });
 ok('frame sets the centre', u.uCenter.value.x === 0.4 && u.uCenter.value.y === 0.6);
 ok('frame sets the radius and aspect', u.uRadius.value === 0.8 && u.uAspect.value === 1.5);
+
+// An omitted `transparent` keeps the previous mode; partial patches are sticky.
+finish.set({ lightCoverage: 0.4 }, { transparent: true });
+finish.set({ contrast: 1.2 });
+ok('omitted transparent keeps the previous mode', u.uLightCoverage.value === 0.4);
+ok('omitted transparent still applies the patch', u.uContrast.value === 1.2);
+
+// contrastCurve mirrors the GLSL, which Node cannot run.
+const xs = [0, 0.05, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 0.95, 1];
+ok('curve is the identity at k=1', xs.every((x) => Math.abs(contrastCurve(x, 1) - x) < 1e-12));
+ok('curve fixes the endpoints', [0.5, 1, 2].every((k) => contrastCurve(0, k) === 0 && contrastCurve(1, k) === 1));
+ok('curve passes through mid-grey', [0.5, 1, 2].every((k) => Math.abs(contrastCurve(0.5, k) - 0.5) < 1e-12));
+ok('curve is steeper than linear near 0.5 at k=2',
+  (contrastCurve(0.55, 2) - contrastCurve(0.45, 2)) / 0.1 > 1);
+ok('curve flattens at k<1', (contrastCurve(0.55, 0.5) - contrastCurve(0.45, 0.5)) / 0.1 < 1);
+let inRange = true;
+for (const k of [0.5, 1, 2]) for (let i = 0; i <= 100; i++) {
+  const y = contrastCurve(i / 100, k);
+  if (!(y >= 0 && y <= 1)) inRange = false;
+}
+ok('curve never leaves [0,1]', inRange);
+ok('curve is monotonic at k=2', xs.every((x, i) => i === 0 || contrastCurve(x, 2) >= contrastCurve(xs[i - 1], 2)));
 
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);
