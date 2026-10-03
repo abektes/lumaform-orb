@@ -41,6 +41,8 @@ const orb = createOrb(document.querySelector('#orb'), {
 |---|---|---|
 | `engines` | `{}` | Engine id → factory. Import from `@lumaform/orb/engines`. |
 | `config` | `null` | A parsed config object. Decides which engine mounts. |
+| `template` | `null` | `{ engine, config }`, in place of `engines` and `config`. See [States](../../docs/GUIDE.md#6-states). |
+| `state` | `null` | Name of the state to start in; an unknown name falls back to the config's `initialState`. |
 | `engine` | `null` | Engine id, when there is no config. Falls back to the sole registered engine. |
 | `params`, `global` | `null` | Starting values, merged over schema defaults. |
 | `autoStart` | `true` | Start the loop immediately. |
@@ -49,7 +51,7 @@ const orb = createOrb(document.querySelector('#orb'), {
 | `preserveDrawingBuffer` | `false` | Only needed to read pixels back with `toDataURL`. |
 | `pixelRatio` | device, max 2 | Render density. A config file never sets it. |
 
-The returned orb exposes `start()`, `stop()`, `isRunning`, `setEngine()`, `setParams()`, `loadConfig()`, `setAudioSource()`, `dispose()`, and `dropped` — the config keys the engine's schema does not define, which is usually a version mismatch worth surfacing.
+The returned orb exposes `start()`, `stop()`, `isRunning`, `setEngine()`, `setParams()`, `loadConfig()`, `setState()`, `state`, `states`, `setAudioSource()`, `dispose()`, and `dropped` — the config keys the engine's schema does not define, which is usually a version mismatch worth surfacing. `setState(name)` eases to a named state from the config and returns `false` for an unknown name; `state` is the current name and `states` lists the names. See [States](../../docs/GUIDE.md#6-states).
 
 **Defaults are the embed's, not the studio's.** The canvas is sized from the container with a `ResizeObserver`, not from the window; nothing rotates unless you ask; `dispose()` removes the canvas it added and leaves your other children alone. Opt in when you want more:
 

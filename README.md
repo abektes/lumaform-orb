@@ -283,7 +283,7 @@ Every merge to `main` redeploys the studio automatically. Releasing the runtime 
 
 ## Status
 
-This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips and it carries a `version` field, but it has no stability guarantee. Version 2 added named states: each is a patch over the parameters plus a tempo, the names are free strings, and the templates ship a starter set (`idle`, `thinking`, `speaking`). Don't build anything on the rest of its shape yet — the version field exists so a redesign can migrate your files rather than break them, not to promise the shape will hold. See [docs/VISION.md](docs/VISION.md) §6.
+This is an exploration instrument in active use, not a released product. The export format is a lab notebook: it round-trips and it carries a `version` field, but it has no stability guarantee. Version 2 added named states: each is a patch over the parameters plus a tempo, the names are free strings, and templates, coming next, will ship a starter set (`idle`, `thinking`, `speaking`). Don't build anything on the rest of its shape yet — the version field exists so a redesign can migrate your files rather than break them, not to promise the shape will hold. See [docs/VISION.md](docs/VISION.md) §6.
 
 The runtime, [`@lumaform/orb`](https://www.npmjs.com/package/@lumaform/orb), is published on npm and is pre-1.0: a minor release may break its API. [packages/orb/CHANGELOG.md](packages/orb/CHANGELOG.md) lists what each version contains, and [docs/RELEASING.md](docs/RELEASING.md) is the checklist for the next one.
 

@@ -1,6 +1,6 @@
 # Lumaform Orb — Vision & Product Requirements
 
-**Status:** Living document. Reflects the direction as of 2026-09-06.
+**Status:** Living document. Reflects the direction as of 2026-10-03.
 **Audience:** Anyone — human or agent — picking up work on this repo.
 
 Read this before writing code. The implementation plans in `docs/superpowers/plans/` tell you *how*; this tells you *why*, and several decisions here will look arbitrary until you know the reasoning.
@@ -39,7 +39,7 @@ So the ordering is:
 
 **Practical consequence for anyone working here:** if a proposal starts with "let's define the format for…", it is probably premature. Ask what it lets you *discover* first. The exception is anything needed to keep findings from being lost (see §4, capture).
 
-**Revisited 2026-10-03.** Named states are now built. Two products arrived at the same three states independently — `thinking-orbs` (logged in §9.1) and [shadercn](https://www.shadercn.run/docs/components/orbs/orb-07), both a fixed set of looks with `idle`, `thinking` and `speaking`, consumed in one line — and Reddit feedback read our open-ended sampler as generated. The vocabulary stays open in the format: names are free strings and the runtime gives none of them meaning. What is fixed is only the starter set the templates use. Exploration continues; it now has somewhere to land.
+**Revisited 2026-10-03.** Named states are now built. Two products arrived at the same shape independently, a fixed set of named looks consumed in one line: `thinking-orbs` (logged in §9.1) ships nine verbs, and [shadercn](https://www.shadercn.run/docs/components/orbs/orb-07) ships `idle`, `thinking` and `speaking` — and Reddit feedback read our open-ended sampler as generated. The vocabulary stays open in the format: names are free strings and the runtime gives none of them meaning. What is fixed is only the starter set the templates will use. Exploration continues; it now has somewhere to land.
 
 ## 4. What the tool needs to be good at
 
@@ -93,7 +93,7 @@ Export emits `{ version, engine, global, params, modulation }`, plus `states`, `
 
 This section previously said to add no versioning until exploration had produced a vocabulary. That was reversed deliberately in September 2026, and the reasoning matters more than the conclusion.
 
-The instruction conflated two different things. A **published schema** is a promise about shape, and promising a shape before you know the vocabulary is exactly the premature specification §3 exists to prevent — so that stays forbidden. A **version field** is the opposite: it is a promise that the shape is *allowed to change*. It costs one integer and it is what turns the redesign this section promises into a migration instead of a break.
+The instruction conflated two different things. A **published schema** is a promise about shape, and promising a shape before you know the vocabulary is exactly the premature specification §3 exists to prevent — so that stays forbidden. A **version field** is the opposite: it is a promise that the shape is *allowed to change*. It costs one integer and it is what turns a later change to the shape into a migration instead of a break.
 
 It also cannot be added later at the same price. Once unversioned files exist in the wild — on other people's disks, in forks, in anything built on `@lumaform/orb` — a loader has to guess at their shape from their contents. Adding the field while the only files are your own is nearly free; adding it afterwards is archaeology.
 
@@ -106,8 +106,8 @@ None of this makes the format stable. It makes it changeable on purpose rather t
 | Decision | Rationale |
 | --- | --- |
 | Explore before specifying a state schema | Specifying first freezes the motion vocabulary at whatever we already stumbled into. See §3. |
-| State names will be **open**, with a fixed set offered as a starter template | Designers will reach for this for loading indicators, brand idents, status lights — not just AI orbs. The format is "a named-state motion config"; AI communication is the first template, not the definition. |
-| The runtime will be **name-agnostic** | `setState(name)` looks up a named parameter target and springs to it. It never needs to know "thinking" is special. This makes openness free architecturally and keeps the vocabulary a UI concern. |
+| State names are **open**, with a fixed set offered as a starter template | Designers will reach for this for loading indicators, brand idents, status lights — not just AI orbs. The format is "a named-state motion config"; AI communication is the first template, not the definition. |
+| The runtime is **name-agnostic** | `setState(name)` looks up a named parameter target and eases to it. It never needs to know "thinking" is special. This makes openness free architecturally and keeps the vocabulary a UI concern. |
 | Modulation lives in app state, not just in the rack | So it round-trips through export and presets. A config that loses its motion is half a config. |
 | Grid cells own their own patch **and their own clock** | Mutating parameters alone gives nine orbs that differ in colour and speed but share one motion character — the character lives in the routing. Per-cell clocks let a tempo route read as hesitation rather than an arbitrary phase offset. Cells still start together, so equal wall time has elapsed for each. |
 | Cell 0 of the grid is always the unmutated parent | You need the reference in frame to judge the other eight. |
