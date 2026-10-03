@@ -125,11 +125,11 @@ A config can carry named states, so the orb changes behaviour when your assistan
   "version": 2,
   "engine": "regard",
   "global": { "exposure": 1 },
-  "params": { "attention": 0.05, "haloSize": 1.18, "focusColor": "#ffc978" },
+  "params": { "attention": 0.05, "focusGlow": 1.2, "focusColor": "#ffc978" },
   "states": {
     "idle": { "params": {}, "tempo": 0.6 },
     "thinking": { "params": { "attention": 0.7, "focusColor": "#8fa3ff" }, "tempo": 1.8 },
-    "speaking": { "params": { "haloSize": 1.4, "focusColor": "#ff8a4c" }, "tempo": 1 }
+    "speaking": { "params": { "focusGlow": 2, "focusColor": "#ff8a4c" }, "tempo": 1 }
   },
   "initialState": "idle",
   "transition": { "durationMs": 600, "easing": "easeInOut" }
@@ -146,7 +146,7 @@ tts.on('start', () => orb.setState('speaking'));        // its voice begins
 assistant.on('done', () => orb.setState('idle'));
 ```
 
-`setState` eases toward the named state over `transition.durationMs` and returns `true`. Pass `{ durationMs, easing }` as a second argument to override either for one call. The easings are `linear`, `easeOut`, `easeInOut`, `spring` and `snap`. An unknown name warns and returns `false`. `orb.state` is the current name (or `null`) and `orb.states` lists the names. If you change a parameter with `orb.setParams(...)`, the current state's patch is applied again on top, so an orb in `thinking` keeps thinking.
+`setState` eases toward the named state over `transition.durationMs` and returns `true`. Pass `{ durationMs, easing }` as a second argument to override either for one call. The easings are `linear`, `easeOut`, `easeInOut`, `spring` and `snap`. An unknown name warns and returns `false`. `orb.state` is the current name (or `null`) and `orb.states` lists the names. If you change a parameter with `orb.setParams(...)`, the current state's patch is applied again on top, so an orb in `thinking` keeps thinking. That edit jumps straight to the current state's look: it is a hard cut, not an ease, and it also ends any transition in progress.
 
 Only parameters that can be eased without a visible jump survive in a state. Rates, `geometry` parameters and selects are dropped when the config loads and listed in `orb.dropped`. Put speed changes in `tempo` (0.25 to 4, default 1) instead: rate parameters can't be eased without the orb jumping, and `tempo` scales the time step the runtime advances by.
 
@@ -171,6 +171,6 @@ A config file never sets the density, whatever it contains.
 | Symptom | Likely cause |
 |---|---|
 | Nothing appears | The engine the file names isn't in `engines` (the console says `Engine type "…" not registered`). The container has no height. Or the browser has no WebGL2. |
-| `orb.dropped` isn't empty | The file came from a newer studio than your library version. Update `@lumaform/orb`. It also lists state keys the format doesn't allow in a state (rates, `geometry` parameters, selects), reported as `state.key`. |
+| `orb.dropped` isn't empty | The file came from a newer studio than your library version. Update `@lumaform/orb`. It also lists state keys the format doesn't allow in a state (rates, `geometry` parameters, selects), reported as `state.key`. A state that isn't an object shows up as its bare name. |
 | Audio does nothing | The file has no route from the audio input (step 1), `isActive` is false, the `AudioContext` is still suspended, or the audio is cross-origin without CORS. |
 | The orb looks soft | A `pixelRatio` below the device's density was passed. |

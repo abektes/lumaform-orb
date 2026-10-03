@@ -20,11 +20,10 @@ function isPlainObject(value) {
 
 // --- versioning ------------------------------------------------------------
 //
-// VISION §3 says this format will be redesigned around named states once
-// exploration has produced a vocabulary. Without a version field that redesign
-// breaks every file already on disk; with one it is a migration. The mechanism
-// has to land before anything is published, because afterwards there are
-// unversioned files in the wild whose shape can only be guessed at.
+// Version 2 added named states. The version field exists so that any later
+// change to the shape is a migration rather than a break for every file already
+// on disk; it had to land before anything was published, because afterwards
+// there are unversioned files in the wild whose shape can only be guessed at.
 
 export const CONFIG_VERSION = 2;
 

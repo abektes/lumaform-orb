@@ -71,9 +71,9 @@ export interface OrbTransition {
  * importing one template ships one engine.
  */
 export interface OrbTemplate {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
+  readonly id?: string;
+  readonly name?: string;
+  readonly description?: string;
   readonly engine: EngineFactory;
   readonly config: OrbConfig;
 }
