@@ -1,5 +1,5 @@
 import { createAbCompare, normalizeSnapshot } from '../core/ab-compare.js';
-import { EASING_NAMES } from '../core/easing.js';
+import { EASING_NAMES } from '@lumaform/orb/internal';
 
 const TRANSITION_DURATIONS = [0, 200, 400, 900];
 

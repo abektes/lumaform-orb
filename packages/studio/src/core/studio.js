@@ -10,7 +10,7 @@
 
 import { OrbRuntime } from '@lumaform/orb';
 import { createAudioInput } from '@lumaform/orb/audio';
-import { createParamTween } from './param-tween.js';
+import { createParamTween } from '@lumaform/orb/internal';
 import { createSequencePlayer } from './sequence.js';
 import { DEFAULT_BREADTH } from './variation-grid.js';
 import { bindGridPointer, gridMethods } from './studio-grid.js';
