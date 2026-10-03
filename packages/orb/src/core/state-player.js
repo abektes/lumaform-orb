@@ -10,6 +10,7 @@
 
 import { createParamTween } from './param-tween.js';
 import { applyEasing } from './easing.js';
+import { TEMPO_RANGE } from './config-io.js';
 
 const DEFAULTS = { durationMs: 600, easing: 'easeInOut' };
 
@@ -32,12 +33,27 @@ export function createStatePlayer() {
   let elapsed = 0;
   let duration = 0;
 
+  // Own-property lookups throughout: a name like `constructor` must not
+  // resolve to Object.prototype and read as a state.
+  const hasState = (name) => typeof name === 'string' && Object.hasOwn(states, name);
+  const tempoOf = (name) => (hasState(name) ? states[name].tempo ?? 1 : 1);
+  const clampTempo = (value) => Math.min(TEMPO_RANGE[1], Math.max(TEMPO_RANGE[0], value));
+
   function targetFor(name) {
-    const patch = states[name]?.params || {};
+    const patch = hasState(name) ? states[name].params || {} : {};
     const target = {};
     // Every key any state touches, so leaving a state reverts what it changed.
-    for (const key of touched) target[key] = key in patch ? patch[key] : base[key];
+    for (const key of touched) {
+      target[key] = Object.hasOwn(patch, key) ? patch[key] : Object.hasOwn(base, key) ? base[key] : undefined;
+    }
     return target;
+  }
+
+  // Cancelling mid-ease must not strand tempo between two states' values while
+  // `current` names one of them, so it snaps to the current state's tempo.
+  function settleTempo() {
+    tempo = tempoFrom = tempoTo = tempoOf(current);
+    elapsed = duration = 0;
   }
 
   return {
@@ -47,18 +63,15 @@ export function createStatePlayer() {
       defs = next.defs || {};
       transition = { ...DEFAULTS, ...(next.transition || {}) };
       touched = [...new Set(Object.values(states).flatMap((s) => Object.keys(s.params || {})))];
-      current = next.initialState && states[next.initialState] ? next.initialState : null;
+      current = hasState(next.initialState) ? next.initialState : null;
       tween.cancel();
-      tempo = current ? states[current].tempo ?? 1 : 1;
-      tempoFrom = tempoTo = tempo;
-      elapsed = duration = 0;
+      settleTempo();
     },
 
     setBase(params) {
       base = { ...params };
       tween.cancel();
-      tempoFrom = tempoTo = tempo;
-      elapsed = duration = 0;
+      settleTempo();
     },
 
     targetFor,
@@ -77,14 +90,15 @@ export function createStatePlayer() {
     },
 
     start(name, currentParams, options = {}) {
-      if (!states[name]) return false;
-      const durationMs = options.durationMs ?? transition.durationMs;
+      if (!hasState(name)) return false;
+      // A non-finite duration would never land, so it falls back to the default.
+      const durationMs = Number.isFinite(options.durationMs) ? options.durationMs : transition.durationMs;
       const easing = options.easing ?? transition.easing;
       current = name;
       // From what is on screen, so an interruption never jumps back.
       tween.start(currentParams, targetFor(name), defs, { durationMs, easing });
       tempoFrom = tempo;
-      tempoTo = states[name].tempo ?? 1;
+      tempoTo = tempoOf(name);
       tempoEasing = easing;
       elapsed = 0;
       duration = Math.max(0, durationMs);
@@ -92,19 +106,20 @@ export function createStatePlayer() {
     },
 
     advance(deltaMs) {
+      const delta = Number.isFinite(deltaMs) ? Math.max(0, deltaMs) : 0;
       if (elapsed < duration || (duration === 0 && tempo !== tempoTo)) {
-        elapsed = Math.min(duration, elapsed + Math.max(0, deltaMs));
+        elapsed = Math.min(duration, elapsed + delta);
         const t = duration > 0 ? elapsed / duration : 1;
-        tempo = t >= 1 ? tempoTo : tempoFrom + (tempoTo - tempoFrom) * applyEasing(tempoEasing, t);
+        // `spring` overshoots; tempo has a hard range, so the eased value is clamped.
+        tempo = t >= 1 ? tempoTo : clampTempo(tempoFrom + (tempoTo - tempoFrom) * applyEasing(tempoEasing, t));
       }
       if (!tween.isRunning) return null;
-      return tween.advance(deltaMs);
+      return tween.advance(delta);
     },
 
     cancel() {
       tween.cancel();
-      tempoFrom = tempoTo = tempo;
-      elapsed = duration = 0;
+      settleTempo();
     },
   };
 }
