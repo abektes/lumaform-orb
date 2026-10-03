@@ -53,8 +53,13 @@ ok('omitted transparent still applies the patch', u.uContrast.value === 1.2);
 
 // contrastCurve mirrors the GLSL, which Node cannot run.
 const xs = [0, 0.05, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 0.95, 1];
-ok('curve is the identity at k=1', xs.every((x) => Math.abs(contrastCurve(x, 1) - x) < 1e-12));
-ok('curve fixes the endpoints', [0.5, 1, 2].every((k) => contrastCurve(0, k) === 0 && contrastCurve(1, k) === 1));
+ok('curve is the identity at k=1', xs.every((x) => Math.abs(contrastCurve(x, 1) - x) < 1e-5));
+// The curve clamps its input to [1e-6, 1-1e-6] (see the shader), so the ends
+// sit within eps^min(k,1) of 0 and 1: 1e-6 at k>=1, 1e-3 at k=0.5.
+ok('curve fixes the endpoints', [0.5, 1, 2].every((k) => {
+  const tol = 2 * Math.pow(1e-6, Math.min(k, 1));
+  return Math.abs(contrastCurve(0, k)) < tol && Math.abs(contrastCurve(1, k) - 1) < tol;
+}));
 ok('curve passes through mid-grey', [0.5, 1, 2].every((k) => Math.abs(contrastCurve(0.5, k) - 0.5) < 1e-12));
 ok('curve is steeper than linear near 0.5 at k=2',
   (contrastCurve(0.55, 2) - contrastCurve(0.45, 2)) / 0.1 > 1);
