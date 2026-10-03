@@ -1,9 +1,9 @@
 // Interpolating between two parameter sets over time.
 //
-// This is an instrument for looking at transitions, not a state machine: a tween
-// has a duration and a curve, and nothing else. Naming transitions is
-// specification, which docs/VISION.md §3 defers until exploration has produced a
-// vocabulary worth naming.
+// A tween has a duration and a curve, and nothing else. It interpolates one
+// parameter set toward another and is used by the runtime's setState() and by
+// the studio's A/B and rehearsal transitions. What the sets are called, and
+// when to move between them, is decided by callers.
 //
 // Pure — no DOM, no Three.js — so it can be tested in Node.
 

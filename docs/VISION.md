@@ -77,7 +77,7 @@ Break these and things fail in ways that are hard to trace. Each one exists beca
 
 **Every control must declare its own fill — never inherit the user agent's.** The UI is dark; browser defaults are light. A `<button>` with no `background`/`color` renders as a light-grey slab with black text, and when disabled it drops to near-black text on translucent grey, which is illegible here. `.btn-sm` had no fill and `.cp-delete-btn` had no rule at all, so both rendered as raw browser buttons (Arial, square, 2px border) until this was fixed. A disabled state needs an explicit `background` and `color`, not just `opacity`. Watch specificity when adding one: variant classes like `.btn-accent` are defined *earlier* in `src/style.css` than the `.btn-sm` base, which is why the base fill is scoped with `:not()` — and why the disabled rule has to repeat that chain to win.
 
-**Bloom is a full-screen pass.** It bleeds across scissored cell boundaries, which is why grid cells render through a RenderPass+OutputPass composer with no bloom. Cells look flatter than the main view; that is deliberate, not a bug. Do not "fix" it without per-cell render targets. The finish pass's edgeFade is left out of cells for the same reason: it needs each cell's own centre. Contrast, saturation and grain are per-pixel and do run in cells.
+**Bloom is a full-screen pass.** It bleeds across scissored cell boundaries, which is why grid cells render through a RenderPass+OutputPass composer with no bloom. Cells look flatter than the main view; that is deliberate, not a bug. Do not "fix" it without per-cell render targets. The finish pass's edgeFade is left out of cells for the same reason: it needs each cell's own centre. Contrast, saturation and grain are per-pixel and do run in cells. Grain is static there, because cells have no clock of their own for it, while it moves in the main view.
 
 ## 6. What the export format is — and is not
 
@@ -114,7 +114,7 @@ None of this makes the format stable. It makes it changeable on purpose rather t
 | Dead code archived, not deleted | `archive/` keeps `src/` readable while the six original demo files stay browsable. It is **tracked in git** — ignoring it would defeat the point. |
 | No React, no component library | See §5. Most of the ecosystem's UI libraries are React-only and therefore unavailable. Accepted. |
 | Shiki loaded via dynamic import | Importing it directly cost 355 kB in the main bundle for one snippet in one modal. |
-| Named states built before exploration produced them (2026-10-03) | Two independent products converged on idle / thinking / speaking; see §3. Names stay open. |
+| Named states built before exploration produced them (2026-10-03) | Two independent products converged on a fixed set of named looks consumed in one line; see §3. Names stay open. |
 | A state may change only easable keys, plus colours | Easing a rate or geometry param over 600 ms fails the same way modulating it does. Enforced on load by `sanitizeStates`, not by author discipline. |
 | Speed between states is `tempo`, integrated into the frame step | A rate cannot be eased without the jump; a multiplier on the step can. |
 

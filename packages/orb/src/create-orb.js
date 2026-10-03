@@ -13,6 +13,7 @@
 //   import { nebula } from '@lumaform/orb/engines';
 //   const orb = createOrb(el, { engines: { nebula }, config });
 //
+//   // (templates are planned; until then pass `{ engine, config }`)
 //   import { ember } from '@lumaform/orb/templates';
 //   const orb = createOrb(el, { template: ember, state: 'idle' });
 //   orb.setState('thinking');
