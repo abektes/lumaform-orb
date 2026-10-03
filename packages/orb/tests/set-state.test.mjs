@@ -191,5 +191,38 @@ function bareRuntime() {
   ok('the bare eased value is below the clamp', rt.baseParams.spread < 1 && rt.baseParams.spread > 0.1, String(rt.baseParams.spread));
 }
 
+{
+  // setState(name, null) is an easy call to write; it must behave as no options.
+  const { rt } = bareRuntime();
+  let threw = null;
+  try { rt.setState('thinking', null); } catch (e) { threw = e; }
+  ok('setState(name, null) does not throw', threw === null, String(threw));
+  ok('setState(name, null) still starts the transition', rt.state === 'thinking');
+  rt.advance(0.5);
+  ok('setState(name, null) uses the default transition', near(rt.baseParams.spread, 0.5), String(rt.baseParams.spread));
+}
+
+{
+  // A direct runtime user can pass a transition with an undefined field; it
+  // must not override the default and make the duration NaN.
+  // A real engine type, so the mount reads real parameter definitions; the
+  // bare runtime's 'x' has none and the tween would cut instead of ease.
+  const { rt } = bareRuntime();
+  rt.activeEngineType = 'regard';
+  rt.updateGlobalSettings = () => {};
+  rt.refitCamera = () => {};
+  rt.mountEngine('regard', {
+    params: { lean: 0.1 },
+    states: { idle: { params: {}, tempo: 1 }, thinking: { params: { lean: 0.9 }, tempo: 1 } },
+    initialState: 'idle',
+    transition: { durationMs: undefined, easing: 'linear' },
+  });
+  rt.setState('thinking');
+  rt.advance(0.3);
+  ok('an undefined durationMs eases over the default 600 ms', near(rt.baseParams.lean, 0.5), String(rt.baseParams.lean));
+  rt.advance(0.35);
+  ok('and lands after it', rt.baseParams.lean === 0.9 && !rt.statePlayer.isRunning, String(rt.baseParams.lean));
+}
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);

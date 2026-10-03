@@ -23,6 +23,7 @@ import { createFpsTracker } from '../shared/fps.js';
 import { ENGINE_PARAM_DEFINITIONS } from '../engine-catalog.js';
 import { createModulationRack, createDefaultModulation } from './modulation.js';
 import { createStatePlayer } from './state-player.js';
+import { sanitizeTransition } from './config-io.js';
 import { cameraDistanceForRadius, engineFrameRadius, visibleHalfHeight, DEFAULT_FRAME_FILL } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
 import { resolveRuntimeOptions, resolvePixelRatio } from './runtime-options.js';
@@ -186,8 +187,11 @@ export class OrbRuntime {
   // Returns true when an engine was actually constructed, so a caller that
   // needs to rebuild something on a real swap can tell that from a no-op.
   mountEngine(type, { params = {}, global = {}, modulation, states = null, initialState = null, transition = null } = {}) {
+    // Direct runtime users bypass readConfig, so `{ durationMs: undefined }`
+    // would otherwise override the default and make every duration NaN.
+    const cleanTransition = transition ? sanitizeTransition(transition) : null;
     const configureStates = (base) => this.statePlayer.configure({
-      base, states, initialState, transition, defs: ENGINE_PARAM_DEFINITIONS[type] || {},
+      base, states, initialState, transition: cleanTransition, defs: ENGINE_PARAM_DEFINITIONS[type] || {},
     });
 
     if (this.activeEngineType === type && this.activeEngine) {
@@ -291,7 +295,7 @@ export class OrbRuntime {
   // An unknown name is a typo in someone's app, so it warns and does nothing
   // rather than throwing inside their render loop.
   setState(name, options = {}) {
-    const started = this.statePlayer.start(name, this.baseParams, options);
+    const started = this.statePlayer.start(name, this.baseParams, options ?? {});
     if (!started) {
       const known = this.statePlayer.names;
       console.warn(`setState: no state named "${name}". ${known.length ? `Known: ${known.join(', ')}.` : 'This config has no states.'}`);

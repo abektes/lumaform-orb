@@ -134,5 +134,11 @@ ok('a partial base leaves no target key undefined',
   JSON.stringify(partialTarget));
 ok('a state patch still supplies a key the base lacks', partial.targetFor('thinking').spread === 0.9);
 
+const nullOpts = createStatePlayer();
+nullOpts.configure({ base, states, initialState: 'idle', transition: { durationMs: 1000, easing: 'linear' }, defs: DEFS });
+let nullThrew = null;
+try { nullOpts.start('thinking', base, null); } catch (e) { nullThrew = e; }
+ok('start(name, params, null) is the same as no options', nullThrew === null && near(nullOpts.advance(500).spread, 0.5), String(nullThrew));
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);
