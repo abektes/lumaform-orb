@@ -49,3 +49,9 @@ export { createFpsTracker } from '../shared/fps.js';
 // renders cells through its own composer and needs the same last step, or
 // cells sit on a different colour from the main view.
 export { createBackgroundPass, preserveBloomAlpha, lightCarriesNoCoverage } from '../core/background-pass.js';
+
+// Interpolating one parameter set toward another, and the curves it eases by.
+// setState() uses them; the studio's A/B and rehearsal transitions use the same
+// ones, so a transition previewed in the studio is the one an app gets.
+export { EASINGS, EASING_NAMES, applyEasing } from '../core/easing.js';
+export { lerpHexColor, interpolateParams, createParamTween } from '../core/param-tween.js';

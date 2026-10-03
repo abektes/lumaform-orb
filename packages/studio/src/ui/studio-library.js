@@ -4,7 +4,7 @@ import { parseConfigFile, readConfig } from '@lumaform/orb';
 import { applyConfigToState } from '../core/config-apply.js';
 import { makeFinding } from '../core/findings.js';
 import { makeStep, totalDuration } from '../core/sequence.js';
-import { EASING_NAMES } from '../core/easing.js';
+import { EASING_NAMES } from '@lumaform/orb/internal';
 import { escapeHtml, safeThumbnail } from './studio-format.js';
 
 export function renderPresetsTab() {
