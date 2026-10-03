@@ -25,6 +25,13 @@ export const DEFAULT_GLOBAL_SETTINGS = {
   bloomStrength: 0.25,
   bloomRadius: 0.25,
   bloomThreshold: 0.35,
+  // The finishing grade. Identity here, so a fresh session renders exactly as
+  // before; templates are where these move.
+  contrast: 1,
+  saturation: 1,
+  grain: 0,
+  edgeFade: 0,
+  lightCoverage: 0,
   autoRotate: true,
   autoRotateSpeed: 0.8,
   timeScale: 1.0,

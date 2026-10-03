@@ -39,6 +39,11 @@ export const GLOBAL_NUMBER_DEFINITIONS = {
     step: 0.01,
     default: DEFAULT_GLOBAL_SETTINGS.bloomThreshold,
   },
+  contrast: { label: 'Contrast', min: 0.5, max: 2, step: 0.01, default: DEFAULT_GLOBAL_SETTINGS.contrast },
+  saturation: { label: 'Saturation', min: 0, max: 2, step: 0.01, default: DEFAULT_GLOBAL_SETTINGS.saturation },
+  grain: { label: 'Grain', min: 0, max: 0.15, step: 0.005, default: DEFAULT_GLOBAL_SETTINGS.grain },
+  edgeFade: { label: 'Edge Fade', min: 0, max: 1, step: 0.01, default: DEFAULT_GLOBAL_SETTINGS.edgeFade },
+  lightCoverage: { label: 'Glow on Light Pages', min: 0, max: 1, step: 0.01, default: DEFAULT_GLOBAL_SETTINGS.lightCoverage },
   exposure: {
     label: 'ACES Exposure',
     min: 0.4,
