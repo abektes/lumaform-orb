@@ -26,6 +26,7 @@ import { createStatePlayer } from './state-player.js';
 import { cameraDistanceForRadius, engineFrameRadius, DEFAULT_FRAME_FILL } from './framing.js';
 import { notifyParams, notifyPulse, notifyResize } from './engine-notify.js';
 import { resolveRuntimeOptions, resolvePixelRatio } from './runtime-options.js';
+import { createFinishPass } from './finish-pass.js';
 import { createBackgroundPass, preserveBloomAlpha, lightCarriesNoCoverage } from './background-pass.js';
 
 export class OrbRuntime {
@@ -83,6 +84,7 @@ export class OrbRuntime {
     this.pointerTracker = createPointerTracker(this.renderer.domElement);
     this.fpsTracker = createFpsTracker();
     this.smoothedPointer = new THREE.Vector2(0, 0);
+    this.finishProbe = new THREE.Vector3();
 
     this.clickPulseTracker = createClickPulse(this.renderer.domElement, () => {
       notifyPulse(this.activeEngine);
@@ -156,6 +158,11 @@ export class OrbRuntime {
     // Ensure proper color management in the composer pipeline
     this.outputPass = new OutputPass();
     this.composer.addPass(this.outputPass);
+
+    // After tone mapping, before the backdrop: grades the orb in display
+    // space and leaves the picked background colour exact. See finish-pass.js.
+    this.finish = createFinishPass();
+    this.composer.addPass(this.finish.pass);
 
     // Last, so the backdrop is laid behind an already tone-mapped orb and
     // reaches the screen exactly as picked. See background-pass.js.
@@ -371,6 +378,10 @@ export class OrbRuntime {
     // clear colour set here is sRGB-encoded for the screen, which grid cells
     // then misread as linear). The background pass composites it exactly.
     this.background.set({ background: global.background, transparent: global.transparentBg });
+
+    // transparentBg may arrive without any finish key, and lightCoverage
+    // depends on it, so this runs on every update rather than on finish keys.
+    this.finish.set(global, { transparent: global.transparentBg });
   }
 
   // Push only what actually changed. Engines fan params out to uniforms on every
@@ -514,6 +525,25 @@ export class OrbRuntime {
     return mod;
   }
 
+  // Where the orb is on screen, for the finish pass's edge fade. The orb sits
+  // at the orbit target; its radius in viewport half-heights follows from the
+  // engine's frame hint and the camera distance, so a zoom or a portrait
+  // container moves the fade with it.
+  updateFinishFrame() {
+    if (!this.finish.pass.enabled) return;
+    const target = this.controlsTarget;
+    const ndc = this.finishProbe.copy(target).project(this.camera);
+    const distance = this.camera.position.distanceTo(target);
+    const halfHeight = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2) * distance;
+    this.finish.frame({
+      center: [(ndc.x + 1) / 2, (ndc.y + 1) / 2],
+      radius: halfHeight > 0 ? engineFrameRadius(this.activeEngine) / halfHeight : 1,
+      aspect: this.camera.aspect,
+      // Steps 24 times a second of virtual time: film-like, and frozen on pause.
+      seed: (Math.floor(this.virtualTime * 24) % 997) * 0.618,
+    });
+  }
+
   // Draws the active engine through the composer. Time comes from the last
   // advance(), never from an argument, so drawing cannot disagree with it.
   render() {
@@ -535,6 +565,7 @@ export class OrbRuntime {
       });
     }
 
+    this.updateFinishFrame();
     lightCarriesNoCoverage(this.scene);
     this.composer.render();
   }
@@ -563,6 +594,7 @@ export class OrbRuntime {
     this.controls?.dispose();
     this.activeEngine?.dispose();
     this.background?.pass.dispose();
+    this.finish?.pass.dispose();
     this.composer?.dispose();
     this.renderer?.dispose();
     // Was `container.innerHTML = ''`, which removed every sibling the host had
