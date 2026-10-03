@@ -253,10 +253,10 @@ export function renderSpaceTab() {
         <span class="section-title">BACKGROUND BACKDROP</span>
       </div>
       <div class="bg-mode-row">
-        <button class="bg-mode-btn ${g.background === '#030304' && !g.transparentBg ? 'active' : ''}" data-bg="#030304">Void Black</button>
-        <button class="bg-mode-btn ${g.background === '#01080d' && !g.transparentBg ? 'active' : ''}" data-bg="#01080d">Deep Navy</button>
-        <button class="bg-mode-btn ${g.background === '#080202' && !g.transparentBg ? 'active' : ''}" data-bg="#080202">Obsidian</button>
-        <button class="bg-mode-btn ${g.background === '#06010b' && !g.transparentBg ? 'active' : ''}" data-bg="#06010b">Violet Void</button>
+        <button class="bg-mode-btn ${g.background === '#030304' && !g.transparentBg ? 'active' : ''}" data-bg="#030304">Black</button>
+        <button class="bg-mode-btn ${g.background === '#01080d' && !g.transparentBg ? 'active' : ''}" data-bg="#01080d">Navy</button>
+        <button class="bg-mode-btn ${g.background === '#080202' && !g.transparentBg ? 'active' : ''}" data-bg="#080202">Oxblood</button>
+        <button class="bg-mode-btn ${g.background === '#06010b' && !g.transparentBg ? 'active' : ''}" data-bg="#06010b">Violet</button>
         <button class="bg-mode-btn ${g.transparentBg ? 'active' : ''}" id="btn-toggle-transparent">Transparent</button>
       </div>
     </div>
