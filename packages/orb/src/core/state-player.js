@@ -43,8 +43,12 @@ export function createStatePlayer() {
     const patch = hasState(name) ? states[name].params || {} : {};
     const target = {};
     // Every key any state touches, so leaving a state reverts what it changed.
+    // A key neither the patch nor the base holds is left out: a base set by a
+    // partial host edit lacks it, and an `undefined` target would reach the
+    // engine as that value.
     for (const key of touched) {
-      target[key] = Object.hasOwn(patch, key) ? patch[key] : Object.hasOwn(base, key) ? base[key] : undefined;
+      if (Object.hasOwn(patch, key)) target[key] = patch[key];
+      else if (Object.hasOwn(base, key)) target[key] = base[key];
     }
     return target;
   }

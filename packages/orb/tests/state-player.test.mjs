@@ -82,7 +82,7 @@ inheritedInit.configure({ base, states, initialState: 'constructor', transition:
 ok('an inherited initialState gives no current state', inheritedInit.current === null);
 const inheritedKey = createStatePlayer();
 inheritedKey.configure({ base: { ...base, spread: 0.1 }, states: { a: { params: { toString: 'x', spread: 0.2 }, tempo: 1 }, b: { params: {}, tempo: 1 } }, initialState: 'b', transition: null, defs: DEFS });
-ok('a patch key is read as own, not inherited', inheritedKey.targetFor('b').spread === 0.1 && inheritedKey.targetFor('b').toString === undefined);
+ok('a patch key is read as own, not inherited', inheritedKey.targetFor('b').spread === 0.1 && !Object.hasOwn(inheritedKey.targetFor('b'), 'toString'));
 
 for (const how of ['setBase', 'cancel']) {
   const p = createStatePlayer();
@@ -122,6 +122,17 @@ springDown.start('lo', base);
 let minTempo = 99;
 for (let i = 0; i < 100; i++) { springDown.advance(10); minTempo = Math.min(minTempo, springDown.tempo); }
 ok('spring easing never pushes tempo below 0.25', minTempo >= 0.25, String(minTempo));
+
+// A partial base (a host edit that set only `glow`) must not leave a target
+// key mapped to undefined: the engine would receive `undefined` for it.
+const partial = createStatePlayer();
+partial.configure({ base, states, initialState: 'idle', transition: { durationMs: 1000, easing: 'linear' }, defs: DEFS });
+partial.setBase({ glow: 2 });
+const partialTarget = partial.targetFor('idle');
+ok('a partial base leaves no target key undefined',
+  Object.values(partialTarget).every((v) => v !== undefined) && !('spread' in partialTarget) && !('tint' in partialTarget),
+  JSON.stringify(partialTarget));
+ok('a state patch still supplies a key the base lacks', partial.targetFor('thinking').spread === 0.9);
 
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);

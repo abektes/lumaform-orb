@@ -154,5 +154,22 @@ function bareRuntime() {
   ok('same-type, new states: the player base stayed clean', second.rt.statePlayer.targetFor('bright').spread === 0.1, JSON.stringify(second.rt.statePlayer.targetFor('bright')));
 }
 
+{
+  // A host edit that sets only some params (orb.setParams({ glow: 2 })) leaves
+  // the base without `spread`. Leaving a state that patches `spread` must not
+  // send the engine `undefined` for it.
+  const { rt, received } = bareRuntime();
+  rt.updateGlobalSettings = () => {};
+  rt.refitCamera = () => {};
+  rt.setState('thinking');
+  rt.advance(1.5);
+  rt.applyParams({ params: { glow: 2 } });
+  rt.setState('idle');
+  rt.advance(0.5);
+  rt.advance(1);
+  const undef = received.filter((p) => Object.values(p).some((v) => v === undefined));
+  ok('a partial host edit never sends undefined to the engine', undef.length === 0, JSON.stringify(undef));
+}
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);
