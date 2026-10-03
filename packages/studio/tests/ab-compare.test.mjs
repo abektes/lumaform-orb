@@ -14,7 +14,7 @@ function ok(name, condition, extra = '') {
 function makeState() {
   return {
     engine: 'quantum',
-    activePresetName: 'Cyber Matrix',
+    activePresetName: 'Phosphor Lattice',
     global: { bloomStrength: 0.65, timeScale: 1, exposure: 1.05 },
     modulation: { enabled: true, sources: { lfo1: { type: 'lfo', rate: 0.5 } }, routes: [{ source: 'lfo1', dest: 'edgeGlow', amount: 0.4 }] },
     engines: {

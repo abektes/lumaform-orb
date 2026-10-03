@@ -722,7 +722,7 @@ export const BODIES_PRESETS = [
     name: "Iridescent Aurora",
     engine: ENGINE_TYPES.AETHERIA,
     badge: "Prismatic Fluid",
-    description: "Emerald mint, peach champagne, and celestial azure chromatic fluid breathing gently under soft subsurface diffusion.",
+    description: "Mint, peach and pale azure fluid breathing gently under soft subsurface light.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.26,
@@ -812,7 +812,7 @@ export const BODIES_PRESETS = [
     name: "Gemini Harmonic",
     engine: ENGINE_TYPES.SYNTHESIS,
     badge: "4-Color Gravitational Fusion",
-    description: "Four harmonious luminous fluid bodies in celestial figure-8 orbit, organically fusing with liquid bridges and stardust.",
+    description: "Four fluid bodies on a figure-eight orbit, merging through liquid bridges as they pass.",
     global: {
       exposure: 1,
       bloomStrength: 0.22,
@@ -840,10 +840,10 @@ export const BODIES_PRESETS = [
     },
   },
   {
-    name: "Celestial Symbiosis",
+    name: "Four-Colour Ballet",
     engine: ENGINE_TYPES.SYNTHESIS,
     badge: "Harmonic Modal Ballet",
-    description: "Deep sapphire, lavender, rose, and amber fluid lobes linked by glowing gravitational filaments and orbiting micro-sparkles.",
+    description: "Sapphire, lavender, rose and amber lobes linked by glowing filaments, with small sparkles orbiting.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.25,
@@ -874,7 +874,7 @@ export const BODIES_PRESETS = [
     name: "Magnetic Nebula Oval",
     engine: ENGINE_TYPES.FERRO_TRAILS,
     badge: "Prolate Magnetic Orb & Trails",
-    description: "An elongated prolate oval ferrofluid core pulsating with electric cyan magnetic peaks, enveloped in curving neon azure and violet arc trails.",
+    description: "An elongated ferrofluid core with cyan spikes, wrapped in azure and violet arc trails.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.24,
@@ -905,10 +905,10 @@ export const BODIES_PRESETS = [
     },
   },
   {
-    name: "Obsidian Solar Arc",
+    name: "Amber Dynamo",
     engine: ENGINE_TYPES.FERRO_TRAILS,
     badge: "Spherical Ferrofluid Dynamo",
-    description: "A spherical obsidian liquid sphere with molten amber and gold magnetic crests, bound by high-curvature ruby arc trails and dense magnetic motes.",
+    description: "A dark liquid sphere with amber and gold spikes, bound by tight ruby arc trails and dense motes.",
     global: {
       exposure: 1,
       bloomStrength: 0.26,

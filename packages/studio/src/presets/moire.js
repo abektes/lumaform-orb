@@ -285,7 +285,7 @@ export const MOIRE_PRESETS = [
     name: "9. Bilateral Winged Moiré",
     engine: ENGINE_TYPES.MOIRE,
     badge: "3D Bilateral Winged Saddle",
-    description: "Dual symmetric parabolic 3D string fans creating arched wing horns in +Z, a central recessed void, and a curling 3D fringe.",
+    description: "Two mirrored fans of string arching into wing horns, a recessed centre, and a curling fringe.",
     global: {
       exposure: 1,
       bloomStrength: 0.02,
@@ -317,10 +317,10 @@ export const MOIRE_PRESETS = [
     },
   },
   {
-    name: "Cyber Gold Chiral Vortex",
+    name: "Gold Chiral Funnel",
     engine: ENGINE_TYPES.MOIRE,
-    badge: "3D Cyber Gold Funnel",
-    description: "Luminescent solar gold 3D hyperboloid vortex with harmonic wave undulation and radiant bloom on void black.",
+    badge: "3D Gold Funnel",
+    description: "A gold hyperboloid funnel with a slow wave running through it, glowing against black.",
     global: {
       exposure: 1.15,
       bloomStrength: 0.45,
@@ -354,7 +354,7 @@ export const MOIRE_PRESETS = [
   {
     name: "Electric Cyan Moiré Rosette",
     engine: ENGINE_TYPES.MOIRE,
-    badge: "3D Cyber Cyan Orb",
+    badge: "3D Cyan Rosette",
     description: "Electric cyan 3D toroidal spirograph lace on pitch black with continuous 3D rotation and volumetric depth.",
     global: {
       exposure: 1.15,

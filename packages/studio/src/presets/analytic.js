@@ -138,9 +138,9 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Sacred Hexagonal Rosette",
+    name: "Hexagonal Rosette",
     engine: ENGINE_TYPES.AURIS,
-    badge: "Sacred Geometry",
+    badge: "Six-Fold",
     description: "Concentric hexagonal rings with progressive rotation creating a precise six-fold mandala pattern in architectural wireframe style.",
     global: {
       exposure: 1.15,
@@ -206,10 +206,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Harmonic Hyper-Fold",
+    name: "Harmonic Fold",
     engine: ENGINE_TYPES.TESSERACT,
     badge: "4D Inversion",
-    description: "Harmonic 4D inversion fold where the inner and outer cubes smoothly exchange dimensions through the 8 corner conduits without shearing.",
+    description: "The inner and outer cubes exchange places through the eight corner struts without shearing.",
     global: {
       exposure: 1.15,
       bloomStrength: 0.75,
@@ -241,10 +241,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Cyber Matrix Tesseract",
+    name: "Emerald Tesseract",
     engine: ENGINE_TYPES.TESSERACT,
-    badge: "Cyberpunk",
-    description: "Neon emerald outer framework with vivid violet inner core and lime quantum photon packets traveling along the 8 corner struts.",
+    badge: "Emerald & Violet",
+    description: "An emerald outer cube around a violet inner one, with small lime lights travelling along the struts between them.",
     global: {
       exposure: 1.15,
       bloomStrength: 0.75,
@@ -279,7 +279,7 @@ export const ANALYTIC_PRESETS = [
     name: "Monochrome Architect",
     engine: ENGINE_TYPES.TESSERACT,
     badge: "Swiss Minimal",
-    description: "Stark pure white and titanium wireframes with pristine geometric alignment against pure obsidian void.",
+    description: "White and titanium wireframes, precisely aligned, on black.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.55,
@@ -310,10 +310,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Clifford Quantum Vortex",
+    name: "Clifford Vortex",
     engine: ENGINE_TYPES.HOPF,
     badge: "S3 to R3",
-    description: "Nested Villarceau circles linked in continuous 4D Clifford translation with streaming photons.",
+    description: "Nested Villarceau circles in continuous Clifford translation, with light streaming along them.",
     global: {
       exposure: 1.1,
       bloomStrength: 0.8,
@@ -364,10 +364,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Aetheric Torus",
+    name: "Pastel Torus",
     engine: ENGINE_TYPES.HOPF,
-    badge: "Ethereal",
-    description: "Harmonic pastel fiber ribbons forming linked sacred Villarceau geodesics.",
+    badge: "Pastel",
+    description: "Pastel fibre ribbons forming linked Villarceau circles.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.65,
@@ -391,10 +391,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Neon Villarceau",
+    name: "Dense Villarceau",
     engine: ENGINE_TYPES.HOPF,
-    badge: "Hyper-Fiber",
-    description: "Maximum density 48-circle Hopf fibration with high-speed Clifford circulation.",
+    badge: "48 Fibres",
+    description: "A dense 48-circle Hopf fibration in fast Clifford circulation.",
     global: {
       exposure: 1.1,
       bloomStrength: 0.85,
@@ -418,7 +418,7 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Lumaform Gold Merkabah",
+    name: "Gold Star Tetrahedron",
     engine: ENGINE_TYPES.POLYTOPE,
     badge: "Stella Octangula",
     description: "Dual counter-rotating star tetrahedra with golden dispersion facets and laser geodesic wireframe.",
@@ -502,10 +502,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Obsidian Sacred Core",
+    name: "Dark Star Core",
     engine: ENGINE_TYPES.POLYTOPE,
-    badge: "Dark Merkabah",
-    description: "Dark obsidian facets reflecting neon cyan wireframes and deep magenta counter-spin.",
+    badge: "Dark Facets",
+    description: "Dark glassy facets reflecting cyan wireframes, with a magenta star turning the other way.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.7,
@@ -588,10 +588,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Void Singularity",
+    name: "Violet Depths",
     engine: ENGINE_TYPES.NEBULA,
-    badge: "Deep Void",
-    description: "High-aberration deep violet void with ultraviolet energetic folds and cosmic diamond sparkles.",
+    badge: "Deep Violet",
+    description: "A deep violet volume with strong chromatic aberration, ultraviolet folds and fine diamond sparkle.",
     global: {
       exposure: 1.05,
       bloomStrength: 0.65,
@@ -646,10 +646,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Cyber Matrix",
+    name: "Phosphor Lattice",
     engine: ENGINE_TYPES.QUANTUM,
-    badge: "Hyper-Grid",
-    description: "Neon phosphor lattice folding through four spatial dimensions with luminous line filaments.",
+    badge: "Green Lattice",
+    description: "A phosphor-green lattice folding through four dimensions, traced in fine glowing lines.",
     global: {
       exposure: 1.1,
       bloomStrength: 0.72,
@@ -675,10 +675,10 @@ export const ANALYTIC_PRESETS = [
     },
   },
   {
-    name: "Quantum Prism",
+    name: "Prism Lattice",
     engine: ENGINE_TYPES.QUANTUM,
-    badge: "Dimensional",
-    description: "Multi-spectral refractive hypercube reflecting high-frequency quantum oscillations.",
+    badge: "Spectral",
+    description: "A many-coloured lattice that refracts as it folds, flickering at high frequency.",
     global: {
       exposure: 1.15,
       bloomStrength: 0.85,
