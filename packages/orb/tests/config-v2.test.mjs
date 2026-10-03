@@ -80,5 +80,28 @@ ok('an initialState naming no state reads as null', missingInitial.initialState 
 const single = readConfig({ engine: 'x', params: { glow: 1 } }, DEFS);
 ok('a file without states is a single look', single.states === null && single.initialState === null);
 
+// Names that resolve through the prototype chain are not states.
+const viaProto = readConfig({ engine: 'x', params: {}, states: { idle: { params: {} } }, initialState: 'constructor' }, DEFS);
+ok('an initialState of "constructor" reads as null', viaProto.initialState === null, String(viaProto.initialState));
+
+const protoNamed = sanitizeStates(
+  JSON.parse('{"__proto__": {"params": {}}, "idle": {"params": {}}}'), DEFS);
+ok('a __proto__ state is reported as dropped', protoNamed.dropped.includes('__proto__'), protoNamed.dropped.join(', '));
+ok('a __proto__ state is absent from the result',
+  !Object.keys(protoNamed.states).includes('__proto__') && 'idle' in protoNamed.states);
+ok('the result keeps an ordinary prototype', Object.getPrototypeOf(protoNamed.states) === Object.prototype);
+
+const protoParam = sanitizeStates(JSON.parse('{"a": {"params": {"__proto__": {"polluted": 1}, "glow": 1}}}'), DEFS);
+ok('a __proto__ param is dropped, not installed as a prototype',
+  Object.getPrototypeOf(protoParam.states.a.params) === Object.prototype
+    && protoParam.states.a.params.polluted === undefined
+    && protoParam.dropped.includes('a.__proto__'), protoParam.dropped.join(', '));
+
+// Number(null) and Number('') are 0; they must read as absent, not as a value.
+ok('tempo: null falls back to 1', sanitizeStates({ a: { params: {}, tempo: null } }, DEFS).states.a.tempo === 1);
+ok('tempo: "" falls back to 1', sanitizeStates({ a: { params: {}, tempo: '' } }, DEFS).states.a.tempo === 1);
+ok('durationMs: null falls back to 600', sanitizeTransition({ durationMs: null }).durationMs === 600);
+ok('durationMs: [] falls back to 600', sanitizeTransition({ durationMs: [] }).durationMs === 600);
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);
