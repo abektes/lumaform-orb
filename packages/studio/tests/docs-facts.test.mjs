@@ -47,6 +47,21 @@ ok('VISION opening states the engine count', new RegExp(`runs ${inWords(engines)
 const inventory = vision.match(/\| Engines \| (\d+) registered/);
 ok('VISION inventory states the engine count', inventory && Number(inventory[1]) === engines, inventory ? `says ${inventory[1]}` : 'missing');
 
+// packages/orb/README.md is the npm page, and npm freezes it per version: 0.3.0
+// shipped still calling "0.1.0" the first published version. Any version the
+// page names must be the one being published. The three peer range (^0.1xx)
+// is not a package version.
+const pkgReadme = readFileSync(new URL('packages/orb/README.md', repo), 'utf8');
+const pkgVersion = JSON.parse(readFileSync(new URL('packages/orb/package.json', repo), 'utf8')).version;
+const named = [...pkgReadme.matchAll(/(?<![\d.^~])\b(\d+\.\d+\.\d+)\b/g)].map((m) => m[1]);
+const stale = named.filter((v) => v !== pkgVersion);
+ok('the npm README names no version but the one being published', stale.length === 0,
+  stale.length ? `names ${[...new Set(stale)].join(', ')}; package.json is ${pkgVersion}` : '');
+
+// The sidebar's Homepage link and the README both send people to the studio.
+const pkg = JSON.parse(readFileSync(new URL('packages/orb/package.json', repo), 'utf8'));
+ok('package homepage is the studio', pkg.homepage === 'https://orb.lumaform.xyz', pkg.homepage);
+
 if (failures) {
   console.log(`\n${failures} failure(s)`);
   process.exit(1);

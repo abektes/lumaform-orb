@@ -22,7 +22,7 @@
     "url": "git+https://github.com/abektes/lumaform-orb.git",
     "directory": "packages/orb"
   },
-  "homepage": "https://github.com/abektes/lumaform-orb/tree/main/packages/orb#readme",
+  "homepage": "https://orb.lumaform.xyz",
   "bugs": {
     "url": "https://github.com/abektes/lumaform-orb/issues"
   },
