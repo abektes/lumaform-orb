@@ -9,7 +9,7 @@ Read this before writing code. The implementation plans in `docs/superpowers/pla
 
 ## 1. What this is
 
-Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs twenty-three independent engines spanning wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations, all driven through one parameter schema and one render loop.
+Lumaform Orb is a **WebGL exploration tool** for designing animated orbs — the kind of ambient, reactive visual an AI assistant uses to show what it's doing. It runs forty-five independent engines spanning wireframes, raymarchers, physical bodies, particles, membranes, and stateful simulations, all driven through one parameter schema and one render loop.
 
 It is **not** a component library and not (yet) a design system. It is an instrument for finding out what's possible.
 
@@ -160,7 +160,7 @@ These are genuinely unresolved. If your work bears on one, say so.
 
 | Area | State |
 | --- | --- |
-| Engines | 23 registered vocabularies: analytic wireframes, raymarchers, physical bodies, particles, membranes, stateful simulations, and one engine with a front (Regard) |
+| Engines | 45 registered vocabularies: analytic wireframes, raymarchers, physical bodies, particles, membranes, stateful simulations, and one engine with a front (Regard) |
 | Stateful motion | Murmuration, Curl Drift, Filament Lattice, Echo Rings and Regard carry bounded history so settle, propagation and hesitation emerge from motion |
 | Parameter schema | Derived from `packages/orb/src/engine-catalog.js` — drives the entire UI |
 | Parameter controls | Shared numeric rows with formatted and typed exact values, visible ranges, and one-click reset |

@@ -6,6 +6,10 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ## [Unreleased]
 
+### Added
+
+- Twenty-two engines on `@lumaform/orb/engines`, for 45 in all: `silkwarp`, `kaleido`, `veil`, `mosaic`, `kaliset`, `scrolldome`, `nacre`, `quantplasma`, `beads`, `radar`, `ledbox`, `quanttorus`, `chladni`, `phyllotaxis`, `harmonograph`, `attractor`, `maurer`, `inkmarble`, `lavalamp`, `truchet`, `caustics` and `superbloom`. Most are patterns on a shaded sphere or disc, from classical constructions (Chladni figures, phyllotaxis, harmonographs, the Clifford attractor, Maurer roses, suminagashi marbling, Truchet tiles, the Gielis superformula); `ledbox` and `quanttorus` are raymarched solids.
+
 ## [0.2.0] - 2026-09-25
 
 ### Added

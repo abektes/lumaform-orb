@@ -29,8 +29,8 @@ export interface CatalogEntry {
   file: string;
   /**
    * The factory's export name, as a string. Deliberately not the function:
-   * binding it would make every consumer of a param schema import all 23
-   * engines. Pair this id with the matching export from '@lumaform/orb/engines'.
+   * binding it would make every consumer of a param schema import every
+   * engine. Pair this id with the matching export from '@lumaform/orb/engines'.
    */
   factoryName: string;
   params: ParamSchema;

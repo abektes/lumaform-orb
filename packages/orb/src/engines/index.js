@@ -1,7 +1,7 @@
 // Generated from ENGINE_CATALOG — regenerate rather than hand-editing.
 //
 // One named export per engine so a consumer importing one does not pay for
-// the other 22. createOrb takes the factories it is given; nothing here is
+// the other 44. createOrb takes the factories it is given; nothing here is
 // registered implicitly.
 export { createTesseractEngine as tesseract } from './tesseract-engine.js';
 export { createMoireEngine as moire } from './moire-engine.js';
@@ -26,3 +26,25 @@ export { createSuperpositionEngine as superposition } from './superposition-engi
 export { createSynthesisEngine as synthesis } from './synthesis-engine.js';
 export { createFerroTrailsEngine as ferrotrails } from './ferro-trails-engine.js';
 export { createRegardEngine as regard } from './regard-engine.js';
+export { createSilkWarpEngine as silkwarp } from './silkwarp-engine.js';
+export { createKaleidoEngine as kaleido } from './kaleido-engine.js';
+export { createPrismVeilEngine as veil } from './prism-veil-engine.js';
+export { createLuminousMosaicEngine as mosaic } from './luminous-mosaic-engine.js';
+export { createKalisetLaceEngine as kaliset } from './kaliset-lace-engine.js';
+export { createLedBoxEngine as ledbox } from './led-box-engine.js';
+export { createQuantTorusEngine as quanttorus } from './quant-torus-engine.js';
+export { createScrollDomeEngine as scrolldome } from './scroll-dome-engine.js';
+export { createNacreEngine as nacre } from './nacre-engine.js';
+export { createQuantPlasmaEngine as quantplasma } from './quant-plasma-engine.js';
+export { createBeadFieldEngine as beads } from './bead-field-engine.js';
+export { createRadarMosaicEngine as radar } from './radar-mosaic-engine.js';export { createChladniEngine as chladni } from './chladni-engine.js';
+export { createPhyllotaxisEngine as phyllotaxis } from './phyllotaxis-engine.js';
+export { createHarmonographEngine as harmonograph } from './harmonograph-engine.js';
+export { createAttractorEngine as attractor } from './attractor-engine.js';
+export { createMaurerRoseEngine as maurer } from './maurer-rose-engine.js';
+export { createInkMarbleEngine as inkmarble } from './ink-marble-engine.js';
+export { createLavaLampEngine as lavalamp } from './lava-lamp-engine.js';
+export { createTruchetWeaveEngine as truchet } from './truchet-weave-engine.js';
+export { createCausticPoolEngine as caustics } from './caustic-pool-engine.js';
+export { createSuperbloomEngine as superbloom } from './superbloom-engine.js';
+

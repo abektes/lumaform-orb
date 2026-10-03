@@ -1,11 +1,17 @@
 import { ANALYTIC_ENGINES } from './catalog/analytic.js';
+import { DOMES_ENGINES } from './catalog/domes.js';
 import { SIMULATION_ENGINES } from './catalog/simulation.js';
 import { BODIES_ENGINES } from './catalog/bodies.js';
+import { REFINED_ENGINES } from './catalog/refined.js';
+import { SHAPE_ENGINES } from './catalog/shapes.js';
 
 export const ENGINE_CATALOG = [
   ...ANALYTIC_ENGINES,
+  ...DOMES_ENGINES,
   ...SIMULATION_ENGINES,
   ...BODIES_ENGINES,
+  ...SHAPE_ENGINES,
+  ...REFINED_ENGINES,
 ];
 
 export const ENGINE_TYPES = Object.fromEntries(
