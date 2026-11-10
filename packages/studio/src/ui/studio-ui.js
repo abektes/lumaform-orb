@@ -35,6 +35,7 @@ import {
   selectedEntries,
   renderFindingsSelectionBar,
   updateRehearsalPlaybackUi,
+  handleSequenceStep,
   toggleSequencePlayback,
   stopSequencePlayback,
   renderRehearsalTab,
@@ -86,15 +87,7 @@ export class StudioUI {
     // worth preserving.
     this.sequence = [];
     this.activeSequenceIndex = -1;
-    this.studio.onSequenceStep = ({ index }) => {
-      this.activeSequenceIndex = index;
-      this.root.querySelectorAll('[data-seq-step]').forEach((element) => {
-        element.classList.toggle(
-          'playing',
-          Number(element.getAttribute('data-seq-step')) === index
-        );
-      });
-    };
+    this.studio.onSequenceStep = (event) => this.handleSequenceStep(event);
     this.studio.onSequenceStop = () => {
       this.activeSequenceIndex = -1;
       this.updateRehearsalPlaybackUi();
@@ -541,6 +534,7 @@ Object.assign(StudioUI.prototype, {
   selectedEntries,
   renderFindingsSelectionBar,
   updateRehearsalPlaybackUi,
+  handleSequenceStep,
   toggleSequencePlayback,
   stopSequencePlayback,
   renderRehearsalTab,

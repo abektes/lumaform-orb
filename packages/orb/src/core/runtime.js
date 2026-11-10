@@ -124,6 +124,7 @@ export class OrbRuntime {
     this.frameStep = 0;
     this.timeScale = 1.0;
     this.isPaused = false;
+    this.disposed = false;
 
     // Listeners
     this.handleResize = this.onWindowResize.bind(this);
@@ -204,16 +205,18 @@ export class OrbRuntime {
       return false;
     }
 
-    // Cleanup existing engine
-    if (this.activeEngine) {
-      this.activeEngine.dispose();
-      this.activeEngine = null;
-    }
-
+    // Looked up before anything is torn down. A typo used to dispose the orb
+    // on screen first and then refuse, leaving a blank canvas with
+    // activeEngineType still naming the engine that was just destroyed.
     const constructorFn = this.engineConstructors.get(type);
     if (!constructorFn) {
       console.error(`Engine type "${type}" not registered.`);
-      return;
+      return false;
+    }
+
+    if (this.activeEngine) {
+      this.activeEngine.dispose();
+      this.activeEngine = null;
     }
 
     this.activeEngineType = type;
@@ -576,8 +579,11 @@ export class OrbRuntime {
     this.composer.render();
   }
 
-  // One frame, for a host with nothing to interleave.
+  // One frame, for a host with nothing to interleave. A no-op once disposed: a
+  // host loop that outlives dispose() would otherwise keep drawing through a
+  // released composer into a canvas that is no longer in the page.
   tick(delta) {
+    if (this.disposed) return;
     this.fpsTracker.tick();
     this.advance(delta);
     this.render();
@@ -593,12 +599,17 @@ export class OrbRuntime {
   }
 
   // The host stops its own loop; a runtime that never started one cannot end it.
+  //
+  // Terminal and idempotent. A second call used to dispose the engine again.
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     this.resizeObserver?.disconnect();
     this.clickPulseTracker?.dispose();
     this.pointerTracker?.dispose();
     this.controls?.dispose();
     this.activeEngine?.dispose();
+    this.activeEngine = null;
     this.background?.pass.dispose();
     this.finish?.pass.dispose();
     this.composer?.dispose();

@@ -6,6 +6,8 @@ A WebGL exploration tool for designing animated AI-assistant orbs. Forty-five en
 
 **Adding an engine?** [docs/ENGINE-AUTHORING.md](docs/ENGINE-AUTHORING.md) is the full contract — factory shape, one catalog entry, schema rules, and the verification checklist. Proposed engines live in [docs/engine-briefs/](docs/engine-briefs/).
 
+**Touching anything with a lifecycle** (engine mount, rehearsal, grid views, A/B, clip recording, audio, named states)? [docs/STATE-MACHINES.md](docs/STATE-MACHINES.md) has each one's states, invariants and transition table, plus the bugs found in them. Update it when you add a state, a transition or an `await`.
+
 ## Stack
 
 Vanilla JS (ES modules), Vite 5, Three.js 0.160. **No framework** — the UI is HTML strings and DOM nodes. Runtime deps are `three` and `shiki`, nothing else.

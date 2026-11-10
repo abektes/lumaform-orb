@@ -48,6 +48,15 @@ export const gridMethods = {
   // setEngine so the recursion is obvious: neither enterGridMode nor
   // enterSweepMode calls setEngine, so this cannot loop.
   rebuildGridForEngine(state, previousSweep, previousScale) {
+    this.rebuildGridView(state, previousSweep, previousScale);
+    // The caption and HUD belong to the grid session, which did not start this
+    // rebuild — an engine picked from the top bar did. A sweep that falls back
+    // to another parameter used to keep captioning the old engine's parameter
+    // and values over cells that now show something else.
+    this.onGridRebuild?.({ sweepInfo: this.sweepInfo, scaleInfo: this.scaleInfo });
+  },
+
+  rebuildGridView(state, previousSweep, previousScale) {
     const cols = this.gridCols ?? 3;
     const rows = this.gridRows ?? 3;
 

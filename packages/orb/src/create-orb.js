@@ -65,8 +65,12 @@ export function createOrb(container, options = {}) {
     runtime.tick(runtime.clock.getDelta());
   }
 
+  let disposed = false;
+
   function start() {
-    if (rafId !== null) return;
+    // A disposed orb has no renderer to draw with; restarting it would spin a
+    // loop over released resources for the life of the page.
+    if (disposed || rafId !== null) return;
     // Reset the clock: its delta is time since the last read, which after a
     // pause is the whole length of the pause and would jump the animation.
     runtime.clock.getDelta();
@@ -92,7 +96,15 @@ export function createOrb(container, options = {}) {
     // surfacing rather than swallowing: it is usually a version mismatch.
     dropped,
     setEngine(type, next = {}) {
-      look = { ...getDefaultEngineParams(type), ...(next.params || {}) };
+      const nextLook = { ...getDefaultEngineParams(type), ...(next.params || {}) };
+      // An unregistered type leaves the current engine mounted, so the look has
+      // to stay too: adopting the unknown engine's (empty) defaults made the
+      // next setParams() replace the live engine's base with a partial look.
+      if (!runtime.engineConstructors.has(type)) {
+        runtime.mountEngine(type);
+        return false;
+      }
+      look = nextLook;
       return runtime.mountEngine(type, {
         params: { ...look },
         global: next.global || {},
@@ -109,8 +121,11 @@ export function createOrb(container, options = {}) {
         console.error('loadConfig: the config does not name an engine, so there is nothing to mount.');
         return { engine: null, dropped: next.dropped };
       }
+      // Same rule as setEngine: a refused mount keeps the current look.
+      if (!runtime.mountEngine(next.engine, next.mount) && !runtime.engineConstructors.has(next.engine)) {
+        return { engine: null, dropped: next.dropped };
+      }
       look = { ...next.mount.params };
-      runtime.mountEngine(next.engine, next.mount);
       return { engine: next.engine, dropped: next.dropped };
     },
     // Moves toward a named state from the config or template. Returns false,
@@ -131,6 +146,7 @@ export function createOrb(container, options = {}) {
     },
     dispose() {
       stop();
+      disposed = true;
       runtime.dispose();
     },
   };

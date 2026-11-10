@@ -5,12 +5,18 @@
 // versions while the animation keeps running surfaces differences that
 // sequential viewing hides.
 
+import { lookGlobal } from '@lumaform/orb/internal';
+
 // Only the ACTIVE engine's parameter bag is captured. Snapshotting all eight
 // would make a swap silently rewrite engines the user never touched.
+//
+// Only the look, too. `paused` and `dpr` describe the session, so a slot that
+// carried them put the pause state back on every swap: pausing to compare two
+// frames resumed the orb the moment you flipped.
 export function snapshotState(state) {
   return structuredClone({
     engine: state.engine,
-    global: state.global,
+    global: lookGlobal(state.global) ?? {},
     modulation: state.modulation,
     params: state.engines[state.engine],
   });
@@ -54,7 +60,9 @@ export function applySnapshot(state, snapshot) {
   const restored = structuredClone(snapshot);
 
   state.engine = restored.engine;
-  Object.assign(state.global, restored.global);
+  // Stripped here as well: a finding kept before exports dropped session keys
+  // reaches this through compareFindings with `paused` still in it.
+  Object.assign(state.global, lookGlobal(restored.global));
   // Findings created before modulation existed carry null here. Match config
   // import semantics and keep the current rack rather than leaving state null
   // while the live rack continues to run its previous routes.

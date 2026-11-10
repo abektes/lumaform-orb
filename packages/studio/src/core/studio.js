@@ -33,6 +33,8 @@ export class OrbStudio extends OrbRuntime {
     // Patch chip.
     this.gridBreedPatch = null;
     this.onGridPromote = null;
+    // Told after an engine switch rebuilds whichever grid view was open.
+    this.onGridRebuild = null;
     this.sweepInfo = null;
     this.scaleInfo = null;
 
@@ -53,6 +55,9 @@ export class OrbStudio extends OrbRuntime {
     // Created lazily: constructing an AudioContext before a user gesture is
     // wasteful and some browsers start it suspended anyway.
     this.audioInput = null;
+    // Bumped by every enable and disable, so an await that resolves after a
+    // newer request can tell it lost rather than report a failure.
+    this.audioRequest = 0;
 
     bindGridPointer(this);
 
@@ -157,7 +162,13 @@ export class OrbStudio extends OrbRuntime {
   }
 
   // A refused microphone is a normal outcome, not an error.
+  //
+  // Resolves true or false for this request, or null when a later enable or a
+  // disable superseded it. audioInput reports a superseded start as false, so
+  // clicking Tone while the microphone prompt was open — or Off — alerted
+  // "Could not access the microphone" over a tone that was running fine.
   async enableAudio(mode = 'mic', file = null) {
+    const request = this.audioRequest = (this.audioRequest ?? 0) + 1;
     const audio = this.modulation.config.sources?.audio1 || {};
     const options = { attack: audio.attack ?? 0.5, release: audio.release ?? 0.12 };
 
@@ -178,6 +189,7 @@ export class OrbStudio extends OrbRuntime {
       : mode === 'file'
         ? await this.audioInput.startFile(file)
         : await this.audioInput.startMic();
+    if (request !== this.audioRequest) return null;
     if (!started) {
       this.modulation.setAudioLevel(0);
       this.grid?.setAudioLevel(0);
@@ -186,6 +198,7 @@ export class OrbStudio extends OrbRuntime {
   }
 
   disableAudio() {
+    this.audioRequest = (this.audioRequest ?? 0) + 1;
     this.audioInput?.stop();
     // Otherwise every audio route freezes at its last value.
     this.modulation.setAudioLevel(0);

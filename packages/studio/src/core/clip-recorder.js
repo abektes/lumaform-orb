@@ -46,6 +46,28 @@ export function createClipRecorder({ canvas, fps = 60, getEngineName = () => 'or
     current.resolveStop?.(result);
   }
 
+  function resultOf(current, durationMs) {
+    return {
+      blob: new Blob(current.chunks, { type: current.mimeType }),
+      filename: formatClipFilename(getEngineName(), current.mimeType),
+      mimeType: current.mimeType,
+      durationMs,
+    };
+  }
+
+  // The recorder can end without being asked: an encoder error, or every track
+  // of the stream ending. Nothing listened for that, so the session stayed
+  // non-null with an inactive recorder — start() refused forever ("still
+  // flushing"), and the 30s guard's stop() on an inactive recorder fires no
+  // stop event, so its promise never settled either. Recording was dead until
+  // a reload and the footage was never handed over.
+  function endedUnasked(current) {
+    if (current.settled || current.stopPromise) return;
+    const result = resultOf(current, Date.now() - current.startedAt);
+    finish(current, result);
+    if (!disposed) api.onAutoStop?.(result);
+  }
+
   function requestStop(reason) {
     if (!session) return Promise.resolve(null);
     const current = session;
@@ -64,14 +86,18 @@ export function createClipRecorder({ canvas, fps = 60, getEngineName = () => 'or
       current.resolveStop = resolve;
     });
 
+    // Already ended on its own: stop() would be a no-op that never fires
+    // `stop`, so hand over what was recorded now.
+    if (current.recorder.state === 'inactive') {
+      const result = resultOf(current, durationMs);
+      const notifyAutoStop = current.notifyAutoStop;
+      finish(current, result);
+      if (notifyAutoStop && !disposed) api.onAutoStop?.(result);
+      return current.stopPromise;
+    }
+
     current.recorder.onstop = () => {
-      const blob = new Blob(current.chunks, { type: current.mimeType });
-      const result = {
-        blob,
-        filename: formatClipFilename(getEngineName(), current.mimeType),
-        mimeType: current.mimeType,
-        durationMs,
-      };
+      const result = resultOf(current, durationMs);
       const notifyAutoStop = current.notifyAutoStop;
       finish(current, result);
       if (notifyAutoStop && !disposed) api.onAutoStop?.(result);
@@ -113,6 +139,11 @@ export function createClipRecorder({ canvas, fps = 60, getEngineName = () => 'or
         console.warn('Clip recording is not available in this browser.');
         return false;
       }
+      // A recorder that went inactive with no stop requested is not flushing;
+      // nothing will ever settle it, so settle it here rather than refuse.
+      if (session && !session.stopPromise && session.recorder.state === 'inactive') {
+        endedUnasked(session);
+      }
       // Keep refusing while a previous recording is flushing; otherwise its
       // late events could tear down the new stream.
       if (session) return false;
@@ -143,6 +174,13 @@ export function createClipRecorder({ canvas, fps = 60, getEngineName = () => 'or
         recorder.ondataavailable = (event) => {
           if (event.data?.size > 0) current.chunks.push(event.data);
         };
+        // Replaced by requestStop() once a stop is asked for; until then an
+        // ending is one nobody requested. An error is followed by `stop`, which
+        // delivers the final chunk, so only the stop handler settles.
+        recorder.onerror = (event) => {
+          console.warn('Clip recording stopped with an error.', event?.error || event);
+        };
+        recorder.onstop = () => endedUnasked(current);
         recorder.start(250);
         session = current;
         lastMimeType = mimeType;

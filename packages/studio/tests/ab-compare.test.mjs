@@ -179,5 +179,33 @@ ok('applied snapshot stays detached', tesseractSnap.params.edgeGlow === 0.3);
     tween?.[1].edgeGlow === 2.5 && tween?.[2].durationMs === 400);
 }
 
+// --- session keys stay with the session (docs/STATE-MACHINES.md, B1) ---
+// A slot used to carry `paused` and `dpr`, so every swap put back the pause
+// state it was stored with: pausing to compare two frames resumed the orb.
+{
+  const state = makeState();
+  Object.assign(state.global, { paused: false, dpr: 1.2 });
+  const studio = { updateParameters() {}, setEngine() {}, syncModulation() {}, updateGlobalSettings() {}, tweenTo() {} };
+  const ab = createAbCompare(studio, state);
+  ab.store('a');
+  state.engines.quantum.edgeGlow = 2;
+  ab.store('b');
+  ok('a stored slot carries no session keys',
+    !('paused' in snapshotState(state).global) && !('dpr' in snapshotState(state).global));
+
+  state.global.paused = true;
+  state.global.dpr = 2;
+  ab.swap();
+  ok('swapping keeps the session paused', state.global.paused === true);
+  ok('swapping keeps the session render quality', state.global.dpr === 2);
+  ok('swapping still restores the look', state.engines.quantum.edgeGlow === 1.2 && state.global.bloomStrength === 0.65);
+
+  // A finding kept before exports dropped session keys.
+  const legacy = { engine: 'quantum', global: { bloomStrength: 0.3, paused: true }, params: { edgeGlow: 0.5 }, modulation: null };
+  state.global.paused = false;
+  applySnapshot(state, legacy);
+  ok('a legacy snapshot cannot pause the session', state.global.paused === false && state.global.bloomStrength === 0.3);
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures ? 1 : 0);
