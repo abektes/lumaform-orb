@@ -249,6 +249,24 @@ export function updateRehearsalPlaybackUi() {
   }
 }
 
+// A step on another engine re-renders the whole inspector. Patching only the
+// strip's highlight left the Params tab drawing the previous engine's sliders,
+// and dragging one wrote that engine's key into the new engine's bag — which a
+// finding or export then carried. The engine name in the top bar went stale too.
+export function handleSequenceStep({ index, engineChanged = false } = {}) {
+  this.activeSequenceIndex = index;
+  if (engineChanged) {
+    this.render();
+    return;
+  }
+  this.root.querySelectorAll('[data-seq-step]').forEach((element) => {
+    element.classList.toggle(
+      'playing',
+      Number(element.getAttribute('data-seq-step')) === index
+    );
+  });
+}
+
 export function toggleSequencePlayback() {
   if (this.studio.currentSequence) {
     if (this.studio.isPlayingSequence) {

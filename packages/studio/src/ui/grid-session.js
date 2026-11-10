@@ -226,7 +226,8 @@ export function createGridSession({ studio, store, state, ui }) {
       studio.grid?.requestMeasure((measurements) => {
         // A measurement request outlives the view if exitView runs while a readback
         // is in flight. Guard against repainting the caption after teardown.
-        if (!studio.scaleInfo) return;
+        const live = studio.scaleInfo;
+        if (!live) return;
         if (!measurements?.length) return;
 
         // When no rung is drawable (e.g. collapsed pane), five dashes is noise.
@@ -251,9 +252,18 @@ export function createGridSession({ studio, store, state, ui }) {
             divergence: structuralDivergence(ref.buffer, ref.dim, m.buffer, m.dim),
           }));
         }
-        showSweepCaption(withRenderedSizes(info, measurements), metrics);
+        showSweepCaption(withRenderedSizes(live, measurements), metrics);
       });
     }, 500);
+  }
+
+  // An engine switch from the top bar rebuilds the open view for the new
+  // engine. The sweep may land on a different parameter, so the caption is
+  // redrawn from what the studio actually built rather than what it was asked.
+  function onRebuild({ sweepInfo, scaleInfo }) {
+    if (sweepInfo) showSweepCaption(sweepInfo);
+    else if (scaleInfo) showSweepCaption(withRenderedSizes(scaleInfo));
+    else showSweepCaption(null);
   }
 
   function breedFinding(entry) {
@@ -269,6 +279,7 @@ export function createGridSession({ studio, store, state, ui }) {
 
   return {
     mount() {
+      studio.onGridRebuild = onRebuild;
       document.addEventListener('input', (event) => {
         const key = event.target?.getAttribute?.('data-param');
         if (key) lastTouchedParam = key;
