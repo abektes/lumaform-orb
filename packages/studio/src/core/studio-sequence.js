@@ -1,4 +1,4 @@
-import { notifyParams } from '@lumaform/orb/internal';
+import { notifyParams, lookGlobal } from '@lumaform/orb/internal';
 
 export const sequenceMethods = {
   get isPlayingSequence() {
@@ -16,6 +16,7 @@ export const sequenceMethods = {
       sequenceCompleted = !!at?.completed;
       if (at?.entered) {
         const step = this.currentSequence?.[at.index];
+        const engineBefore = this.sequenceState?.engine;
         if (step && this.applySequenceStep(step)) {
           // A throttled frame can skip boundaries. Advance a newly started
           // tween only by the elapsed portion of its own step, not by the whole
@@ -23,7 +24,14 @@ export const sequenceMethods = {
           tweenDeltaMs = at.phase === 'transition'
             ? at.stepElapsedMs
             : Math.max(0, Number(step.transitionMs) || 0);
-          this.onSequenceStep?.({ index: at.index, step });
+          // A step that swaps engines leaves every rendered control bound to the
+          // previous engine's schema. Listeners have to know, or the next slider
+          // drag writes a foreign key into the new engine's bag.
+          this.onSequenceStep?.({
+            index: at.index,
+            step,
+            engineChanged: this.sequenceState?.engine !== engineBefore,
+          });
         }
       }
     }
@@ -100,7 +108,9 @@ export const sequenceMethods = {
 
     this.applyingSequenceStep = true;
     try {
-      if (step.global) Object.assign(state.global, structuredClone(step.global));
+      // Look keys only. A finding saved before exports dropped `paused` would
+      // otherwise freeze the orb mid-rehearsal behind a stale Play button.
+      if (step.global) Object.assign(state.global, structuredClone(lookGlobal(step.global)));
       if (step.modulation) state.modulation = structuredClone(step.modulation);
       Object.assign(state.engines[step.engine], structuredClone(step.params));
 

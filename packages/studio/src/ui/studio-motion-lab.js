@@ -199,6 +199,8 @@ export function attachMotionLabListeners() {
 
   this.root.querySelector('#btn-audio-mic')?.addEventListener('click', async () => {
     const started = await this.studio.enableAudio('mic');
+    // Superseded by a later click: that request reports for itself.
+    if (started === null) return;
     if (!started) {
       alert('Could not access the microphone. Check the browser permission prompt.');
       this.render();
@@ -213,6 +215,8 @@ export function attachMotionLabListeners() {
     // Was unchecked, so a context the browser refused to start still lit the
     // button as though the tone were playing.
     const started = await this.studio.enableAudio('tone');
+    // Superseded by a later click: that request reports for itself.
+    if (started === null) return;
     if (!started) {
       alert('Could not start the test tone. The browser blocked audio playback.');
       this.render();
@@ -234,6 +238,8 @@ export function attachMotionLabListeners() {
       const file = picker.files?.[0];
       if (!file) return;
       const started = await this.studio.enableAudio('file', file);
+      // Superseded by a later click: that request reports for itself.
+      if (started === null) return;
       if (!started) {
         alert('Could not load that audio file. The browser could not decode it.');
         this.render();

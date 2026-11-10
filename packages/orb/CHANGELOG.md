@@ -6,6 +6,11 @@ Changes land under `[Unreleased]` as they merge; [docs/RELEASING.md](https://git
 
 ## [Unreleased]
 
+### Fixed
+
+- `mountEngine`, `setEngine` and `loadConfig` with an engine that was never registered no longer dispose the orb on screen before refusing. The current engine stays mounted, `mountEngine` returns `false`, and the handle keeps its look, so a later `setParams()` no longer sends the live engine a partial base.
+- `OrbRuntime.dispose()` is idempotent and terminal: a second call no longer disposes the engine again, and `tick()` does nothing afterwards. `start()` on a disposed `createOrb` handle does nothing instead of restarting a loop over released resources.
+
 ## [0.3.1] - 2026-10-03
 
 ### Fixed
